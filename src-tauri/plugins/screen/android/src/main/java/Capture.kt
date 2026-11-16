@@ -2,6 +2,7 @@ package ai.littlebit.rst.screen
 
 import android.content.Intent
 import android.graphics.Bitmap
+import android.os.SystemClock
 import android.util.Base64
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSArray
@@ -32,21 +33,64 @@ object Capture {
     private var fresh = 0L
     private val frames = LinkedHashMap<Long, Bitmap>()
     private val thumbs = HashMap<Long, ByteArray>()
+    /** When the image of each frame came from the mirror (uptime ms). */
+    private val arrived = HashMap<Long, Long>()
 
-    fun onFrame(bmp: Bitmap) {
+    /** Frames that still have to wait for the button to be gone, at most. */
+    private const val CLEAN_WAIT_MS = 700L
+    /** An image composed this long after the button was hidden no longer holds it. */
+    private const val SETTLE_MS = 50L
+
+    /** A new image from the mirror, which came at uptime [at]. */
+    fun onFrame(bmp: Bitmap, at: Long) {
         if (paused) return
         val thumb = thumbnail(bmp)
         synchronized(lock) {
-            seq += 1
-            frames[seq] = bmp
-            thumbs[seq] = thumb
-            while (frames.size > KEEP) {
-                val old = frames.keys.first()
-                frames.remove(old)
-                thumbs.remove(old)
+            store(bmp, thumb, at)
+            (lock as java.lang.Object).notifyAll()
+        }
+    }
+
+    private fun store(bmp: Bitmap, thumb: ByteArray, at: Long) {
+        seq += 1
+        frames[seq] = bmp
+        thumbs[seq] = thumb
+        arrived[seq] = at
+        while (frames.size > KEEP) {
+            val old = frames.keys.first()
+            frames.remove(old)
+            thumbs.remove(old)
+            arrived.remove(old)
+        }
+        fresh = seq
+        deliver()
+    }
+
+    /**
+     * A new frame of the screen with the floating button hidden for it, or
+     * null. The capture holds the button (A6): the rows behind it are saved
+     * clean from this frame (P9). The button is gone for about one frame.
+     */
+    fun cleanFrame(): JSObject? {
+        if (paused) return null
+        val hiddenAt = Overlay.hideButtonNow() ?: return null
+        try {
+            return arrivedAfter(hiddenAt + SETTLE_MS)
+        } finally {
+            Overlay.restoreButton()
+        }
+    }
+
+    /** The newest frame whose image came at [after] or later, waiting for one. */
+    private fun arrivedAfter(after: Long): JSObject? {
+        val deadline = SystemClock.uptimeMillis() + CLEAN_WAIT_MS
+        synchronized(lock) {
+            while (true) {
+                frames.keys.lastOrNull { (arrived[it] ?: 0) >= after }?.let { return frameJson(it) }
+                val left = deadline - SystemClock.uptimeMillis()
+                if (left <= 0) return null
+                (lock as java.lang.Object).wait(left)
             }
-            fresh = seq
-            deliver()
         }
     }
 
@@ -57,16 +101,7 @@ object Capture {
             val last = frames.keys.lastOrNull() ?: return
             val bmp = frames[last] ?: return
             val thumb = thumbs[last] ?: return
-            seq += 1
-            frames[seq] = bmp
-            thumbs[seq] = thumb
-            while (frames.size > KEEP) {
-                val old = frames.keys.first()
-                frames.remove(old)
-                thumbs.remove(old)
-            }
-            fresh = seq
-            deliver()
+            store(bmp, thumb, arrived[last] ?: 0)
         }
     }
 
@@ -91,6 +126,7 @@ object Capture {
         synchronized(lock) {
             frames.clear()
             thumbs.clear()
+            arrived.clear()
             fresh = 0
         }
     }
@@ -104,10 +140,15 @@ object Capture {
             return
         }
         val s = fresh
-        val bmp = frames[s] ?: return
+        val json = frameJson(s) ?: return
         fresh = 0
         waiting = null
-        invoke.resolve(JSObject().apply {
+        invoke.resolve(json)
+    }
+
+    private fun frameJson(s: Long): JSObject? {
+        val bmp = frames[s] ?: return null
+        return JSObject().apply {
             put("kind", "frame")
             put("seq", s)
             put("width", bmp.width)
@@ -115,7 +156,7 @@ object Capture {
             put("thumb", Base64.encodeToString(thumbs[s], Base64.NO_WRAP))
             put("capturedAt", System.currentTimeMillis())
             Overlay.buttonRect?.let { r -> put("button", JSArray().apply { r.forEach { put(it) } }) }
-        })
+        }
     }
 
     /** A2: 96 px wide, grayscale, `height * 96 / width` rows. */

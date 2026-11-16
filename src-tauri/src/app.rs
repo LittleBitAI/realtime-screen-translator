@@ -215,6 +215,18 @@ mod android {
                 eprintln!("{e}");
             }
         }
+
+        fn clean_frame(&self) -> Option<pipeline::Captured> {
+            let n = call::<Next>(&self.0, "cleanFrame", json!({})).map_err(|e| eprintln!("{e}")).ok()?;
+            (n.kind == "frame").then(|| pipeline::Captured {
+                seq: n.seq,
+                width: n.width,
+                height: n.height,
+                thumb: b64(&n.thumb),
+                captured_at: n.captured_at,
+                button: n.button.map(|b| (b[0], b[1], b[2], b[3])),
+            })
+        }
     }
 }
 

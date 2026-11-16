@@ -269,6 +269,14 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
         }
     }
 
+    /** A new frame with the floating button hidden for it (`Capture.cleanFrame`), or kind "none". */
+    @Command
+    fun cleanFrame(invoke: Invoke) {
+        worker.execute {
+            invoke.resolve(Capture.cleanFrame() ?: JSObject().apply { put("kind", "none") })
+        }
+    }
+
     @Command
     fun draw(invoke: Invoke) {
         val args = invoke.parseArgs(DrawArgs::class.java)

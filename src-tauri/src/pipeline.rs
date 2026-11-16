@@ -8,6 +8,7 @@
 //! detector on Windows, the Kotlin plugin on Android (A7).
 
 use crate::api::{CropIn, CropsIn, FrameIn, PlacementOut, Range, StripIn};
+use crate::tracker::{self, THUMB_W};
 use crate::Backend;
 
 /// A frame as P6 takes it: the screen size and the 96-px-wide grayscale thumbnail.
@@ -42,6 +43,11 @@ pub trait Screen: Send + Sync {
     fn strip(&self, seq: u64, top: u32, bottom: u32) -> Option<Vec<u8>>;
     /// Show `placements` (screen coordinates); `clear` empties the overlay first.
     fn draw(&self, placements: &[PlacementOut], clear: bool);
+    /// A new frame of the screen with this app's button hidden for it, when
+    /// the capture holds the button (Android); its rows come from [`Screen::strip`].
+    fn clean_frame(&self) -> Option<Captured> {
+        None
+    }
 }
 
 /// The floating on/off button was pressed: P4 if translation is off, else P5.
@@ -58,7 +64,7 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
         Event::Toggle => return toggle(backend),
         Event::Frame(f) => f,
     };
-    let (seq, button) = (f.seq, f.button);
+    let (seq, button, size, thumb) = (f.seq, f.button, (f.width, f.height), f.thumb.clone());
     let out = match backend.frame(FrameIn { seq, width: f.width, height: f.height, thumb: f.thumb, captured_at: f.captured_at }) {
         Ok(out) => out,
         Err(e) => {
@@ -69,10 +75,21 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
         }
     };
     screen.draw(&out.placements, out.clear);
-    // P9 keeps clean rows only: the rows behind the button are left unsaved
-    // and asked for again once the content has moved out from under it.
-    for (top, bottom) in out.save.map(|r| clear_of(r, button)).unwrap_or_default() {
-        match screen.strip(seq, top, bottom) {
+    // P9 keeps clean rows only. Rows behind the button come from a frame
+    // taken with the button hidden, if it shows the same screen; else they
+    // are left unsaved and asked for again.
+    let mut from = seq;
+    let mut parts = out.save.map(|r| clear_of(r, button)).unwrap_or_default();
+    if let (Some(r), Some(b)) = (out.save, button) {
+        if parts != [(r.top, r.bottom)] {
+            if let Some(c) = screen.clean_frame().filter(|c| same_screen(&thumb, size, c, b)) {
+                from = c.seq;
+                parts = vec![(r.top, r.bottom)];
+            }
+        }
+    }
+    for (top, bottom) in parts {
+        match screen.strip(from, top, bottom) {
             Some(image) => {
                 if let Err(e) = backend.strip(StripIn { picture_id: out.picture_id, frame_seq: seq, top, bottom, image }) {
                     eprintln!("strip of frame {seq}: {e}");
@@ -107,6 +124,27 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
 pub fn clear_of(r: Range, button: Option<(u32, u32, u32, u32)>) -> Vec<(u32, u32)> {
     let Some((_, y, _, h)) = button.filter(|b| b.1 < r.bottom && b.1 + b.3 > r.top) else { return vec![(r.top, r.bottom)] };
     [(r.top, y), (y + h, r.bottom)].into_iter().filter(|p| p.1 > p.0).collect()
+}
+
+/// Whether `c` shows the screen of `thumb` (`size`): the same apart from
+/// the button (x, y, w, h), which one holds and the other does not.
+pub fn same_screen(thumb: &[u8], size: (u32, u32), c: &Captured, button: (u32, u32, u32, u32)) -> bool {
+    if (c.width, c.height) != size || c.thumb.len() != thumb.len() || size.0 == 0 {
+        return false;
+    }
+    let rows = thumb.len() / THUMB_W;
+    let scale = size.0 as f64 / THUMB_W as f64;
+    let (x, y, w, h) = button;
+    // Thumbnail cells under the button, one cell of margin around it.
+    let from = |v: u32| (v as f64 / scale).floor() as usize;
+    let to = |v: u32, max: usize| ((v as f64 / scale).ceil() as usize + 1).min(max);
+    let (c0, c1) = (from(x).saturating_sub(1).min(THUMB_W), to(x + w, THUMB_W));
+    let (r0, r1) = (from(y).saturating_sub(1).min(rows), to(y + h, rows));
+    let mut mask = vec![false; thumb.len()];
+    for r in r0..r1 {
+        mask[r * THUMB_W + c0..r * THUMB_W + c1].fill(true);
+    }
+    tracker::still_diff(thumb, &c.thumb, &mask, 0, rows) <= tracker::STILL
 }
 
 /// Run until the screen side ends.

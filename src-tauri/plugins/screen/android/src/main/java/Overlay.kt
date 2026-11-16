@@ -74,6 +74,26 @@ object Overlay {
         button = b
     }
 
+    /**
+     * Hides the button from the screen and the capture, from a worker thread:
+     * answered with the uptime it was gone at, or null if there is none.
+     */
+    fun hideButtonNow(): Long? {
+        val done = java.util.concurrent.CountDownLatch(1)
+        var at: Long? = null
+        main.post {
+            button?.takeIf { it.visibility == View.VISIBLE }?.let {
+                it.visibility = View.INVISIBLE
+                at = android.os.SystemClock.uptimeMillis()
+            }
+            done.countDown()
+        }
+        done.await(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+        return at
+    }
+
+    fun restoreButton() = main.post { button?.visibility = View.VISIBLE }
+
     fun setOn(on: Boolean) = main.post {
         button?.text = if (on) "번역 끄기" else "번역 켜기"
     }

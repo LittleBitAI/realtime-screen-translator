@@ -20,6 +20,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.util.DisplayMetrics
 import android.view.WindowManager
 import androidx.core.content.ContextCompat
@@ -45,6 +46,7 @@ class CaptureService : Service() {
     private val handler = Handler(thread.looper)
     /** The newest image not yet sent; only the capture thread touches it. */
     private var held: Image? = null
+    private var heldAt = 0L
     private var idle = 0
     private val tick = object : Runnable {
         override fun run() {
@@ -53,7 +55,7 @@ class CaptureService : Service() {
                 held = null
                 idle = 0
                 try {
-                    if (!Capture.paused) Capture.onFrame(bitmap(img))
+                    if (!Capture.paused) Capture.onFrame(bitmap(img), heldAt)
                 } finally {
                     img.close()
                 }
@@ -97,6 +99,7 @@ class CaptureService : Service() {
             val img = ir.acquireLatestImage() ?: return@setOnImageAvailableListener
             held?.close()
             held = img
+            heldAt = SystemClock.uptimeMillis()
         }, handler)
         display = p.createVirtualDisplay(
             "rst-capture", m.widthPixels, m.heightPixels, m.densityDpi,
