@@ -65,7 +65,16 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
         Event::Frame(f) => f,
     };
     let (seq, button, size, thumb) = (f.seq, f.button, (f.width, f.height), f.thumb.clone());
-    let out = match backend.frame(FrameIn { seq, width: f.width, height: f.height, thumb: f.thumb, captured_at: f.captured_at }) {
+    // P6 sees the screen without this app's own button (the capture holds it
+    // on Android): it neither lights a blocked capture nor moves with the content.
+    let mut sent = f.thumb;
+    if let Some(b) = button {
+        let (c0, c1, r0, r1) = button_cells(size.0, sent.len() / THUMB_W, b);
+        for r in r0..r1 {
+            sent[r * THUMB_W + c0..r * THUMB_W + c1].fill(0);
+        }
+    }
+    let out = match backend.frame(FrameIn { seq, width: f.width, height: f.height, thumb: sent, captured_at: f.captured_at }) {
         Ok(out) => out,
         Err(e) => {
             if e.0 != "not_on" {
@@ -140,18 +149,23 @@ pub fn same_screen(thumb: &[u8], size: (u32, u32), c: &Captured, button: (u32, u
         return false;
     }
     let rows = thumb.len() / THUMB_W;
-    let scale = size.0 as f64 / THUMB_W as f64;
-    let (x, y, w, h) = button;
-    // Thumbnail cells under the button, one cell of margin around it.
-    let from = |v: u32| (v as f64 / scale).floor() as usize;
-    let to = |v: u32, max: usize| ((v as f64 / scale).ceil() as usize + 1).min(max);
-    let (c0, c1) = (from(x).saturating_sub(1).min(THUMB_W), to(x + w, THUMB_W));
-    let (r0, r1) = (from(y).saturating_sub(1).min(rows), to(y + h, rows));
+    let (c0, c1, r0, r1) = button_cells(size.0, rows, button);
     let mut mask = vec![false; thumb.len()];
     for r in r0..r1 {
         mask[r * THUMB_W + c0..r * THUMB_W + c1].fill(true);
     }
     tracker::still_diff(thumb, &c.thumb, &mask, 0, rows) <= tracker::STILL
+}
+
+/// Thumbnail columns `c0..c1` and rows `r0..r1` under the button (x, y, w, h
+/// on a screen `width` wide), one cell of margin around it.
+fn button_cells(width: u32, rows: usize, button: (u32, u32, u32, u32)) -> (usize, usize, usize, usize) {
+    let scale = width.max(1) as f64 / THUMB_W as f64;
+    let (x, y, w, h) = button;
+    let from = |v: u32| (v as f64 / scale).floor() as usize;
+    let to = |v: u32, max: usize| ((v as f64 / scale).ceil() as usize + 1).min(max);
+    let (c1, r1) = (to(x + w, THUMB_W), to(y + h, rows));
+    (from(x).saturating_sub(1).min(c1), c1, from(y).saturating_sub(1).min(r1), r1)
 }
 
 /// Run until the screen side ends.

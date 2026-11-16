@@ -10,17 +10,24 @@ pub const STILL: f32 = 2.0;
 /// Mean absolute difference per pixel below which a shifted frame matches.
 pub const MATCH: f32 = 6.0;
 
-/// A capture blocked by the app shows up as an (almost) all-black frame:
-/// nearly every row nearly black. The rows and spots the system or this app
-/// draws over the black (status bar, navigation bar, the floating button)
-/// do not make it a picture.
+/// A capture blocked by the app shows up as a black frame with only what the
+/// system draws over it: the status bar and the navigation bar or taskbar,
+/// in [`EDGE_BAND`] of the rows at the top and at the bottom. (This app's
+/// own button is blacked out by the capture loop, `pipeline::step`.)
+/// Anything else lit, beyond a few stray pixels (a cursor), is a picture:
+/// a dark page with one white balloon on it is not blocked.
 pub fn is_blocked(thumb: &[u8]) -> bool {
-    let rows = thumb.chunks(THUMB_W);
-    let all = rows.len();
-    let dark = rows.filter(|r| r.iter().filter(|&&v| v <= 16).count() * 10 >= r.len() * 9).count();
-    // ponytail: a fixed share of dark rows; a page drawn almost all black reads as blocked too.
-    all > 0 && dark * 100 >= all * 85
+    let rows = thumb.len() / THUMB_W;
+    let band = (rows * EDGE_BAND).div_ceil(100);
+    let middle = if rows > 2 * band { &thumb[band * THUMB_W..(rows - band) * THUMB_W] } else { thumb };
+    let lit = middle.iter().filter(|&&v| v > 16).count();
+    // ponytail: a page that is black but for text in its top or bottom band reads as blocked.
+    rows > 0 && lit * 1000 <= middle.len() * 2
 }
+
+/// Rows (percent of the screen) at the top and at the bottom where the
+/// system draws over every app: status bar, navigation bar, taskbar.
+pub const EDGE_BAND: usize = 8;
 
 /// Thumbnail pixels left out of a comparison, one per pixel (empty: none).
 /// On Android the capture holds our own overlay: a translation that appears
