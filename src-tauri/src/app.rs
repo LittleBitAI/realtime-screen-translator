@@ -245,7 +245,7 @@ impl Platform for AppPlatform {
         {
             // R29: capture first, then drawing over other apps; the plugin
             // puts the floating on/off button up once both are granted.
-            return match android::call::<android::Perms>(&self.app, "requestPermissions", serde_json::json!({})) {
+            return match android::call::<android::Perms>(&self.app, "askCapture", serde_json::json!({})) {
                 Ok(p) => Permissions { capture: p.capture, overlay: p.overlay },
                 Err(e) => {
                     eprintln!("{e}");

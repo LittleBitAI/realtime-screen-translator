@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.ContentValues
 import android.content.Intent
 import android.graphics.Bitmap
+import android.media.projection.MediaProjectionConfig
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
@@ -110,15 +111,27 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
         invoke.resolve(state())
     }
 
-    /** Screen capture first, then drawing over other apps (R29). */
+    /**
+     * Screen capture first, then drawing over other apps (R29). Named apart
+     * from `Plugin.requestPermissions`, the alias permission command it
+     * would otherwise hide.
+     */
     @Command
-    fun requestPermissions(invoke: Invoke) {
+    fun askCapture(invoke: Invoke) {
         if (Capture.alive) {
             askOverlay(invoke)
             return
         }
         val mgr = activity.getSystemService(MediaProjectionManager::class.java)
-        startActivityForResult(invoke, mgr.createScreenCaptureIntent(), "captureAnswered")
+        // The whole screen (A2): from Android 14 the prompt also offers a
+        // single app, whose capture would stay on that app when the reader
+        // moves to another and be laid out in its window, not the screen.
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            mgr.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay())
+        } else {
+            mgr.createScreenCaptureIntent()
+        }
+        startActivityForResult(invoke, intent, "captureAnswered")
     }
 
     @ActivityCallback
