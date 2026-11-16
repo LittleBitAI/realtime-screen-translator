@@ -176,10 +176,13 @@ pub fn fine_shift(prev: &[u8], cur: &[u8], mask: Mask, rows: usize, top: usize, 
     let (s, d0) = search(prev, cur, mask, rows, top, bottom, zero)?;
     let end = rows.saturating_sub(bottom);
     let at = |k: i32| shifted_diff(prev, cur, mask, top, end, k, f32::MAX);
-    if d0 < 0.25 {
+    let (Some(a), Some(b)) = (at(s - 1), at(s + 1)) else { return Some(s as f64) };
+    // Exact: next to nothing against the rows either side. (A small
+    // difference alone is no sign: sparse drawing scrolled a quarter row
+    // differs little, and rounding it away every frame loses a slow scroll.)
+    if d0 <= 0.02 * a.min(b) {
         return Some(s as f64);
     }
-    let (Some(a), Some(b)) = (at(s - 1), at(s + 1)) else { return Some(s as f64) };
     let rise = a.max(b) - d0;
     if rise <= 0.0 {
         return Some(s as f64);

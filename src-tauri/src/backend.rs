@@ -707,13 +707,22 @@ impl Backend {
                 self.finish_turn(db, s, &thumb)?;
             }
             // Measured again from the last resting screen in one step.
+            let mut kept = None;
             if let Some((a, f)) = s.anchor.take() {
                 let mask = s.overlay_mask(&[f.round() as i64, s.scroll_y, s.drawn_before]);
-                if let Some(m) = tracker::fine_shift(&a, &thumb, &mask, rows, s.fixed.0, s.fixed.1, true) {
-                    s.set_scroll(f + m * scale);
+                match tracker::fine_shift(&a, &thumb, &mask, rows, s.fixed.0, s.fixed.1, true) {
+                    // Not a tenth of a row from it: still that screen. It is
+                    // kept, so a scroll too slow to tell frame by frame adds
+                    // up against it instead of being lost every frame.
+                    Some(m) if m.abs() < 0.1 => {
+                        s.set_scroll(f);
+                        kept = Some((a, f));
+                    }
+                    Some(m) => s.set_scroll(f + m * scale),
+                    None => {}
                 }
             }
-            s.anchor = Some((thumb.clone(), s.scroll_f));
+            s.anchor = Some(kept.unwrap_or_else(|| (thumb.clone(), s.scroll_f)));
             let (h, ft, fb) = (req.height as i64, (s.fixed.0 as f64 * scale) as i64, (s.fixed.1 as f64 * scale) as i64);
             let scroll_y = s.scroll_y;
             let no_band = s.fixed == (0, 0);

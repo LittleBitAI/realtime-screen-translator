@@ -122,7 +122,7 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
     if let Some(r) = out.detect {
         let shown = clean.as_ref().map_or(seq, |c| c.seq);
         let crops = match screen.detect(shown, r.top, r.bottom) {
-            Ok(c) => {
+            Ok(mut c) => {
                 // The model is in place and ran.
                 backend.clear_notice("detector_missing");
                 // Rows the button hid from it are looked at again later
@@ -130,6 +130,18 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
                 if let (None, Some(b)) = (&clean, button.filter(|_| behind(r))) {
                     let rows = Range { top: b.1.max(r.top), bottom: (b.1 + b.3).min(r.bottom) };
                     backend.detect_failed(out.picture_id, seq, rows);
+                }
+                // A crop of a frame that holds the button and meets it shows
+                // the button over the balloon: it is not sent, and its rows
+                // are looked at again with the rest.
+                if let (None, Some(b)) = (&clean, button) {
+                    c.retain(|k| {
+                        let meets = k.x < b.0 + b.2 && k.x + k.w > b.0 && k.y < b.1 + b.3 && k.y + k.h > b.1;
+                        if meets {
+                            backend.detect_failed(out.picture_id, seq, Range { top: k.y, bottom: k.y + k.h });
+                        }
+                        !meets
+                    });
                 }
                 c
             }
