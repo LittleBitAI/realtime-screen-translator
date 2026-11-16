@@ -103,9 +103,11 @@ fn part_scrolled_past_without_stopping_is_saved_when_the_screen_rests_on_it() {
     let rest = app.settle(&scene, 2400);
     let ranges: Vec<_> = rest.iter().filter_map(|f| f.save).collect();
     assert_eq!(ranges.first(), Some(&(0, 1200)), "the gap 2400..3600 was not asked for: {ranges:?}");
-    let saved = app.strip(&scene, 2400, (0, 2400), rest[0].seq).expect("the gap was refused");
+    let asking = rest.iter().find(|f| f.save.is_some()).unwrap().seq;
+    // Sent wider than asked: only the gap P6 named is kept.
+    let saved = app.strip(&scene, 2400, (0, 2400), asking).expect("the gap was refused");
     assert_eq!(saved["picture_height"], 6000);
-    let again = app.strip(&scene, 2400, (0, 2400), rest[1].seq);
+    let again = app.strip(&scene, 2400, (0, 2400), asking);
     assert_eq!(again.expect_err("the gap was saved twice"), "already_covered");
 }
 

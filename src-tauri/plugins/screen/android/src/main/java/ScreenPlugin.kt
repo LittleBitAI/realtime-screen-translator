@@ -2,6 +2,7 @@ package ai.littlebit.rst.screen
 
 import android.app.Activity
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.media.projection.MediaProjectionManager
@@ -11,6 +12,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Base64
+import android.widget.Toast
 import androidx.activity.result.ActivityResult
 import app.tauri.annotation.ActivityCallback
 import app.tauri.annotation.Command
@@ -124,7 +126,21 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
     private fun overlayAnswered(invoke: Invoke, @Suppress("UNUSED_PARAMETER") result: ActivityResult) {
         if (Settings.canDrawOverlays(activity)) {
             Overlay.showButton(activity.applicationContext)
+            // Optional, offered once: the accessibility overlay that lets the
+            // white shapes hide the Japanese fully while touches pass (Overlay.kt).
+            val prefs = activity.getSharedPreferences("rst_screen", Context.MODE_PRIVATE)
+            if (!OverlayService.enabled(activity) && !prefs.getBoolean("asked_overlay_service", false)) {
+                prefs.edit().putBoolean("asked_overlay_service", true).apply()
+                Toast.makeText(activity, R.string.rst_overlay_service_ask, Toast.LENGTH_LONG).show()
+                startActivityForResult(invoke, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS), "serviceAnswered")
+                return
+            }
         }
+        invoke.resolve(state())
+    }
+
+    @ActivityCallback
+    private fun serviceAnswered(invoke: Invoke, @Suppress("UNUSED_PARAMETER") result: ActivityResult) {
         invoke.resolve(state())
     }
 

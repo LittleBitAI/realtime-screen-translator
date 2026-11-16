@@ -307,8 +307,11 @@ pub fn pictures(db: &Db, book_id: i64) -> Res<Vec<PictureRow>> {
     rows.collect()
 }
 
+/// Strips in the order they were saved: a later strip is drawn over an
+/// earlier one, as when content scrolls into rows first saved under a
+/// status bar not yet known as fixed.
 pub fn strips(db: &Db, picture_id: i64) -> Res<Vec<StripRow>> {
-    let mut st = db.prepare("SELECT y_start, height, file_path FROM Strip WHERE picture_id = ?1 ORDER BY y_start, id")?;
+    let mut st = db.prepare("SELECT y_start, height, file_path FROM Strip WHERE picture_id = ?1 ORDER BY id")?;
     let rows = st.query_map([picture_id], |r| Ok(StripRow { y_start: r.get(0)?, height: r.get(1)?, file_path: r.get(2)? }))?;
     rows.collect()
 }

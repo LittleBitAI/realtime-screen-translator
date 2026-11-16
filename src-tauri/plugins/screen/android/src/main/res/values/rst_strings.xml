@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="rst_overlay_service_label">번역 오버레이</string>
+    <string name="rst_overlay_service_description">번역 글자의 흰 바탕이 원문을 완전히 가리면서도 화면 터치는 그대로 아래 앱에 전해지게 합니다. 화면 내용은 읽지 않습니다.</string>
+    <string name="rst_overlay_service_ask">번역이 원문을 완전히 가리게 하려면 접근성에서 \'번역 오버레이\'를 켜 주세요.</string>
+</resources>

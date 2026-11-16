@@ -44,6 +44,10 @@ struct Pic {
     /// once the screen moves or comes back here, or after [`RETRY_MS`].
     retry: Vec<(i64, i64)>,
     retry_at: i64,
+    /// `scroll_y` of the screen rows handled before any fixed band was known
+    /// (the first resting screen). A status bar or toolbar there was taken as
+    /// content; once a scroll shows the band, those rows are handled again.
+    unbanded: Option<i64>,
 }
 
 const RETRY_MS: i64 = 15_000;
@@ -98,7 +102,8 @@ struct Session {
     mode: Option<&'static str>,
     last_seq: Option<u64>,
     /// Recent frames: seq -> (picture id, scroll_y), to place crops of older frames.
-    frames: VecDeque<(u64, i64, i64)>,
+    /// The fourth field is the range P6 asked to save, in picture rows.
+    frames: VecDeque<(u64, i64, i64, Option<(i64, i64)>)>,
     pending: Vec<Pending>,
     revision: u64,
     /// This session's Gemini connections; shut down by P5 so nothing is in
@@ -150,7 +155,7 @@ impl Session {
         self.frames
             .iter()
             .rev()
-            .find(|(s, p, _)| *s == seq && *p == picture_id)
+            .find(|f| f.0 == seq && f.1 == picture_id)
             .map(|f| f.2)
             .ok_or(ApiError("frame_unknown"))
     }
@@ -564,8 +569,21 @@ impl Backend {
                             s.set_scroll(s.scroll_f + rows_moved * scale);
                             dy = (s.scroll_y - before) as i32;
                             s.mode = Some("scroll");
+                            let h = req.height as i64;
+                            let band = ((s.fixed.0 as f64 * scale) as i64, (s.fixed.1 as f64 * scale) as i64);
                             if let Some(pic) = s.pic() {
                                 pic.reopen();
+                                // Rows saved and detected while no band was known held
+                                // the band, not content: the content that scrolls
+                                // into them is asked for like any new rows.
+                                if band != (0, 0) {
+                                    if let Some(y0) = pic.unbanded.take() {
+                                        for r in [(y0, y0 + band.0), (y0 + h - band.1, y0 + h)].into_iter().filter(|r| r.1 > r.0) {
+                                            subtract(&mut pic.covered, r);
+                                            subtract(&mut pic.detected, r);
+                                        }
+                                    }
+                                }
                                 if pic.kind == "page" {
                                     pic.kind = "stitched";
                                     pic.page_thumb = None;
@@ -608,8 +626,12 @@ impl Backend {
             s.anchor = Some((thumb.clone(), s.scroll_f));
             let (h, ft, fb) = (req.height as i64, (s.fixed.0 as f64 * scale) as i64, (s.fixed.1 as f64 * scale) as i64);
             let scroll_y = s.scroll_y;
+            let no_band = s.fixed == (0, 0);
             if let Some(pic) = s.pic() {
                 let vis = (scroll_y + ft, scroll_y + h - fb);
+                if no_band && pic.unbanded.is_none() {
+                    pic.unbanded = Some(scroll_y);
+                }
                 if now >= pic.retry_at {
                     pic.reopen();
                 }
@@ -632,7 +654,8 @@ impl Backend {
         }
         s.prev = Some(thumb);
         if let Some(id) = s.current {
-            s.frames.push_back((req.seq, id, s.scroll_y));
+            let asked = save.map(|r| (s.scroll_y + r.top as i64, s.scroll_y + r.bottom as i64));
+            s.frames.push_back((req.seq, id, s.scroll_y, asked));
             if s.frames.len() > 64 {
                 s.frames.pop_front();
             }
@@ -804,6 +827,9 @@ impl Backend {
             return Err(ApiError("already_covered"));
         }
         let offset = s.frame_offset(req.frame_seq, req.picture_id)?;
+        // Only rows P6 asked this frame for: never rows outside the captured
+        // screen or a fixed band, whatever range is sent.
+        let asked = s.frames.iter().rev().find(|f| f.0 == req.frame_seq && f.1 == req.picture_id).and_then(|f| f.3);
         let scale = s.scale();
         // The fixed band does not move with the content: never stored after the first screen.
         let fixed_top = (s.fixed.0 as f64 * scale) as u32;
@@ -812,8 +838,9 @@ impl Backend {
         if !pic.covered.is_empty() {
             top = top.max(fixed_top);
         }
+        let range = asked.map(|a| ((offset + top as i64).max(a.0), (offset + req.bottom as i64).min(a.1)));
         // Only what is not saved yet is kept, gaps included.
-        let parts = missing((offset + top as i64, offset + req.bottom as i64), &pic.covered);
+        let parts = range.filter(|r| r.1 > r.0).map(|r| missing(r, &pic.covered)).unwrap_or_default();
         if parts.is_empty() {
             return Err(ApiError("already_covered"));
         }
@@ -958,7 +985,7 @@ impl Backend {
 }
 
 fn new_pic(id: i64) -> Pic {
-    Pic { id, kind: "page", covered: vec![], detected: vec![], placements: vec![], page_thumb: None, retry: vec![], retry_at: 0 }
+    Pic { id, kind: "page", covered: vec![], detected: vec![], placements: vec![], page_thumb: None, retry: vec![], retry_at: 0, unbanded: None }
 }
 
 fn storage_error(e: std::io::Error) -> ApiError {

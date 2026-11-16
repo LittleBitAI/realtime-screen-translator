@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.RectF
 import android.graphics.drawable.GradientDrawable
+import android.hardware.input.InputManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -24,8 +25,8 @@ class Shape(val x: Int, val y: Int, val w: Int, val h: Int, val radius: Int, val
 
 /**
  * Windows over other apps: one window per balloon that paints it white and
- * writes the Korean in it (R28), touches elsewhere passing through to the
- * app underneath, and the floating on/off button (R29).
+ * writes the Korean in it (R28), every touch passing through to the app
+ * underneath (P4), and the floating on/off button (R29).
  */
 object Overlay {
     private const val PAD = 4
@@ -62,13 +63,14 @@ object Overlay {
     }
 
     /**
-     * Translation is on: shapes may be drawn. Each shape is its own small,
-     * fully opaque window, so the white covers the Japanese completely (R28).
-     * Android 12+ holds back a touch that would pass through an opaque
-     * untrusted window, so this way only touches that land on a translated
-     * balloon stay with it; everywhere else the reader's app scrolls as usual.
-     * One full-screen layer would have to be at most 80% opaque instead
-     * (`InputManager.maximumObscuringOpacityForTouch`) and let the text show through.
+     * Translation is on: shapes may be drawn, each in its own small window
+     * that never takes a touch (P4: touches always reach the reader's app).
+     * Android 12+ holds back a touch that passes through another app's
+     * window unless that window is at most 80% opaque or an accessibility
+     * overlay. With [OverlayService] on, the shapes are accessibility
+     * overlays and fully opaque, so the white hides the Japanese completely
+     * (R28); without it they are as opaque as Android still lets touches
+     * through (`InputManager.maximumObscuringOpacityForTouch`).
      */
     fun showLayer(ctx: Context) = main.post {
         if (layer == null) layer = ctx
@@ -76,41 +78,55 @@ object Overlay {
 
     /** Takes every shape down (P5): nothing stays over other apps but the button. */
     fun hideLayer() = main.post {
-        val ctx = layer ?: return@post
-        val wm = ctx.getSystemService(WindowManager::class.java)
-        for (v in shapes) runCatching { wm.removeView(v) }
-        shapes.clear()
+        removeShapes()
         layer = null
     }
 
+    /** The accessibility service came or went: shapes are made again in the right kind of window. */
+    fun serviceChanged() = main.post { removeShapes() }
+
+    private fun removeShapes() {
+        for (v in shapes) runCatching { v.context.getSystemService(WindowManager::class.java).removeView(v) }
+        shapes.clear()
+    }
+
     fun draw(list: List<Shape>) = main.post {
-        val ctx = layer ?: return@post
-        val wm = ctx.getSystemService(WindowManager::class.java)
+        val app = layer ?: return@post
+        val service = OverlayService.running
+        val host: Context = service ?: app
+        if (shapes.any { it.context !== host }) removeShapes()
+        val wm = host.getSystemService(WindowManager::class.java)
         while (shapes.size > list.size) runCatching { wm.removeView(shapes.removeAt(shapes.lastIndex)) }
         list.forEachIndexed { i, s ->
-            val lp = params(maxOf(1, s.w), maxOf(1, s.h), touchable = false).apply {
+            val lp = params(maxOf(1, s.w), maxOf(1, s.h), touchable = false, trusted = service != null).apply {
                 x = s.x
                 y = s.y
+                alpha = if (service != null) 1f else passThroughAlpha(app)
             }
             if (i < shapes.size) {
                 shapes[i].show(s)
                 wm.updateViewLayout(shapes[i], lp)
             } else {
-                val v = ShapeView(ctx).also { it.show(s) }
+                val v = ShapeView(host).also { it.show(s) }
                 wm.addView(v, lp)
                 shapes.add(v)
             }
         }
     }
 
-    private fun params(w: Int, h: Int, touchable: Boolean): WindowManager.LayoutParams {
+    private fun passThroughAlpha(ctx: Context): Float {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return 1f
+        val max = ctx.getSystemService(InputManager::class.java)?.maximumObscuringOpacityForTouch ?: 0.8f
+        return minOf(max, 0.8f)
+    }
+
+    private fun params(w: Int, h: Int, touchable: Boolean, trusted: Boolean = false): WindowManager.LayoutParams {
         var flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
         if (!touchable) flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-        return WindowManager.LayoutParams(
-            w, h, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, flags, PixelFormat.TRANSLUCENT,
-        ).apply {
+        val type = if (trusted) WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY else WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        return WindowManager.LayoutParams(w, h, type, flags, PixelFormat.TRANSLUCENT).apply {
             gravity = Gravity.TOP or Gravity.START
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
