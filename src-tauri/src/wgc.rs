@@ -30,6 +30,11 @@ use windows::Win32::System::WinRT::Graphics::Capture::IGraphicsCaptureItemIntero
 const FRAME_GAP: Duration = Duration::from_millis(100);
 /// Full frames kept for detection and strips of a recent `seq`.
 const KEEP: usize = 4;
+/// WGC hands over a frame only when the screen changed, and P6 asks for
+/// detection and a strip only once the same screen came twice: a still
+/// screen is sent again this many times, then every `IDLE_EVERY` ticks.
+const STILL_REPEATS: u32 = 3;
+const IDLE_EVERY: u32 = 10;
 
 /// A Windows Graphics Capture session on the primary monitor.
 struct Wgc {
@@ -159,6 +164,9 @@ struct Inner {
     on: bool,
     seq: u64,
     frames: VecDeque<(u64, Arc<Rgb>)>,
+    /// The last frame sent and its thumbnail, sent again while nothing changes.
+    last: Option<(Arc<Rgb>, Vec<u8>)>,
+    idle: u32,
 }
 
 pub struct WinScreen {
@@ -185,6 +193,7 @@ impl WinScreen {
         i.on = on;
         if !on {
             i.frames.clear();
+            i.last = None;
         }
         self.wake.notify_all();
     }
@@ -216,9 +225,20 @@ impl Screen for WinScreen {
                 }
                 c.as_mut().unwrap().grab()
             });
-            let img = match grabbed {
-                Ok(Some(img)) => img,
-                Ok(None) => continue,
+            let (img, thumb) = match grabbed {
+                Ok(Some(img)) => {
+                    let thumb = tracker::thumbnail(&img.gray(), img.w as usize, img.h as usize);
+                    (Arc::new(img), thumb)
+                }
+                Ok(None) => {
+                    let mut i = self.lock();
+                    i.idle += 1;
+                    let again = i.idle <= STILL_REPEATS || i.idle % IDLE_EVERY == 0;
+                    match i.last.clone() {
+                        Some(last) if again => last,
+                        _ => continue,
+                    }
+                }
                 Err(e) => {
                     eprintln!("screen capture: {e}");
                     CAPTURE.with(|c| c.borrow_mut().take());
@@ -226,19 +246,22 @@ impl Screen for WinScreen {
                     continue;
                 }
             };
-            let thumb = tracker::thumbnail(&img.gray(), img.w as usize, img.h as usize);
             let (width, height) = (img.w, img.h);
             let mut i = self.lock();
             if !i.on {
                 continue;
             }
+            if i.last.as_ref().is_none_or(|l| !Arc::ptr_eq(&l.0, &img)) {
+                i.idle = 0;
+                i.last = Some((img.clone(), thumb.clone()));
+            }
             i.seq += 1;
             let seq = i.seq;
-            i.frames.push_back((seq, Arc::new(img)));
+            i.frames.push_back((seq, img));
             while i.frames.len() > KEEP {
                 i.frames.pop_front();
             }
-            return Some(Event::Frame(Captured { seq, width, height, thumb, captured_at: crate::now_ms() }));
+            return Some(Event::Frame(Captured { seq, width, height, thumb, captured_at: crate::now_ms(), button: None }));
         }
     }
 

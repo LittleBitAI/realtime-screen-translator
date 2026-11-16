@@ -26,6 +26,67 @@ struct AppPlatform {
 
 const OVERLAY: &str = "overlay";
 
+/// Windows (P4, R29): the on/off button over other apps, a small
+/// always-on-top window near the bottom right edge of the work area, left
+/// out of capture like the overlay. Its page is inline, and a click is a
+/// navigation to `rst-toggle:` that switches translation instead of loading.
+#[cfg(windows)]
+mod button {
+    use super::*;
+
+    pub const LABEL: &str = "onoff";
+    const HTML: &str = "<!doctype html><meta charset=utf-8><body style='margin:0;overflow:hidden;background:transparent'>        <a id=b href='rst-toggle:tap' style='display:block;box-sizing:border-box;height:100vh;line-height:100vh;border-radius:24px;        background:rgba(34,34,34,.85);color:white;font:600 14px sans-serif;text-align:center;text-decoration:none;user-select:none'>번역 켜기</a>";
+
+    pub fn show(app: &AppHandle) -> Result<(), String> {
+        if app.get_webview_window(LABEL).is_some() {
+            return Ok(());
+        }
+        let url: tauri::Url = format!("data:text/html;charset=utf-8,{}", HTML.replace(' ', "%20")).parse().map_err(|e| format!("{e}"))?;
+        let handle = app.clone();
+        let w = tauri::WebviewWindowBuilder::new(app, LABEL, tauri::WebviewUrl::External(url))
+            .inner_size(112.0, 44.0)
+            .transparent(true)
+            .decorations(false)
+            .resizable(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .focused(false)
+            .shadow(false)
+            .visible(false)
+            .on_navigation(move |url| {
+                if url.scheme() != "rst-toggle" {
+                    return true;
+                }
+                // Off the UI thread: start and stop build and close windows.
+                let h = handle.clone();
+                std::thread::spawn(move || pipeline::toggle(&h.state::<Backend>()));
+                false
+            })
+            .build()
+            .map_err(|e| e.to_string())?;
+        if let Ok(hwnd) = w.hwnd() {
+            use windows_sys::Win32::UI::WindowsAndMessaging::{SetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE};
+            // SAFETY: the handle belongs to the window built above.
+            unsafe { SetWindowDisplayAffinity(hwnd.0 as _, WDA_EXCLUDEFROMCAPTURE) };
+        }
+        if let (Ok(Some(m)), Ok(size)) = (w.primary_monitor(), w.outer_size()) {
+            let area = m.work_area();
+            let gap = (24.0 * m.scale_factor()) as i32;
+            let x = area.position.x + area.size.width as i32 - size.width as i32 - gap;
+            let y = area.position.y + area.size.height as i32 - size.height as i32 - gap;
+            let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
+        }
+        w.show().map_err(|e| e.to_string())
+    }
+
+    pub fn label(app: &AppHandle, on: bool) {
+        if let Some(w) = app.get_webview_window(LABEL) {
+            let text = if on { "번역 끄기" } else { "번역 켜기" };
+            let _ = w.eval(format!("document.getElementById('b').textContent='{text}'"));
+        }
+    }
+}
+
 #[cfg(target_os = "android")]
 mod android {
     use super::*;
@@ -66,6 +127,9 @@ mod android {
         thumb: String,
         #[serde(default)]
         captured_at: i64,
+        /// The floating button's [x, y, w, h] in the frame (the capture holds it).
+        #[serde(default)]
+        button: Option<[u32; 4]>,
     }
 
     #[derive(Deserialize)]
@@ -114,6 +178,7 @@ mod android {
                             height: n.height,
                             thumb: b64(&n.thumb),
                             captured_at: n.captured_at,
+                            button: n.button.map(|b| (b[0], b[1], b[2], b[3])),
                         }))
                     }
                     Err(e) => {
@@ -207,7 +272,10 @@ impl Platform for AppPlatform {
                 }
             }
             #[cfg(windows)]
-            self.screen.set_on(true);
+            {
+                self.screen.set_on(true);
+                button::label(&self.app, true);
+            }
         }
         #[cfg(not(target_os = "android"))]
         Ok(())
@@ -219,7 +287,10 @@ impl Platform for AppPlatform {
             eprintln!("{e}");
         }
         #[cfg(windows)]
-        self.screen.set_on(false);
+        {
+            self.screen.set_on(false);
+            button::label(&self.app, false);
+        }
         if let Some(w) = self.app.get_webview_window(OVERLAY) {
             let _ = w.close();
         }
@@ -347,6 +418,11 @@ pub fn run() {
             let model = crate::models::path(&data_dir);
             let backend = Backend::open(data_dir, std::env::var("RST_GEMINI_BASE_URL").ok(), platform)?;
             app.manage(backend);
+            // Nothing to ask for on Windows (R29): the button is up from the start.
+            #[cfg(windows)]
+            if let Err(e) = button::show(&handle) {
+                eprintln!("on/off button: {e}");
+            }
             // The capture loop: frames, detection and strips while translation is on.
             #[cfg(any(windows, target_os = "android"))]
             std::thread::spawn(move || {

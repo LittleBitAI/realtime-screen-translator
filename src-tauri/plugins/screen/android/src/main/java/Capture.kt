@@ -4,6 +4,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.util.Base64
 import app.tauri.plugin.Invoke
+import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 
 /**
@@ -113,6 +114,7 @@ object Capture {
             put("height", bmp.height)
             put("thumb", Base64.encodeToString(thumbs[s], Base64.NO_WRAP))
             put("capturedAt", System.currentTimeMillis())
+            Overlay.buttonRect?.let { r -> put("button", JSArray().apply { r.forEach { put(it) } }) }
         })
     }
 

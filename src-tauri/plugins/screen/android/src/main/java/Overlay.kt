@@ -32,6 +32,11 @@ object Overlay {
     private const val PAD = 4
     private val main = Handler(Looper.getMainLooper())
     private var button: TextView? = null
+    /**
+     * The button's x, y, w, h on screen with a small margin, or null. The
+     * capture holds it (A6), so the rows behind it are not saved (P9).
+     */
+    @Volatile var buttonRect: IntArray? = null
     /** Set while translation is on: the context shape windows are made with. */
     private var layer: Context? = null
     private val shapes = ArrayList<ShapeView>()
@@ -58,6 +63,12 @@ object Overlay {
             gravity = Gravity.END or Gravity.BOTTOM
             x = 16
             y = nav + (24 * res.displayMetrics.density).toInt()
+        }
+        b.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            val at = IntArray(2)
+            v.getLocationOnScreen(at)
+            val m = 4
+            buttonRect = intArrayOf(maxOf(0, at[0] - m), maxOf(0, at[1] - m), v.width + 2 * m, v.height + 2 * m)
         }
         ctx.getSystemService(WindowManager::class.java).addView(b, lp)
         button = b

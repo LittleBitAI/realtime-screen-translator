@@ -730,9 +730,17 @@ impl Backend {
         let mut result = CropsOut { placed: vec![], pending: 0, skipped_effects: 0, discarded: 0 };
         let mut jobs: Vec<Job> = vec![];
         let now = now_ms();
+        let screen = s.screen;
         for c in req.crops {
             if c.kind == "effect" {
                 result.skipped_effects += 1;
+                continue;
+            }
+            // Only the two kinds the model names, and only a text area on the
+            // captured screen: anything else is no balloon to translate.
+            let on_screen = c.w > 0 && c.h > 0 && c.x as u64 + c.w as u64 <= screen.0 as u64 && c.y as u64 + c.h as u64 <= screen.1 as u64;
+            if c.kind != "dialogue" || !on_screen {
+                result.discarded += 1;
                 continue;
             }
             // The picture must be the text area it says it is, or it is not

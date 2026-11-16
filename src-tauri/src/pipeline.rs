@@ -7,7 +7,7 @@
 //! The screen side is a [`Screen`]: Windows Graphics Capture with the ONNX
 //! detector on Windows, the Kotlin plugin on Android (A7).
 
-use crate::api::{CropIn, CropsIn, FrameIn, PlacementOut, StripIn};
+use crate::api::{CropIn, CropsIn, FrameIn, PlacementOut, Range, StripIn};
 use crate::Backend;
 
 /// A frame as P6 takes it: the screen size and the 96-px-wide grayscale thumbnail.
@@ -18,6 +18,10 @@ pub struct Captured {
     pub height: u32,
     pub thumb: Vec<u8>,
     pub captured_at: i64,
+    /// Where this app's own floating button is in the frame (x, y, w, h in
+    /// screen pixels), if the capture holds it: on Android it does (A6); the
+    /// Windows windows are left out of capture.
+    pub button: Option<(u32, u32, u32, u32)>,
 }
 
 #[derive(Clone, Debug)]
@@ -40,19 +44,21 @@ pub trait Screen: Send + Sync {
     fn draw(&self, placements: &[PlacementOut], clear: bool);
 }
 
+/// The floating on/off button was pressed: P4 if translation is off, else P5.
+pub fn toggle(backend: &Backend) {
+    let r = if backend.status().on { backend.stop().map(|_| ()) } else { backend.start().map(|_| ()) };
+    if let Err(e) = r {
+        eprintln!("on/off button: {e}");
+    }
+}
+
 /// Handle one event. Errors are logged: a dropped frame is followed by the next one.
 pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
     let f = match event {
-        Event::Toggle => {
-            let r = if backend.status().on { backend.stop().map(|_| ()) } else { backend.start().map(|_| ()) };
-            if let Err(e) = r {
-                eprintln!("on/off button: {e}");
-            }
-            return;
-        }
+        Event::Toggle => return toggle(backend),
         Event::Frame(f) => f,
     };
-    let seq = f.seq;
+    let (seq, button) = (f.seq, f.button);
     let out = match backend.frame(FrameIn { seq, width: f.width, height: f.height, thumb: f.thumb, captured_at: f.captured_at }) {
         Ok(out) => out,
         Err(e) => {
@@ -63,10 +69,12 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
         }
     };
     screen.draw(&out.placements, out.clear);
-    if let Some(r) = out.save {
-        match screen.strip(seq, r.top, r.bottom) {
+    // P9 keeps clean rows only: the rows behind the button are left unsaved
+    // and asked for again once the content has moved out from under it.
+    for (top, bottom) in out.save.map(|r| clear_of(r, button)).unwrap_or_default() {
+        match screen.strip(seq, top, bottom) {
             Some(image) => {
-                if let Err(e) = backend.strip(StripIn { picture_id: out.picture_id, frame_seq: seq, top: r.top, bottom: r.bottom, image }) {
+                if let Err(e) = backend.strip(StripIn { picture_id: out.picture_id, frame_seq: seq, top, bottom, image }) {
                     eprintln!("strip of frame {seq}: {e}");
                 }
             }
@@ -93,6 +101,12 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
             }
         }
     }
+}
+
+/// The parts of screen rows `r` the button (x, y, w, h) leaves uncovered.
+pub fn clear_of(r: Range, button: Option<(u32, u32, u32, u32)>) -> Vec<(u32, u32)> {
+    let Some((_, y, _, h)) = button.filter(|b| b.1 < r.bottom && b.1 + b.3 > r.top) else { return vec![(r.top, r.bottom)] };
+    [(r.top, y), (y + h, r.bottom)].into_iter().filter(|p| p.1 > p.0).collect()
 }
 
 /// Run until the screen side ends.

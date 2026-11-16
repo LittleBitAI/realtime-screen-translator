@@ -97,6 +97,7 @@ fn frames(screen: &FakeScreen, seq: &mut u64, offset: i64, n: usize) -> Vec<Even
                 height: SCREEN_H,
                 thumb: screen.scene.thumb(offset, SCREEN_W, SCREEN_H),
                 captured_at: *seq as i64 * 100,
+                button: None,
             })
         })
         .collect()
