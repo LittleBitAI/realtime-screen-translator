@@ -32,6 +32,9 @@ struct Known {
 struct Pic {
     id: i64,
     kind: &'static str,
+    /// The screen size it was made in: its rows, strips and placements are in
+    /// that screen's pixels, so it goes on only on a screen of that size.
+    screen: (u32, u32),
     /// Ranges saved as strips (sorted, disjoint). A part scrolled past without
     /// stopping stays a gap and is asked for when the screen rests on it.
     covered: Vec<(i64, i64)>,
@@ -536,8 +539,12 @@ impl Backend {
 
         // The overlay is left out as in the comparisons below: on Android the
         // capture holds the white shapes over a blocked app as well.
+        // A dark page whose shapes cover all that is lit looks the same, but
+        // it looked so a frame before too: blocked is the screen going black
+        // around the shapes, or black with no shapes at all.
         let shapes = s.overlay_mask(&[s.scroll_y, s.drawn_before]);
-        if tracker::is_blocked(&thumb, &shapes) {
+        let went_dark = s.prev.as_ref().is_none_or(|p| p.len() != thumb.len() || !tracker::is_blocked(p, &shapes));
+        if tracker::is_blocked(&thumb, &[]) || (tracker::is_blocked(&thumb, &shapes) && went_dark) {
             st.notice = Some("capture_blocked");
             let s = st.session.as_mut().unwrap();
             return Ok(FrameOut {
@@ -569,7 +576,7 @@ impl Backend {
             None => {
                 if s.current.is_none() && !s.turning {
                     let id = store::create_picture(db, s.book_id, "page", req.width)?;
-                    s.pics.insert(id, new_pic(id));
+                    s.pics.insert(id, new_pic(id, s.screen));
                     s.current = Some(id);
                     s.last_pic = Some(id);
                     s.set_scroll(0.0);
@@ -707,8 +714,13 @@ impl Backend {
         s.set_scroll(0.0);
         s.anchor = None;
         let rows = thumb.len() / THUMB_W;
+        // Only a page seen on a screen of this size: the same thumbnail on a
+        // screen of another resolution would put its placements and strips
+        // in the wrong pixels.
+        let screen = s.screen;
         let seen = s.pics.values().find(|p| {
-            p.page_thumb.as_ref().is_some_and(|t| t.len() == thumb.len() && tracker::still_diff(t, thumb, &[], 0, rows) <= tracker::MATCH)
+            p.screen == screen
+                && p.page_thumb.as_ref().is_some_and(|t| t.len() == thumb.len() && tracker::still_diff(t, thumb, &[], 0, rows) <= tracker::MATCH)
         });
         let id = match seen.map(|p| p.id) {
             Some(id) => {
@@ -719,7 +731,7 @@ impl Backend {
             }
             None => {
                 let id = store::create_picture(db, s.book_id, "page", s.screen.0)?;
-                s.pics.insert(id, new_pic(id));
+                s.pics.insert(id, new_pic(id, s.screen));
                 id
             }
         };
@@ -875,6 +887,11 @@ impl Backend {
         // The fixed band does not move with the content: never stored after the first screen.
         let fixed_top = (s.fixed.0 as f64 * scale) as u32;
         let pic = s.pics.get_mut(&req.picture_id).unwrap();
+        if pic.screen != s.screen {
+            // Never reached while P6 closes a picture when the screen size
+            // changes: its strips must all be the picture's width.
+            return Err(ApiError("picture_closed"));
+        }
         let mut top = req.top;
         if !pic.covered.is_empty() {
             top = top.max(fixed_top);
@@ -1037,8 +1054,8 @@ impl Backend {
     }
 }
 
-fn new_pic(id: i64) -> Pic {
-    Pic { id, kind: "page", covered: vec![], detected: vec![], placements: vec![], page_thumb: None, retry: vec![], retry_at: 0, unbanded: None }
+fn new_pic(id: i64, screen: (u32, u32)) -> Pic {
+    Pic { id, kind: "page", screen, covered: vec![], detected: vec![], placements: vec![], page_thumb: None, retry: vec![], retry_at: 0, unbanded: None }
 }
 
 fn storage_error(e: std::io::Error) -> ApiError {

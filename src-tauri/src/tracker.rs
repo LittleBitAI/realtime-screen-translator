@@ -19,7 +19,6 @@ pub const MATCH: f32 = 6.0;
 /// blocked, the edge of the balloon showing around its shape.
 pub fn is_blocked(thumb: &[u8], mask: Mask) -> bool {
     let lit = thumb.iter().enumerate().filter(|&(i, &v)| v > 16 && (mask.is_empty() || !mask[i])).count();
-    // ponytail: a dark page whose balloons are all covered whole by their shapes reads as blocked.
     !thumb.is_empty() && lit * 1000 <= thumb.len() * 2
 }
 
