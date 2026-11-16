@@ -27,7 +27,8 @@ pub trait Platform: Send + Sync {
     fn export_dir(&self) -> PathBuf;
     /// Hand a written export over to where the person finds it (Android:
     /// MediaStore, the gallery) and say where it is now. Elsewhere the file
-    /// is already there.
+    /// is already there. An error that names `storage_full` means there was
+    /// no room for it (P11 `storage_full`); any other is `storage_denied`.
     fn publish(&self, path: &Path) -> Result<String, String> {
         Ok(path.to_string_lossy().into_owned())
     }

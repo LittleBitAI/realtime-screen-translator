@@ -786,7 +786,9 @@ impl Backend {
             // page turn away shows the page never scrolled (`take_edges`).
             let (y0, y1) = (c.y as u64, c.y as u64 + c.h as u64);
             let at_edge = c.kind == "dialogue" && y1 <= screen_h && (y0 as f32 <= detect::EDGE || y1 as f32 >= screen_h as f32 - detect::EDGE);
-            if at_edge && !slide {
+            // One already translated is the whole balloon (a cut one has another
+            // fingerprint and shape): its translation goes on at once.
+            if at_edge && !slide && !known_crop(st, &c) {
                 result.pending += 1;
                 st.session.as_mut().unwrap().pics.get_mut(&req.picture_id).unwrap().edge.push((c, offset));
                 continue;
@@ -1041,7 +1043,12 @@ impl Backend {
         self.platform.publish(path).map_err(|e| {
             eprintln!("cannot hand {} over: {e}", path.display());
             let _ = std::fs::remove_file(path);
-            ApiError("storage_denied")
+            // The platform names a full disk (`Platform::publish`); anything else is a refusal.
+            if e.contains("storage_full") {
+                ApiError("storage_full")
+            } else {
+                ApiError("storage_denied")
+            }
         })
     }
 }
@@ -1068,6 +1075,14 @@ fn encode_error(e: String) -> ApiError {
 /// unless its white shape, grown to hold the text, would cover more than
 /// half of a placement already there (or be more than half covered): the
 /// translation shown first stays (E6).
+/// Whether `c` is a balloon whose translation is stored and ready (A3).
+fn known_crop(st: &State, c: &CropIn) -> bool {
+    let Some(img) = export::decode_png(&c.image).filter(|i| (i.w, i.h) == (c.w, c.h)) else { return false };
+    let fp = fingerprint::dhash(&img.gray(), img.w as usize, img.h as usize);
+    let aspect = c.w.max(1) as f32 / c.h.max(1) as f32;
+    st.find_known(fp, aspect).is_some_and(|k| k.status == "ready")
+}
+
 /// One P7 crop of picture `picture_id` (frame at `offset`): the stored
 /// translation placed at once, or a Gemini job queued in `jobs`.
 fn take_crop(st: &mut State, picture_id: i64, c: CropIn, offset: i64, now: i64, result: &mut CropsOut, jobs: &mut Vec<Job>) -> ApiResult<()> {

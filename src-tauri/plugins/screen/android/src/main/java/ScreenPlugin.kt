@@ -246,10 +246,18 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
                 invoke.resolve(JSObject().apply { put("location", u.toString()) })
             } catch (e: Exception) {
                 uri?.let { runCatching { resolver.delete(it, null, null) } }
-                invoke.reject(e.message ?: "gallery save failed")
+                // No room in the gallery is told apart from a refusal (P11).
+                invoke.reject(if (noSpace(e)) "storage_full" else (e.message ?: "gallery save failed"))
             }
         }
     }
+
+    /** Whether [e] or one of its causes is the disk being full (ENOSPC). */
+    private fun noSpace(e: Throwable): Boolean =
+        generateSequence(e) { it.cause }.take(8).any {
+            (it is android.system.ErrnoException && it.errno == android.system.OsConstants.ENOSPC) ||
+                it.message?.contains("ENOSPC") == true || it.message?.contains("No space left") == true
+        }
 
     /** Answered with the next frame or button tap, whenever it comes. */
     @Command
