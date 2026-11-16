@@ -1,0 +1,13 @@
+[profile.default]
+slow-timeout = { period = "30s", terminate-after = 4 }
+
+# Measures response times: run it with nothing else competing for the CPU.
+[[profile.default.overrides]]
+filter = "test(=test_scroll_continues_while_gemini_is_slow)"
+threads-required = "num-cpus"
+
+[profile.ci]
+fail-fast = false
+
+[profile.ci.junit]
+path = "junit.xml"
