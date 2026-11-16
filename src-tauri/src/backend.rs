@@ -32,10 +32,11 @@ struct Known {
 struct Pic {
     id: i64,
     kind: &'static str,
-    /// Range saved as strips.
-    covered: Option<(i64, i64)>,
-    /// Range already sent to the local model for detection.
-    detected: Option<(i64, i64)>,
+    /// Ranges saved as strips (sorted, disjoint). A part scrolled past without
+    /// stopping stays a gap and is asked for when the screen rests on it.
+    covered: Vec<(i64, i64)>,
+    /// Ranges already sent to the local model for detection (sorted, disjoint).
+    detected: Vec<(i64, i64)>,
     placements: Vec<PlacementRow>,
     /// Settled thumbnail of a page, to recognise it when the reader comes back.
     page_thumb: Option<Vec<u8>>,
@@ -81,13 +82,15 @@ impl Session {
         let id = self.current?;
         self.pics.get_mut(&id)
     }
-    fn frame_offset(&self, seq: u64, picture_id: i64) -> i64 {
+    /// Where frame `seq` stood. A frame too old to remember cannot be placed:
+    /// the current position would put its crops and strips in the wrong rows.
+    fn frame_offset(&self, seq: u64, picture_id: i64) -> ApiResult<i64> {
         self.frames
             .iter()
             .rev()
             .find(|(s, p, _)| *s == seq && *p == picture_id)
             .map(|f| f.2)
-            .unwrap_or(self.scroll_y)
+            .ok_or(ApiError("frame_unknown"))
     }
     /// Placements of the current picture that are on screen, in screen coordinates.
     fn visible(&self) -> Vec<PlacementOut> {
@@ -143,23 +146,52 @@ pub struct Backend {
     agent: OnceLock<ureq::Agent>,
 }
 
-/// `a..b` minus `have`, the part of the screen not handled yet.
-fn new_part(vis: (i64, i64), have: Option<(i64, i64)>) -> Option<(i64, i64)> {
-    let Some(have) = have else { return Some(vis) };
-    if vis.1 <= have.0 || vis.0 >= have.1 {
-        return Some(vis);
+/// The parts of `r` outside `have` (sorted, disjoint), top to bottom.
+fn missing(r: (i64, i64), have: &[(i64, i64)]) -> Vec<(i64, i64)> {
+    let mut out = vec![];
+    let mut a = r.0;
+    for &(t, b) in have {
+        if b <= a {
+            continue;
+        }
+        if t >= r.1 {
+            break;
+        }
+        if t > a {
+            out.push((a, t));
+        }
+        a = b;
+        if a >= r.1 {
+            break;
+        }
     }
-    if vis.1 > have.1 {
-        Some((have.1.max(vis.0), vis.1))
-    } else if vis.0 < have.0 {
-        Some((vis.0, have.0.min(vis.1)))
-    } else {
-        None
+    if a < r.1 {
+        out.push((a, r.1));
     }
+    out
 }
 
-fn hull(a: Option<(i64, i64)>, b: (i64, i64)) -> (i64, i64) {
-    a.map(|a| (a.0.min(b.0), a.1.max(b.1))).unwrap_or(b)
+/// The biggest part of the screen not handled yet; the rest is asked for on the next resting frame.
+fn new_part(vis: (i64, i64), have: &[(i64, i64)]) -> Option<(i64, i64)> {
+    missing(vis, have).into_iter().max_by_key(|p| (p.1 - p.0, -p.0))
+}
+
+/// Add `r` to the sorted, disjoint `have`, merging what touches.
+fn add(have: &mut Vec<(i64, i64)>, r: (i64, i64)) {
+    have.push(r);
+    have.sort();
+    let mut merged: Vec<(i64, i64)> = vec![];
+    for &(t, b) in have.iter() {
+        match merged.last_mut() {
+            Some(last) if t <= last.1 => last.1 = last.1.max(b),
+            _ => merged.push((t, b)),
+        }
+    }
+    *have = merged;
+}
+
+fn hull(have: &[(i64, i64)]) -> Option<(i64, i64)> {
+    Some((have.first()?.0, have.last()?.1))
 }
 
 fn overlap(a: (i64, i64, u32, u32), b: (i64, i64, u32, u32)) -> f64 {
@@ -449,11 +481,11 @@ impl Backend {
             let scroll_y = s.scroll_y;
             if let Some(pic) = s.pic() {
                 let vis = (scroll_y + ft, scroll_y + h - fb);
-                if let Some(d) = new_part(vis, pic.detected) {
-                    pic.detected = Some(hull(pic.detected, d));
+                if let Some(d) = new_part(vis, &pic.detected) {
+                    add(&mut pic.detected, d);
                     detect = Some(Range { top: (d.0 - scroll_y) as u32, bottom: (d.1 - scroll_y) as u32 });
                 }
-                if let Some(d) = new_part(vis, pic.covered) {
+                if let Some(d) = new_part(vis, &pic.covered) {
                     save = Some(Range { top: (d.0 - scroll_y) as u32, bottom: (d.1 - scroll_y) as u32 });
                 }
                 if pic.kind == "page" && scroll_y == 0 && pic.page_thumb.is_none() {
@@ -521,7 +553,7 @@ impl Backend {
         }
         let key = st.key.clone().ok_or(ApiError("key_missing"))?;
         let s = st.session.as_mut().unwrap();
-        let offset = s.frame_offset(req.frame_seq, req.picture_id);
+        let offset = s.frame_offset(req.frame_seq, req.picture_id)?;
         let mut result = CropsOut { placed: vec![], pending: 0, skipped_effects: 0, discarded: 0 };
         let mut jobs: Vec<Job> = vec![];
         let now = now_ms();
@@ -635,48 +667,46 @@ impl Backend {
         if req.bottom <= req.top {
             return Err(ApiError("already_covered"));
         }
-        let offset = s.frame_offset(req.frame_seq, req.picture_id);
+        let offset = s.frame_offset(req.frame_seq, req.picture_id)?;
         let scale = s.scale();
         // The fixed band does not move with the content: never stored after the first screen.
         let fixed_top = (s.fixed.0 as f64 * scale) as u32;
         let pic = s.pics.get_mut(&req.picture_id).unwrap();
         let mut top = req.top;
-        if pic.covered.is_some() {
+        if !pic.covered.is_empty() {
             top = top.max(fixed_top);
         }
-        let mut range = (offset + top as i64, offset + req.bottom as i64);
-        if let Some(c) = pic.covered {
-            if range.0 >= c.0 && range.1 <= c.1 {
-                return Err(ApiError("already_covered"));
-            }
-            if range.0 < c.1 && range.1 > c.1 {
-                range.0 = c.1;
-            } else if range.1 > c.0 && range.0 < c.0 {
-                range.1 = c.0;
-            }
+        // Only what is not saved yet is kept, gaps included.
+        let parts = missing((offset + top as i64, offset + req.bottom as i64), &pic.covered);
+        if parts.is_empty() {
+            return Err(ApiError("already_covered"));
         }
         // The strip must really be screen rows top..bottom, or the export is wrong.
         let img = export::decode_png(&req.image).ok_or(ApiError("bad_image"))?;
         if img.w != s.screen.0 || img.h != req.bottom - req.top {
             return Err(ApiError("bad_image"));
         }
-        let (a, b) = ((range.0 - offset) as u32, (range.1 - offset) as u32);
-        let bytes = if (a, b) == (req.top, req.bottom) {
-            req.image
-        } else {
-            export::encode_png(&export::rows(&img, a - req.top, b - req.top)).map_err(encode_error)?
-        };
         let dir = self.data_dir.join("strips").join(req.picture_id.to_string());
-        let name = format!("{}-{}.png", range.0, now_ms());
-        let path = dir.join(name);
-        std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(&path, &bytes)).map_err(storage_error)?;
-        let strip_id = store::insert_strip(&st.db, req.picture_id, range.0, (range.1 - range.0) as u32, &path.to_string_lossy(), now_ms())?;
+        std::fs::create_dir_all(&dir).map_err(storage_error)?;
+        let mut first_id = None;
+        for range in parts {
+            let (a, b) = ((range.0 - offset) as u32, (range.1 - offset) as u32);
+            let bytes = if (a, b) == (req.top, req.bottom) {
+                req.image.clone()
+            } else {
+                export::encode_png(&export::rows(&img, a - req.top, b - req.top)).map_err(encode_error)?
+            };
+            let path = dir.join(format!("{}-{}.png", range.0, now_ms()));
+            std::fs::write(&path, &bytes).map_err(storage_error)?;
+            let id = store::insert_strip(&st.db, req.picture_id, range.0, (range.1 - range.0) as u32, &path.to_string_lossy(), now_ms())?;
+            first_id.get_or_insert(id);
+            let s = st.session.as_mut().unwrap();
+            add(&mut s.pics.get_mut(&req.picture_id).unwrap().covered, range);
+        }
         let s = st.session.as_mut().unwrap();
-        let pic = s.pics.get_mut(&req.picture_id).unwrap();
-        let covered = hull(pic.covered, range);
-        pic.covered = Some(covered);
+        let covered = hull(&s.pics[&req.picture_id].covered).unwrap_or_default();
         store::set_covered(&st.db, req.picture_id, covered.0, covered.1)?;
-        Ok(StripOut { strip_id, picture_height: (covered.1 - covered.0) as u32 })
+        Ok(StripOut { strip_id: first_id.unwrap_or_default(), picture_height: (covered.1 - covered.0) as u32 })
     }
 
     // ---- P10, P11
@@ -735,12 +765,24 @@ impl Backend {
         let stem = book.title.replace([':', ' ', '/', '\\'], "-");
         let mut files = vec![];
         for (i, (p, strips, placements)) in pictures.iter().enumerate() {
-            let img = export::render(p.width, p.covered_top, p.covered_bottom, strips, placements).map_err(storage_error)?;
-            // A long scroll picture is taller than WebP allows: it goes out in parts.
-            let parts = if ext == "png" { vec![img] } else { export::split_rows(img, export::WEBP_MAX) };
-            let many = parts.len() > 1;
-            for (k, part) in parts.iter().enumerate() {
-                let bytes = if ext == "png" { export::encode_png(part) } else { export::encode_webp(part) }.map_err(encode_error)?;
+            let (top, bottom) = (p.covered_top, p.covered_bottom.max(p.covered_top + 1));
+            if ext == "png" {
+                // Streamed band by band: a long scroll picture never sits in memory whole.
+                let path = export::free_path(&dir, &format!("translated-{stem}-{}", i + 1), ext);
+                let written = std::fs::File::create(&path)
+                    .and_then(|f| export::write_png(std::io::BufWriter::new(f), p.width, top, bottom, strips, placements));
+                if let Err(e) = written {
+                    let _ = std::fs::remove_file(&path);
+                    return Err(storage_error(e));
+                }
+                files.push(path.to_string_lossy().to_string());
+                continue;
+            }
+            // WebP is at most 16383 rows: a longer picture goes out in parts.
+            let many = bottom - top > export::WEBP_MAX as i64;
+            for (k, t) in (top..bottom).step_by(export::WEBP_MAX as usize).enumerate() {
+                let part = export::render(p.width, t, (t + export::WEBP_MAX as i64).min(bottom), strips, placements).map_err(storage_error)?;
+                let bytes = export::encode_webp(&part).map_err(encode_error)?;
                 let stem = if many { format!("translated-{stem}-{}-{}", i + 1, k + 1) } else { format!("translated-{stem}-{}", i + 1) };
                 let path = export::free_path(&dir, &stem, ext);
                 std::fs::write(&path, bytes).map_err(storage_error)?;
@@ -752,7 +794,7 @@ impl Backend {
 }
 
 fn new_pic(id: i64) -> Pic {
-    Pic { id, kind: "page", covered: None, detected: None, placements: vec![], page_thumb: None }
+    Pic { id, kind: "page", covered: vec![], detected: vec![], placements: vec![], page_thumb: None }
 }
 
 fn storage_error(e: std::io::Error) -> ApiError {
@@ -891,10 +933,23 @@ mod tests {
 
     #[test]
     fn new_part_is_what_the_screen_adds() {
-        assert_eq!(new_part((300, 2700), Some((0, 2400))), Some((2400, 2700)));
-        assert_eq!(new_part((700, 3100), Some((0, 3600))), None);
-        assert_eq!(new_part((0, 2400), None), Some((0, 2400)));
-        assert_eq!(new_part((-300, 2100), Some((0, 2400))), Some((-300, 0)));
+        assert_eq!(new_part((300, 2700), &[(0, 2400)]), Some((2400, 2700)));
+        assert_eq!(new_part((700, 3100), &[(0, 3600)]), None);
+        assert_eq!(new_part((0, 2400), &[]), Some((0, 2400)));
+        assert_eq!(new_part((-300, 2100), &[(0, 2400)]), Some((-300, 0)));
+    }
+
+    #[test]
+    fn a_range_scrolled_past_stays_a_gap_until_saved() {
+        let mut have = vec![];
+        add(&mut have, (0, 2400));
+        add(&mut have, (3600, 6000));
+        assert_eq!(have, vec![(0, 2400), (3600, 6000)]);
+        assert_eq!(new_part((2400, 4800), &have), Some((2400, 3600)));
+        assert_eq!(missing((2000, 4000), &have), vec![(2400, 3600)]);
+        add(&mut have, (2400, 3600));
+        assert_eq!(have, vec![(0, 6000)]);
+        assert_eq!(new_part((2400, 4800), &have), None);
     }
 
     #[test]

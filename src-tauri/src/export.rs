@@ -17,19 +17,19 @@ pub struct Rgb {
 
 impl Rgb {
     pub fn new(w: u32, h: u32) -> Rgb {
-        Rgb { w, h, px: vec![255; (w * h * 3) as usize] }
+        Rgb { w, h, px: vec![255; w as usize * h as usize * 3] }
     }
 
     fn put(&mut self, x: i64, y: i64, c: [u8; 3]) {
         if x >= 0 && y >= 0 && (x as u32) < self.w && (y as u32) < self.h {
-            let i = ((y as u32 * self.w + x as u32) * 3) as usize;
+            let i = (y as usize * self.w as usize + x as usize) * 3;
             self.px[i..i + 3].copy_from_slice(&c);
         }
     }
 
     fn darken(&mut self, x: i64, y: i64, coverage: f32) {
         if x >= 0 && y >= 0 && (x as u32) < self.w && (y as u32) < self.h {
-            let i = ((y as u32 * self.w + x as u32) * 3) as usize;
+            let i = (y as usize * self.w as usize + x as usize) * 3;
             let k = 1.0 - coverage.clamp(0.0, 1.0);
             for v in &mut self.px[i..i + 3] {
                 *v = (*v as f32 * k) as u8;
@@ -82,16 +82,8 @@ pub fn encode_webp(img: &Rgb) -> Result<Vec<u8>, String> {
 /// Rows `top..bottom` of `img`.
 pub fn rows(img: &Rgb, top: u32, bottom: u32) -> Rgb {
     let bottom = bottom.min(img.h);
-    let (a, b) = ((top * img.w * 3) as usize, (bottom * img.w * 3) as usize);
-    Rgb { w: img.w, h: bottom - top, px: img.px[a..b].to_vec() }
-}
-
-/// `img` cut into pieces at most `max` rows tall, top to bottom.
-pub fn split_rows(img: Rgb, max: u32) -> Vec<Rgb> {
-    if img.h <= max {
-        return vec![img];
-    }
-    (0..img.h).step_by(max as usize).map(|t| rows(&img, t, t + max)).collect()
+    let row = img.w as usize * 3;
+    Rgb { w: img.w, h: bottom - top, px: img.px[top as usize * row..bottom as usize * row].to_vec() }
 }
 
 const FONT_PATHS: [&str; 8] = [
@@ -179,11 +171,30 @@ pub fn draw_placement(img: &mut Rgb, p: &PlacementRow) {
     }
 }
 
-/// One picture: its strips stitched from `top`, then its placements baked in.
+/// Rows rendered at a time, so a long picture never sits in memory whole.
+pub const BAND: i64 = 2048;
+
+/// Picture rows `top..bottom` written as one PNG, rendered and encoded band by band.
+pub fn write_png(out: impl std::io::Write + 'static, width: u32, top: i64, bottom: i64, strips: &[StripRow], placements: &[PlacementRow]) -> std::io::Result<()> {
+    let bottom = bottom.max(top + 1);
+    let mut enc = png::Encoder::new(out, width, (bottom - top) as u32);
+    enc.set_color(png::ColorType::Rgb);
+    enc.set_depth(png::BitDepth::Eight);
+    let mut w = enc.write_header().map_err(std::io::Error::other)?.into_stream_writer().map_err(std::io::Error::other)?;
+    let mut t = top;
+    while t < bottom {
+        let b = (t + BAND).min(bottom);
+        std::io::Write::write_all(&mut w, &render(width, t, b, strips, placements)?.px)?;
+        t = b;
+    }
+    w.finish().map_err(std::io::Error::other)
+}
+
+/// Picture rows `top..bottom`: the strips over them, then the placements baked in.
 pub fn render(width: u32, top: i64, bottom: i64, strips: &[StripRow], placements: &[PlacementRow]) -> std::io::Result<Rgb> {
     let height = (bottom - top).max(1) as u32;
     let mut img = Rgb::new(width, height);
-    for s in strips {
+    for s in strips.iter().filter(|s| s.y_start < top + height as i64 && s.y_start + s.height as i64 > top) {
         let bytes = std::fs::read(&s.file_path).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, format!("{}: {e}", s.file_path)))?;
         // A strip that cannot be read would leave a white gap in the export.
         let strip = decode_png(&bytes)
@@ -200,7 +211,7 @@ pub fn render(width: u32, top: i64, bottom: i64, strips: &[StripRow], placements
             img.px[dst..dst + w * 3].copy_from_slice(&strip.px[src..src + w * 3]);
         }
     }
-    for p in placements {
+    for p in placements.iter().filter(|p| p.y < top + height as i64 && p.y + p.h as i64 > top) {
         let mut q = p.clone();
         q.y -= top;
         draw_placement(&mut img, &q);
@@ -236,13 +247,29 @@ mod tests {
     }
 
     #[test]
-    fn too_tall_webp_is_refused_and_split_parts_encode() {
-        let tall = Rgb { w: 4, h: WEBP_MAX + 100, px: vec![200; (4 * (WEBP_MAX + 100) * 3) as usize] };
+    fn too_tall_webp_is_refused() {
+        let tall = Rgb::new(4, WEBP_MAX + 100);
         assert!(encode_webp(&tall).is_err());
-        let parts = split_rows(tall, WEBP_MAX);
-        assert_eq!(parts.iter().map(|p| p.h).collect::<Vec<_>>(), vec![WEBP_MAX, 100]);
-        for p in &parts {
-            assert!(encode_webp(p).is_ok_and(|b| b.starts_with(b"RIFF")));
+        assert!(encode_webp(&rows(&tall, 0, WEBP_MAX)).is_ok_and(|b| b.starts_with(b"RIFF")));
+    }
+
+    #[test]
+    fn long_picture_is_written_band_by_band() {
+        let dir = std::env::temp_dir().join(format!("rst-band-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut strips = vec![];
+        for (i, shade) in [(0i64, 10u8), (1, 200)] {
+            let path = dir.join(format!("{i}.png"));
+            std::fs::write(&path, encode_png(&Rgb { w: 4, h: 3000, px: vec![shade; 4 * 3000 * 3] }).unwrap()).unwrap();
+            strips.push(StripRow { y_start: i * 3000, height: 3000, file_path: path.to_string_lossy().into() });
         }
+        let out = dir.join("out.png");
+        write_png(std::fs::File::create(&out).unwrap(), 4, 0, 6000, &strips, &[]).unwrap();
+        let img = decode_png(&std::fs::read(&out).unwrap()).unwrap();
+        assert_eq!((img.w, img.h), (4, 6000));
+        assert_eq!((img.px[0], img.px[2999 * 12], img.px[3000 * 12], img.px[5999 * 12]), (10, 10, 200, 200));
+        std::fs::remove_file(&strips[0].file_path).unwrap();
+        assert_eq!(write_png(std::io::sink(), 4, 0, 6000, &strips, &[]).unwrap_err().kind(), std::io::ErrorKind::InvalidData);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

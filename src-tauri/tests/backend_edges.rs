@@ -90,6 +90,43 @@ fn same_balloon_seen_in_several_places_while_waiting_is_placed_everywhere() {
 }
 
 #[test]
+fn part_scrolled_past_without_stopping_is_saved_when_the_screen_rests_on_it() {
+    let mut app = App::on();
+    let scene = Scene::new(46);
+    app.read_and_save(&scene, 0);
+    for offset in [600, 1200, 1800, 2400, 3000, 3600] {
+        app.show(&scene, offset);
+    }
+    app.read_and_save(&scene, 3600);
+    assert_eq!(app.last_height, Some(6000));
+
+    let rest = app.settle(&scene, 2400);
+    let ranges: Vec<_> = rest.iter().filter_map(|f| f.save).collect();
+    assert_eq!(ranges.first(), Some(&(0, 1200)), "the gap 2400..3600 was not asked for: {ranges:?}");
+    let saved = app.strip(&scene, 2400, (0, 2400), rest[0].seq).expect("the gap was refused");
+    assert_eq!(saved["picture_height"], 6000);
+    let again = app.strip(&scene, 2400, (0, 2400), rest[1].seq);
+    assert_eq!(again.expect_err("the gap was saved twice"), "already_covered");
+}
+
+#[test]
+fn crop_of_a_forgotten_frame_is_refused() {
+    let mut app = App::on();
+    let scene = Scene::new(47);
+    let old = app.settle(&scene, 0)[1].seq;
+    for _ in 0..70 {
+        app.show(&scene, 0);
+    }
+    let picture_id = app.picture_id.unwrap();
+    let crop = Balloon::new(200, 500, 160, 200, 471).dialogue().to_json();
+    let err = app.host.err("post_crops", json!({"picture_id": picture_id, "frame_seq": old, "crops": [crop]}));
+    assert_eq!(err, "frame_unknown");
+    let image = scene.screen_png(0, SCREEN_W, SCREEN_H, 0, 100);
+    let err = app.host.err("post_strips", json!({"picture_id": picture_id, "frame_seq": old, "top": 0, "bottom": 100, "image": image}));
+    assert_eq!(err, "frame_unknown");
+}
+
+#[test]
 fn no_retry_goes_out_after_stop() {
     let mut app = App::on();
     app.settle(&Scene::new(45), 0);
