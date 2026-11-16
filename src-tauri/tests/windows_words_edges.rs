@@ -103,3 +103,44 @@ fn where_the_overlay_is_captured_its_place_is_left_out_of_the_comparison() {
     assert_eq!(first.motion, "still");
     assert_eq!(second.picture_id, a.picture_id);
 }
+
+#[test]
+fn where_the_overlay_is_not_captured_the_whole_text_area_is_read_at_once() {
+    let dirs = Dirs::new();
+    let gemini = Gemini::start();
+    let device = Device { export: dirs.export.clone(), overlay_in_capture: false };
+    let backend = Backend::open(dirs.data.clone(), Some(gemini.url.clone()), Arc::new(device)).unwrap();
+    backend.put_key(KeyIn { key: TEST_KEY.into() }).unwrap();
+    backend.start().unwrap();
+    let scene = Scene::new(2202);
+    let mut seq = 0u64;
+    let mut send = |offset: i64| {
+        seq += 1;
+        let thumb = scene.thumb(offset, SCREEN_W, SCREEN_H);
+        (seq, backend.frame(FrameIn { seq, width: SCREEN_W, height: SCREEN_H, thumb, captured_at: seq as i64 * 100 }).unwrap())
+    };
+    send(0);
+    let (s0, f) = send(0);
+    let (cut, whole) = (Balloon::new(200, 2200, 120, 200, 2203), Balloon::new(200, 1900, 120, 400, 2204));
+    gemini.read_as(cut.size(), "うん");
+    gemini.translate_as("うん", "응");
+    gemini.read_as(whole.size(), "そうだね");
+    gemini.translate_as("そうだね", "그렇지");
+    let crop = |b: &Balloon, y: u32| CropIn { x: 200, y, w: b.w, h: b.h, kind: "dialogue".into(), score: 0.9, image: b.png(0, 0) };
+    let shown = |ko: &str| backend.placements(Default::default()).unwrap().placements.iter().any(|p| p.ko == ko);
+    backend.crops(CropsIn { picture_id: f.picture_id, frame_seq: s0, crops: vec![crop(&cut, 2200)] }).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while !shown("응") {
+        assert!(Instant::now() < deadline, "the cut text area was not read");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    send(300);
+    let (s1, g) = send(300);
+    // The frame shows the page under the translations: nothing to wait for.
+    backend.crops(CropsIn { picture_id: g.picture_id, frame_seq: s1, crops: vec![crop(&whole, 1900)] }).unwrap();
+    while !shown("그렇지") {
+        assert!(Instant::now() < deadline, "the whole text area was not read from the frame it was seen in");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    std::mem::forget(dirs);
+}

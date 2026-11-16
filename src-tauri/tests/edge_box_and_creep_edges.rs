@@ -160,7 +160,22 @@ fn a_text_area_cut_by_the_edge_gives_way_to_the_whole_one_a_scroll_shows() {
     assert_eq!(run.send(scene.thumb(300, SCREEN_W, SCREEN_H)).motion, "scroll");
     let g = run.send(scene.thumb(300, SCREEN_W, SCREEN_H));
     assert_eq!(g.picture_id, f.picture_id);
-    run.backend.crops(CropsIn { picture_id: g.picture_id, frame_seq: run.seq, crops: vec![crop(&whole, 1900)] }).unwrap();
+    // This frame shows the cut one's white shape over the balloon (the
+    // capture holds the overlay): it goes, and the Japanese is read from a
+    // frame taken once the shape is gone.
+    let rows = |f: &FrameOut| f.detect.as_ref().is_some_and(|r| r.top <= 1900 && r.bottom >= 2300);
+    let held = run.backend.crops(CropsIn { picture_id: g.picture_id, frame_seq: run.seq, crops: vec![crop(&whole, 1900)] }).unwrap();
+    assert_eq!(held.pending, 1);
+    assert!(run.backend.placements(Default::default()).unwrap().placements.is_empty(), "the cut translation stayed");
+    // The next frame was taken before the overlay was drawn again.
+    let h = run.send(scene.thumb(300, SCREEN_W, SCREEN_H));
+    assert!(h.placements.is_empty() && rows(&h), "the text area was not asked for again: {:?}", h.detect);
+    run.backend.crops(CropsIn { picture_id: h.picture_id, frame_seq: run.seq, crops: vec![crop(&whole, 1900)] }).unwrap();
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(run.gemini.count(), 2, "a crop that may show the white shape went to Gemini");
+    let i = run.send(scene.thumb(300, SCREEN_W, SCREEN_H));
+    assert!(rows(&i), "the text area was not asked for again: {:?}", i.detect);
+    run.backend.crops(CropsIn { picture_id: i.picture_id, frame_seq: run.seq, crops: vec![crop(&whole, 1900)] }).unwrap();
     run.wait_for("the cut translation was not replaced by the whole one", || {
         let shown = run.backend.placements(Default::default()).unwrap().placements;
         shown.len() == 1 && shown[0].ko == "그렇지"

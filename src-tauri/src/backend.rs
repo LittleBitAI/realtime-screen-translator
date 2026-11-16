@@ -56,6 +56,10 @@ struct Pic {
     /// coordinates), which the edge may have cut: one seen larger later
     /// replaces what was placed for it (`take_crop`).
     edge_rects: Vec<(i64, i64, u32, u32)>,
+    /// Placements taken away while the capture holds the overlay (A6), with
+    /// the first frame seq taken after the overlay stopped drawing them: the
+    /// white shape stays in the frames before, over the Japanese.
+    erased: Vec<(Rect, u64)>,
 }
 
 const RETRY_MS: i64 = 15_000;
@@ -808,7 +812,7 @@ impl Backend {
         let mut jobs: Vec<Job> = vec![];
         let now = now_ms();
         for c in req.crops {
-            take_crop(st, req.picture_id, c, offset, now, &mut result, &mut jobs)?;
+            take_crop(st, req.picture_id, c, (req.frame_seq, offset), now, &mut result, &mut jobs)?;
         }
         self.send_jobs(guard, key, jobs);
         Ok(result)
@@ -1055,7 +1059,7 @@ impl Backend {
 }
 
 fn new_pic(id: i64, screen: (u32, u32)) -> Pic {
-    Pic { id, kind: "page", screen, covered: vec![], detected: vec![], placements: vec![], page_thumb: None, retry: vec![], retry_at: 0, unbanded: None, edge_rects: vec![] }
+    Pic { id, kind: "page", screen, covered: vec![], detected: vec![], placements: vec![], page_thumb: None, retry: vec![], retry_at: 0, unbanded: None, edge_rects: vec![], erased: vec![] }
 }
 
 fn storage_error(e: std::io::Error) -> ApiError {
@@ -1087,9 +1091,14 @@ fn grows(small: (i64, i64, u32, u32), big: (i64, i64, u32, u32)) -> bool {
 }
 
 /// A text area taken at the screen's edge that `rect` shows larger was cut
-/// there: its placements and the answer still awaited for it go.
+/// there: its placements and the answer still awaited for it go. Where the
+/// capture holds the overlay their shapes are remembered as erased.
 fn replace_cut(st: &mut State, picture_id: i64, rect: (i64, i64, u32, u32)) -> ApiResult<()> {
     let s = st.session.as_mut().unwrap();
+    // This frame and the next still show the overlay as it was drawn before
+    // (`Backend::frame`): the frame after them is the first without the shape.
+    let clean_from = s.last_seq.unwrap_or(0) + 2;
+    let in_capture = s.overlay_in_capture;
     let pic = s.pics.get_mut(&picture_id).unwrap();
     let cut: Vec<_> = pic.edge_rects.iter().copied().filter(|&e| grows(e, rect)).collect();
     if cut.is_empty() {
@@ -1098,6 +1107,9 @@ fn replace_cut(st: &mut State, picture_id: i64, rect: (i64, i64, u32, u32)) -> A
     pic.edge_rects.retain(|e| !cut.contains(e));
     let (gone, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut pic.placements).into_iter().partition(|p| cut.iter().any(|&e| overlap(e, (p.x, p.y, p.w, p.h)) > 0.5));
     pic.placements = kept;
+    if in_capture {
+        pic.erased.extend(gone.iter().map(|p| ((p.x, p.y, p.w, p.h), clean_from)));
+    }
     for p in s.pending.iter_mut() {
         p.targets.retain(|t| !(t.0 == picture_id && cut.contains(&t.1)));
     }
@@ -1112,7 +1124,7 @@ fn replace_cut(st: &mut State, picture_id: i64, rect: (i64, i64, u32, u32)) -> A
 
 /// One P7 crop of picture `picture_id` (frame at `offset`): the stored
 /// translation placed at once, or a Gemini job queued in `jobs`.
-fn take_crop(st: &mut State, picture_id: i64, c: CropIn, offset: i64, now: i64, result: &mut CropsOut, jobs: &mut Vec<Job>) -> ApiResult<()> {
+fn take_crop(st: &mut State, picture_id: i64, c: CropIn, (seq, offset): (u64, i64), now: i64, result: &mut CropsOut, jobs: &mut Vec<Job>) -> ApiResult<()> {
     let screen = st.session.as_ref().ok_or(ApiError("not_on"))?.screen;
     if c.kind == "effect" {
         result.skipped_effects += 1;
@@ -1140,6 +1152,16 @@ fn take_crop(st: &mut State, picture_id: i64, c: CropIn, offset: i64, now: i64, 
     // cut: what was placed or asked for it gives way to the whole one.
     let at_edge = c.y as f32 <= detect::EDGE || (c.y + c.h) as f32 >= screen.1 as f32 - detect::EDGE;
     replace_cut(st, picture_id, rect)?;
+    // A frame that may still show an erased shape over this text area shows
+    // our white, not the Japanese under it: its rows are looked at again in
+    // a later frame (A6).
+    let pic = st.session.as_mut().unwrap().pics.get_mut(&picture_id).unwrap();
+    if pic.erased.iter().any(|&(e, from)| seq < from && overlap(e, rect) > 0.0) {
+        subtract(&mut pic.detected, (rect.1, rect.1 + rect.3 as i64));
+        result.pending += 1;
+        return Ok(());
+    }
+    pic.erased.retain(|&(_, from)| seq < from);
     if at_edge {
         st.session.as_mut().unwrap().pics.get_mut(&picture_id).unwrap().edge_rects.push(rect);
     }
