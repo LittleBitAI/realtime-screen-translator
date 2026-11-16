@@ -534,7 +534,10 @@ impl Backend {
         }
         let scale = s.scale();
 
-        if tracker::is_blocked(&thumb) {
+        // The overlay is left out as in the comparisons below: on Android the
+        // capture holds the white shapes over a blocked app as well.
+        let shapes = s.overlay_mask(&[s.scroll_y, s.drawn_before]);
+        if tracker::is_blocked(&thumb, &shapes) {
             st.notice = Some("capture_blocked");
             let s = st.session.as_mut().unwrap();
             return Ok(FrameOut {

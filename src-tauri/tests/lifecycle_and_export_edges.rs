@@ -152,6 +152,6 @@ fn a_black_capture_with_a_stray_lit_pixel_in_it_is_blocked() {
     let w = THUMB_W as usize;
     let mut thumb = vec![0u8; w * rows];
     thumb[(rows / 2) * w + 40] = 255;
-    assert!(tracker::is_blocked(&thumb), "a stray pixel made a blocked capture a picture");
-    assert!(!tracker::is_blocked(&Scene::new(602).thumb(0, SCREEN_W, SCREEN_H)));
+    assert!(tracker::is_blocked(&thumb, &[]), "a stray pixel made a blocked capture a picture");
+    assert!(!tracker::is_blocked(&Scene::new(602).thumb(0, SCREEN_W, SCREEN_H), &[]));
 }

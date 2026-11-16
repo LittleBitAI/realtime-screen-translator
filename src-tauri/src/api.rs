@@ -23,7 +23,11 @@ impl std::error::Error for ApiError {}
 impl From<rusqlite::Error> for ApiError {
     fn from(e: rusqlite::Error) -> ApiError {
         eprintln!("database error: {e}");
-        ApiError("internal")
+        // A full disk is told as such (P9, P11), wherever the database meets it.
+        match e.sqlite_error_code() {
+            Some(rusqlite::ErrorCode::DiskFull) => ApiError("storage_full"),
+            _ => ApiError("internal"),
+        }
     }
 }
 

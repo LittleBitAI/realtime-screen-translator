@@ -18,6 +18,7 @@ use windows::core::{factory, Interface};
 use windows::Graphics::Capture::{Direct3D11CaptureFramePool, GraphicsCaptureItem, GraphicsCaptureSession};
 use windows::Graphics::DirectX::Direct3D11::IDirect3DDevice;
 use windows::Graphics::DirectX::DirectXPixelFormat;
+use windows::Graphics::SizeInt32;
 use windows::Win32::Foundation::{HMODULE, POINT};
 use windows::Win32::Graphics::Direct3D::D3D_DRIVER_TYPE_HARDWARE;
 use windows::Win32::Graphics::Direct3D11::*;
@@ -73,6 +74,9 @@ struct Wgc {
     pool: Direct3D11CaptureFramePool,
     session: GraphicsCaptureSession,
     staging: Option<(ID3D11Texture2D, u32, u32)>,
+    d3d: IDirect3DDevice,
+    /// The size the frame pool was made for: the monitor's, when last seen.
+    size: SizeInt32,
 }
 
 impl Wgc {
@@ -102,12 +106,13 @@ impl Wgc {
         let interop = factory::<GraphicsCaptureItem, IGraphicsCaptureItemInterop>()?;
         // SAFETY: the primary monitor handle is valid for the session's lifetime.
         let item: GraphicsCaptureItem = unsafe { interop.CreateForMonitor(MonitorFromPoint(POINT { x: 0, y: 0 }, MONITOR_DEFAULTTOPRIMARY))? };
-        let pool = Direct3D11CaptureFramePool::CreateFreeThreaded(&d3d, DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, item.Size()?)?;
+        let size = item.Size()?;
+        let pool = Direct3D11CaptureFramePool::CreateFreeThreaded(&d3d, DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, size)?;
         let session = pool.CreateCaptureSession(&item)?;
         let _ = session.SetIsCursorCaptureEnabled(false);
         let _ = session.SetIsBorderRequired(false);
         session.StartCapture()?;
-        Ok(Wgc { device, ctx, pool, session, staging: None })
+        Ok(Wgc { device, ctx, pool, session, staging: None, d3d, size })
     }
 
     /// The newest frame since the last call, as RGB.
@@ -117,6 +122,17 @@ impl Wgc {
             newest = Some(f);
         }
         let Some(frame) = newest else { return Ok(None) };
+        let content = frame.ContentSize()?;
+        if content != self.size {
+            // The monitor turned or changed resolution: the pool is made
+            // again in the new size, so frames hold the whole screen in its
+            // own coordinates (P6 starts a new picture in that size). This
+            // frame, laid out for the old size, is dropped.
+            let _ = frame.Close();
+            self.pool.Recreate(&self.d3d, DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, content)?;
+            self.size = content;
+            return Ok(None);
+        }
         let access: IDirect3DDxgiInterfaceAccess = frame.Surface()?.cast()?;
         // SAFETY: the surface of a live frame is a D3D11 texture.
         let tex: ID3D11Texture2D = unsafe { access.GetInterface()? };

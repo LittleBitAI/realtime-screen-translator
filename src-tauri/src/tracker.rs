@@ -13,10 +13,13 @@ pub const MATCH: f32 = 6.0;
 /// A capture blocked by the app shows up as a black frame with only what the
 /// system draws over it. The capture loop blacks that out before P6 (the
 /// system bars where the platform reports them, this app's own button:
-/// `pipeline::step`), so anything lit beyond a few stray pixels is a picture,
-/// wherever it is: a dark page with one white balloon on it is not blocked.
-pub fn is_blocked(thumb: &[u8]) -> bool {
-    let lit = thumb.iter().filter(|&&v| v > 16).count();
+/// `pipeline::step`), and `mask` leaves out this app's white shapes, which
+/// the Android capture holds. Anything else lit beyond a few stray pixels is
+/// a picture, wherever it is: a dark page with one white balloon on it is not
+/// blocked, the edge of the balloon showing around its shape.
+pub fn is_blocked(thumb: &[u8], mask: Mask) -> bool {
+    let lit = thumb.iter().enumerate().filter(|&(i, &v)| v > 16 && (mask.is_empty() || !mask[i])).count();
+    // ponytail: a dark page whose balloons are all covered whole by their shapes reads as blocked.
     !thumb.is_empty() && lit * 1000 <= thumb.len() * 2
 }
 
@@ -220,7 +223,7 @@ mod tests {
         assert_eq!(best_shift(&a, &page(1, 240, 12), 240, 0, 0), Some(12));
         assert_eq!(best_shift(&page(1, 240, 30), &page(1, 240, 0), 240, 0, 0), Some(-30));
         assert_eq!(best_shift(&a, &page(2, 240, 0), 240, 0, 0), None);
-        assert!(is_blocked(&[0; 96 * 4]) && !is_blocked(&a));
+        assert!(is_blocked(&[0; 96 * 4], &[]) && !is_blocked(&a, &[]));
     }
 
     #[test]
