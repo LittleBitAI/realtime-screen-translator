@@ -285,11 +285,14 @@ pub fn books(db: &Db, limit: u32, before: Option<i64>) -> Res<Vec<BookRow>> {
     rows.collect()
 }
 
-/// Pictures of a book that hold at least one strip, in reading order.
+/// Pictures of a book that hold at least one strip, in reading order. The
+/// range is taken from the strips themselves, so it always holds all of them
+/// (a database written before strips and range were one commit included).
 pub fn pictures(db: &Db, book_id: i64) -> Res<Vec<PictureRow>> {
     let mut st = db.prepare(
-        "SELECT id, kind, width, covered_top, covered_bottom, closed_at IS NOT NULL FROM Picture p
-         WHERE book_id = ?1 AND EXISTS (SELECT 1 FROM Strip s WHERE s.picture_id = p.id) ORDER BY seq",
+        "SELECT p.id, p.kind, p.width, MIN(s.y_start), MAX(s.y_start + s.height), p.closed_at IS NOT NULL
+         FROM Picture p JOIN Strip s ON s.picture_id = p.id
+         WHERE p.book_id = ?1 GROUP BY p.id ORDER BY p.seq",
     )?;
     let rows = st.query_map([book_id], |r| {
         Ok(PictureRow {

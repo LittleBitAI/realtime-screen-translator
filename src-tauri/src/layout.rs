@@ -15,35 +15,42 @@ pub const PAD: u32 = 4;
 const MAX_FONT: u32 = 40;
 const MIN_FONT: u32 = 10;
 
-/// Characters per line and line count for `chars` at `font` in `inner_w`.
-pub fn wrap(chars: usize, font: u32, inner_w: u32) -> (usize, usize) {
+/// The lines `ko` is drawn in at `font` in `inner_w`: its own line breaks
+/// first (the overlay's text layout keeps them too), then each part wrapped.
+pub fn lines(ko: &str, font: u32, inner_w: u32) -> Vec<Vec<char>> {
     let per_line = (inner_w / font.max(1)).max(1) as usize;
-    (per_line, chars.max(1).div_ceil(per_line))
+    let mut out = vec![];
+    for part in ko.trim_end_matches(['\n', '\r']).split('\n') {
+        let chars: Vec<char> = part.trim_end_matches('\r').chars().collect();
+        if chars.is_empty() {
+            out.push(vec![]);
+        }
+        out.extend(chars.chunks(per_line).map(<[char]>::to_vec));
+    }
+    out
 }
 
 pub fn text_height(lines: usize, font: u32) -> u32 {
     (lines as u32 * font * 6).div_ceil(5)
 }
 
-fn fits(chars: usize, font: u32, inner_w: u32, inner_h: u32) -> bool {
-    let (per_line, lines) = wrap(chars, font, inner_w);
-    per_line.min(chars) as u32 * font <= inner_w && text_height(lines, font) <= inner_h
+fn fits(ko: &str, font: u32, inner_w: u32, inner_h: u32) -> bool {
+    let lines = lines(ko, font, inner_w);
+    lines.iter().all(|l| l.len() as u32 * font <= inner_w) && text_height(lines.len(), font) <= inner_h
 }
 
 /// Shape covering the text area (`x`, `y`, `w`, `h`) with `ko` fitted inside.
 pub fn fit(x: i64, y: i64, w: u32, h: u32, ko: &str) -> Shape {
-    let chars = ko.chars().count();
     // A text area narrower than one glyph of the smallest size is widened to it.
     let inner_w = w.max(MIN_FONT);
     let inner_h = h;
     let (sw, mut sh) = (inner_w + 2 * PAD, h + 2 * PAD);
-    let font = (MIN_FONT..=MAX_FONT.min(inner_w)).rev().find(|&f| fits(chars, f, inner_w, inner_h));
+    let font = (MIN_FONT..=MAX_FONT.min(inner_w)).rev().find(|&f| fits(ko, f, inner_w, inner_h));
     let font = match font {
         Some(f) => f,
         None => {
             // Even the smallest size overflows: grow the shape downwards and upwards.
-            let (_, lines) = wrap(chars, MIN_FONT, inner_w);
-            sh = sh.max(text_height(lines, MIN_FONT) + 2 * PAD);
+            sh = sh.max(text_height(lines(ko, MIN_FONT, inner_w).len(), MIN_FONT) + 2 * PAD);
             MIN_FONT
         }
     };
@@ -63,20 +70,25 @@ pub fn fit(x: i64, y: i64, w: u32, h: u32, ko: &str) -> Shape {
 mod tests {
     use super::*;
 
+    /// Every line of `ko` fits inside the shape's padding.
+    fn inside(s: &Shape, ko: &str) -> bool {
+        let (font, inner_w) = (s.font_px as u32, s.w - 2 * PAD);
+        let l = lines(ko, font, inner_w);
+        l.iter().all(|l| l.len() as u32 * font <= inner_w) && text_height(l.len(), font) <= s.h - 2 * PAD
+    }
+
     #[test]
     fn long_line_in_narrow_balloon_fits() {
-        let s = fit(10, 10, 120, 200, &"가".repeat(40));
+        let ko = "가".repeat(40);
+        let s = fit(10, 10, 120, 200, &ko);
         assert!(s.x <= 10 && s.y <= 10 && s.w >= 120 && s.h >= 200);
-        let (per_line, lines) = wrap(40, s.font_px as u32, s.w);
-        assert!(per_line as u32 * s.font_px as u32 <= s.w);
-        assert!(text_height(lines, s.font_px as u32) <= s.h);
+        assert!(inside(&s, &ko));
     }
 
     #[test]
     fn tiny_balloon_grows_instead_of_overflowing() {
-        let s = fit(0, 100, 30, 12, &"가".repeat(30));
-        let (_, lines) = wrap(30, s.font_px as u32, s.w - 2 * PAD);
-        assert!(text_height(lines, s.font_px as u32) <= s.h - 2 * PAD);
+        let ko = "가".repeat(30);
+        assert!(inside(&fit(0, 100, 30, 12, &ko), &ko));
     }
 
     #[test]
@@ -84,8 +96,6 @@ mod tests {
         let s = fit(0, 100, 8, 100, "가나");
         assert!(s.w >= MIN_FONT + 2 * PAD && s.h >= 100 + 2 * PAD);
         assert!(s.x <= 0 && s.x + s.w as i64 >= 8 && s.y <= 100 && s.y + s.h as i64 >= 200);
-        let (per_line, lines) = wrap(2, s.font_px as u32, s.w - 2 * PAD);
-        assert!(per_line as u32 * s.font_px as u32 <= s.w - 2 * PAD);
-        assert!(text_height(lines, s.font_px as u32) <= s.h - 2 * PAD);
+        assert!(inside(&s, "가나"));
     }
 }

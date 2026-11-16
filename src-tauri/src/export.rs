@@ -141,13 +141,12 @@ pub fn draw_placement(img: &mut Rgb, p: &PlacementRow) {
         }
     }
     let size = p.font_px.max(1) as u32;
-    let chars: Vec<char> = p.ko.chars().collect();
     let inner_w = p.w.saturating_sub(2 * PAD).max(1);
-    let (per_line, lines) = layout::wrap(chars.len(), size, inner_w);
+    let lines = layout::lines(&p.ko, size, inner_w);
     let line_h = size as f32 * 1.2;
-    let top = p.y as f32 + (p.h as f32 - lines as f32 * line_h) / 2.0;
+    let top = p.y as f32 + (p.h as f32 - lines.len() as f32 * line_h) / 2.0;
     let cx = p.x as f32 + p.w as f32 / 2.0;
-    for (i, line) in chars.chunks(per_line).enumerate() {
+    for (i, line) in lines.iter().enumerate() {
         let line_top = top + i as f32 * line_h + (line_h - size as f32) / 2.0;
         match font() {
             Some(font) => {

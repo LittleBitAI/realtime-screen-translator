@@ -15,27 +15,51 @@ pub fn is_blocked(thumb: &[u8]) -> bool {
     thumb.iter().all(|&v| v <= 16)
 }
 
-fn row(t: &[u8], r: usize) -> &[u8] {
+/// Thumbnail pixels left out of a comparison, one per pixel (empty: none).
+/// On Android the capture holds our own overlay: a translation that appears
+/// or moves is not the screen changing.
+pub type Mask<'a> = &'a [bool];
+
+fn row<T>(t: &[T], r: usize) -> &[T] {
     &t[r * THUMB_W..(r + 1) * THUMB_W]
 }
 
-fn row_diff(a: &[u8], b: &[u8]) -> u32 {
-    a.iter().zip(b).map(|(&x, &y)| x.abs_diff(y) as u32).sum()
+/// Sum of differences of `cur` row `rc` against `prev` row `rp`, every
+/// `step`-th pixel, and how many pixels were compared: a pixel masked in
+/// either row is left out.
+fn row_cmp(prev: &[u8], cur: &[u8], mask: Mask, rp: usize, rc: usize, step: usize) -> (u64, u64) {
+    let (a, b) = (row(cur, rc), row(prev, rp));
+    if mask.is_empty() {
+        let sum = a.iter().zip(b).step_by(step).map(|(&x, &y)| x.abs_diff(y) as u64).sum();
+        return (sum, THUMB_W.div_ceil(step) as u64);
+    }
+    let (ma, mb) = (row(mask, rc), row(mask, rp));
+    let (mut sum, mut n) = (0, 0);
+    for i in (0..THUMB_W).step_by(step) {
+        if !ma[i] && !mb[i] {
+            sum += a[i].abs_diff(b[i]) as u64;
+            n += 1;
+        }
+    }
+    (sum, n)
 }
 
 /// Mean difference of the two frames at the same position, rows `from..to`.
-pub fn still_diff(prev: &[u8], cur: &[u8], from: usize, to: usize) -> f32 {
-    if to <= from {
+pub fn still_diff(prev: &[u8], cur: &[u8], mask: Mask, from: usize, to: usize) -> f32 {
+    let (sum, n) = (from..to).map(|r| row_cmp(prev, cur, mask, r, r, 1)).fold((0, 0), |a, b| (a.0 + b.0, a.1 + b.1));
+    if n == 0 {
         return 0.0;
     }
-    let sum: u64 = (from..to).map(|r| row_diff(row(prev, r), row(cur, r)) as u64).sum();
-    sum as f32 / ((to - from) * THUMB_W) as f32
+    sum as f32 / n as f32
 }
 
 /// Rows at the top and at the bottom that did not change. Bands longer than
-/// a quarter of the screen are not taken as fixed.
-pub fn fixed_rows(prev: &[u8], cur: &[u8], rows: usize) -> (usize, usize) {
-    let same = |r: usize| (row_diff(row(prev, r), row(cur, r)) as f32) <= STILL * THUMB_W as f32;
+/// a quarter of the screen are not taken as fixed, nor rows under the mask.
+pub fn fixed_rows(prev: &[u8], cur: &[u8], mask: Mask, rows: usize) -> (usize, usize) {
+    let same = |r: usize| {
+        let (sum, n) = row_cmp(prev, cur, mask, r, r, 1);
+        n == THUMB_W as u64 && sum as f32 <= STILL * THUMB_W as f32
+    };
     let top = (0..rows).take_while(|&r| same(r)).count();
     let bottom = (0..rows).rev().take_while(|&r| same(r)).count();
     let cap = rows / 4;
@@ -43,27 +67,33 @@ pub fn fixed_rows(prev: &[u8], cur: &[u8], rows: usize) -> (usize, usize) {
 }
 
 /// Mean difference of `cur` against `prev` moved up by `s` rows, within
-/// rows `top..end`; `None` once it is over `limit`.
-fn shifted_diff(prev: &[u8], cur: &[u8], top: usize, end: usize, s: i32, limit: f32) -> Option<f32> {
+/// rows `top..end`; `None` once it is over `limit`, or when the mask leaves
+/// too little to judge by.
+fn shifted_diff(prev: &[u8], cur: &[u8], mask: Mask, top: usize, end: usize, s: i32, limit: f32) -> Option<f32> {
     let from = top as i32 + (-s).max(0);
     let to = end as i32 - s.max(0);
     if to <= from {
         return None;
     }
-    let n = ((to - from) as usize * THUMB_W / 2) as f32;
-    let mut sum = 0u64;
+    // At most this many pixels are compared, so the mean is at least sum / most.
+    let most = ((to - from) as usize * THUMB_W.div_ceil(2)) as f32;
+    let (mut sum, mut n) = (0u64, 0u64);
     for r in from..to {
-        let (a, b) = (row(cur, r as usize), row(prev, (r + s) as usize));
-        sum += a.iter().zip(b).step_by(2).map(|(&x, &y)| x.abs_diff(y) as u64).sum::<u64>();
-        if sum as f32 > limit * n {
+        let (d, k) = row_cmp(prev, cur, mask, (r + s) as usize, r as usize, 2);
+        sum += d;
+        n += k;
+        if sum as f32 > limit * most {
             return None;
         }
     }
-    Some(sum as f32 / n)
+    if (n as f32) < most / 4.0 {
+        return None;
+    }
+    Some(sum as f32 / n as f32)
 }
 
 /// The best whole-row shift and its difference; `zero` lets "not moved" win.
-fn search(prev: &[u8], cur: &[u8], rows: usize, top: usize, bottom: usize, zero: bool) -> Option<(i32, f32)> {
+fn search(prev: &[u8], cur: &[u8], mask: Mask, rows: usize, top: usize, bottom: usize, zero: bool) -> Option<(i32, f32)> {
     let end = rows.saturating_sub(bottom);
     if end <= top + 4 {
         return None;
@@ -76,7 +106,7 @@ fn search(prev: &[u8], cur: &[u8], rows: usize, top: usize, bottom: usize, zero:
             continue;
         }
         let limit = best.map(|b| b.1).unwrap_or(MATCH);
-        if let Some(d) = shifted_diff(prev, cur, top, end, s, limit) {
+        if let Some(d) = shifted_diff(prev, cur, mask, top, end, s, limit) {
             if best.is_none_or(|b| d < b.1) {
                 best = Some((s, d));
             }
@@ -89,17 +119,18 @@ fn search(prev: &[u8], cur: &[u8], rows: usize, top: usize, bottom: usize, zero:
 /// previous frame onto the current one within rows `top..rows-bottom`, if it
 /// matches well enough.
 pub fn best_shift(prev: &[u8], cur: &[u8], rows: usize, top: usize, bottom: usize) -> Option<i32> {
-    search(prev, cur, rows, top, bottom, false).map(|b| b.0)
+    search(prev, cur, &[], rows, top, bottom, false).map(|b| b.0)
 }
 
-/// [`best_shift`] to a fraction of a row: a real scroll is rarely a whole
-/// thumbnail row (11.25 screen px on a 1080-px-wide phone), and rounding
-/// every frame adds up. The fraction comes from the differences one row to
-/// either side (an equiangular line fit); an exact match stays whole.
-pub fn fine_shift(prev: &[u8], cur: &[u8], rows: usize, top: usize, bottom: usize, zero: bool) -> Option<f64> {
-    let (s, d0) = search(prev, cur, rows, top, bottom, zero)?;
+/// [`best_shift`] to a fraction of a row, leaving out `mask`: a real scroll
+/// is rarely a whole thumbnail row (11.25 screen px on a 1080-px-wide
+/// phone), and rounding every frame adds up. The fraction comes from the
+/// differences one row to either side (an equiangular line fit); an exact
+/// match stays whole.
+pub fn fine_shift(prev: &[u8], cur: &[u8], mask: Mask, rows: usize, top: usize, bottom: usize, zero: bool) -> Option<f64> {
+    let (s, d0) = search(prev, cur, mask, rows, top, bottom, zero)?;
     let end = rows.saturating_sub(bottom);
-    let at = |k: i32| shifted_diff(prev, cur, top, end, k, f32::MAX);
+    let at = |k: i32| shifted_diff(prev, cur, mask, top, end, k, f32::MAX);
     if d0 < 0.25 {
         return Some(s as f64);
     }

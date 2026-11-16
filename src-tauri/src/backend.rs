@@ -92,6 +92,8 @@ struct Session {
     /// Last resting thumbnail and its `scroll_f`: a scroll is measured again
     /// against it when the screen rests, so what the steps got wrong is undone.
     anchor: Option<(Vec<u8>, f64)>,
+    /// `scroll_y` the overlay was drawn at before the last frame.
+    drawn_before: i64,
     turning: bool,
     mode: Option<&'static str>,
     last_seq: Option<u64>,
@@ -112,6 +114,31 @@ impl Session {
     fn set_scroll(&mut self, f: f64) {
         self.scroll_f = f;
         self.scroll_y = f.round() as i64;
+    }
+    /// Thumbnail pixels under the current picture's placements as drawn with
+    /// the screen at each of `scrolls`, a pixel of margin around: the capture
+    /// holds our own overlay on Android, and its translations are not the
+    /// screen changing. Empty when nothing is placed.
+    fn overlay_mask(&self, scrolls: &[i64]) -> Vec<bool> {
+        let Some(pic) = self.current.and_then(|id| self.pics.get(&id)) else { return vec![] };
+        if pic.placements.is_empty() || self.rows == 0 {
+            return vec![];
+        }
+        let (sx, sy) = (self.screen.0 as f64 / THUMB_W as f64, self.scale());
+        let mut mask = vec![false; self.rows * THUMB_W];
+        for p in &pic.placements {
+            for &off in scrolls {
+                let y = (p.y - off) as f64;
+                let r0 = ((y / sy).floor() as i64 - 1).clamp(0, self.rows as i64) as usize;
+                let r1 = (((y + p.h as f64) / sy).ceil() as i64 + 1).clamp(0, self.rows as i64) as usize;
+                let c0 = ((p.x as f64 / sx).floor() as i64 - 1).clamp(0, THUMB_W as i64) as usize;
+                let c1 = (((p.x + p.w as i64) as f64 / sx).ceil() as i64 + 1).clamp(0, THUMB_W as i64) as usize;
+                for r in r0..r1 {
+                    mask[r * THUMB_W + c0..r * THUMB_W + c1].fill(true);
+                }
+            }
+        }
+        mask
     }
     fn pic(&mut self) -> Option<&mut Pic> {
         let id = self.current?;
@@ -409,6 +436,7 @@ impl Backend {
             scroll_y: 0,
             scroll_f: 0.0,
             anchor: None,
+            drawn_before: 0,
             turning: false,
             mode: None,
             last_seq: None,
@@ -429,14 +457,18 @@ impl Backend {
         st.generation += 1;
         s.agent.clone().shutdown();
         let now = now_ms();
-        for id in s.pics.keys() {
-            store::close_picture(&st.db, *id, now)?;
-        }
-        store::end_book(&st.db, s.book_id, now)?;
-        let picture_count = store::pictures(&st.db, s.book_id)?.len() as u32;
+        let saved = (|| -> ApiResult<u32> {
+            for id in s.pics.keys() {
+                store::close_picture(&st.db, *id, now)?;
+            }
+            store::end_book(&st.db, s.book_id, now)?;
+            Ok(store::pictures(&st.db, s.book_id)?.len() as u32)
+        })();
         drop(st);
+        // Capture and the overlay come down whether or not the book could be
+        // closed (a book left open is closed on the next start, `store::open`).
         self.platform.stop();
-        Ok(StopOut { on: false, book_id: Some(s.book_id), picture_count })
+        Ok(StopOut { on: false, book_id: Some(s.book_id), picture_count: saved? })
     }
 
     // ---- P6
@@ -497,6 +529,11 @@ impl Backend {
         let mut motion = "still";
         let mut dy = 0i32;
         let mut settled = false;
+        // The overlay in this frame was drawn for the last frame, the one in
+        // the previous frame for the frame before: both are left out.
+        let entry_scroll = s.scroll_y;
+        let mask = s.overlay_mask(&[entry_scroll, s.drawn_before]);
+        s.drawn_before = entry_scroll;
         match s.prev.take() {
             None => {
                 if s.current.is_none() && !s.turning {
@@ -509,13 +546,13 @@ impl Backend {
             }
             Some(prev) => {
                 let (top, bottom) = s.fixed;
-                if tracker::still_diff(&prev, &thumb, 0, rows) <= tracker::STILL {
+                if tracker::still_diff(&prev, &thumb, &mask, 0, rows) <= tracker::STILL {
                     settled = true;
                 } else {
-                    let (ft, fb) = tracker::fixed_rows(&prev, &thumb, rows);
-                    let shift = tracker::fine_shift(&prev, &thumb, rows, ft, fb, false)
+                    let (ft, fb) = tracker::fixed_rows(&prev, &thumb, &mask, rows);
+                    let shift = tracker::fine_shift(&prev, &thumb, &mask, rows, ft, fb, false)
                         .map(|m| (m, (ft, fb)))
-                        .or_else(|| tracker::fine_shift(&prev, &thumb, rows, top, bottom, false).map(|m| (m, (top, bottom))));
+                        .or_else(|| tracker::fine_shift(&prev, &thumb, &mask, rows, top, bottom, false).map(|m| (m, (top, bottom))));
                     match shift {
                         Some((rows_moved, fixed)) => {
                             s.fixed = fixed;
@@ -563,7 +600,8 @@ impl Backend {
             }
             // Measured again from the last resting screen in one step.
             if let Some((a, f)) = s.anchor.take() {
-                if let Some(m) = tracker::fine_shift(&a, &thumb, rows, s.fixed.0, s.fixed.1, true) {
+                let mask = s.overlay_mask(&[f.round() as i64, s.scroll_y, s.drawn_before]);
+                if let Some(m) = tracker::fine_shift(&a, &thumb, &mask, rows, s.fixed.0, s.fixed.1, true) {
                     s.set_scroll(f + m * scale);
                 }
             }
@@ -618,7 +656,7 @@ impl Backend {
         s.anchor = None;
         let rows = thumb.len() / THUMB_W;
         let seen = s.pics.values().find(|p| {
-            p.page_thumb.as_ref().is_some_and(|t| t.len() == thumb.len() && tracker::still_diff(t, thumb, 0, rows) <= tracker::MATCH)
+            p.page_thumb.as_ref().is_some_and(|t| t.len() == thumb.len() && tracker::still_diff(t, thumb, &[], 0, rows) <= tracker::MATCH)
         });
         let id = match seen.map(|p| p.id) {
             Some(id) => {
@@ -786,25 +824,45 @@ impl Backend {
         }
         let dir = self.data_dir.join("strips").join(req.picture_id.to_string());
         std::fs::create_dir_all(&dir).map_err(storage_error)?;
-        let mut first_id = None;
-        for range in parts {
-            let (a, b) = ((range.0 - offset) as u32, (range.1 - offset) as u32);
-            let bytes = if (a, b) == (req.top, req.bottom) {
-                req.image.clone()
-            } else {
-                export::encode_png(&export::rows(&img, a - req.top, b - req.top)).map_err(encode_error)?
-            };
-            let path = dir.join(format!("{}-{}.png", range.0, now_ms()));
-            std::fs::write(&path, &bytes).map_err(storage_error)?;
-            let id = store::insert_strip(&st.db, req.picture_id, range.0, (range.1 - range.0) as u32, &path.to_string_lossy(), now_ms())?;
-            first_id.get_or_insert(id);
-            let s = st.session.as_mut().unwrap();
-            add(&mut s.pics.get_mut(&req.picture_id).unwrap().covered, range);
-        }
+        // The strips and the picture's range are one commit: a kill or a full
+        // disk in between leaves neither, never a strip outside the range.
+        let mut covered = pic.covered.clone();
+        let mut written = vec![];
+        let saved = (|| -> ApiResult<i64> {
+            let tx = st.db.unchecked_transaction()?;
+            let mut first_id = None;
+            for &range in &parts {
+                let (a, b) = ((range.0 - offset) as u32, (range.1 - offset) as u32);
+                let bytes = if (a, b) == (req.top, req.bottom) {
+                    req.image.clone()
+                } else {
+                    export::encode_png(&export::rows(&img, a - req.top, b - req.top)).map_err(encode_error)?
+                };
+                let path = dir.join(format!("{}-{}.png", range.0, now_ms()));
+                written.push(path.clone());
+                std::fs::write(&path, &bytes).map_err(storage_error)?;
+                let id = store::insert_strip(&tx, req.picture_id, range.0, (range.1 - range.0) as u32, &path.to_string_lossy(), now_ms())?;
+                first_id.get_or_insert(id);
+                add(&mut covered, range);
+            }
+            let (top, bottom) = hull(&covered).unwrap_or_default();
+            store::set_covered(&tx, req.picture_id, top, bottom)?;
+            tx.commit()?;
+            Ok(first_id.unwrap_or_default())
+        })();
+        let strip_id = match saved {
+            Ok(id) => id,
+            Err(e) => {
+                for p in written {
+                    let _ = std::fs::remove_file(p);
+                }
+                return Err(e);
+            }
+        };
         let s = st.session.as_mut().unwrap();
-        let covered = hull(&s.pics[&req.picture_id].covered).unwrap_or_default();
-        store::set_covered(&st.db, req.picture_id, covered.0, covered.1)?;
-        Ok(StripOut { strip_id: first_id.unwrap_or_default(), picture_height: (covered.1 - covered.0) as u32 })
+        let hull = hull(&covered).unwrap_or_default();
+        s.pics.get_mut(&req.picture_id).unwrap().covered = covered;
+        Ok(StripOut { strip_id, picture_height: (hull.1 - hull.0) as u32 })
     }
 
     // ---- P10, P11
