@@ -94,16 +94,20 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
     // taken with the button hidden, if it shows the same screen and the
     // button is indeed gone from it; else they are left unsaved and asked
     // for again.
+    // The same holds for P7: a text area behind the button is looked for in
+    // the clean frame, or its rows are asked for again once it may show.
     let mut from = seq;
     let mut parts = out.save.map(|r| clear_of(r, button)).unwrap_or_default();
-    if let (Some(r), Some(_)) = (out.save, button) {
-        if parts != [(r.top, r.bottom)] {
-            let clean = |c: &Captured| same_screen(&thumb, size, c, &over) && button.is_some_and(|b| button_gone(&thumb, size.0, c, b));
-            if let Some(c) = screen.clean_frame().filter(clean) {
-                from = c.seq;
-                parts = vec![(r.top, r.bottom)];
-            }
-        }
+    let behind = |r: Range| clear_of(r, button) != [(r.top, r.bottom)];
+    let clean = if out.save.is_some_and(behind) || out.detect.is_some_and(behind) {
+        let ok = |c: &Captured| same_screen(&thumb, size, c, &over) && button.is_some_and(|b| button_gone(&thumb, size.0, c, b));
+        screen.clean_frame().filter(ok)
+    } else {
+        None
+    };
+    if let (Some(r), Some(c)) = (out.save, &clean) {
+        from = c.seq;
+        parts = vec![(r.top, r.bottom)];
     }
     for (top, bottom) in parts {
         match screen.strip(from, top, bottom) {
@@ -116,10 +120,17 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
         }
     }
     if let Some(r) = out.detect {
-        let crops = match screen.detect(seq, r.top, r.bottom) {
+        let shown = clean.as_ref().map_or(seq, |c| c.seq);
+        let crops = match screen.detect(shown, r.top, r.bottom) {
             Ok(c) => {
                 // The model is in place and ran.
                 backend.clear_notice("detector_missing");
+                // Rows the button hid from it are looked at again later
+                // (on a scroll, a page's return, or after a while).
+                if let (None, Some(b)) = (&clean, button.filter(|_| behind(r))) {
+                    let rows = Range { top: b.1.max(r.top), bottom: (b.1 + b.3).min(r.bottom) };
+                    backend.detect_failed(out.picture_id, seq, rows);
+                }
                 c
             }
             Err(notice) => {
