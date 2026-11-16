@@ -91,13 +91,15 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
     };
     screen.draw(&out.placements, out.clear);
     // P9 keeps clean rows only. Rows behind the button come from a frame
-    // taken with the button hidden, if it shows the same screen; else they
-    // are left unsaved and asked for again.
+    // taken with the button hidden, if it shows the same screen and the
+    // button is indeed gone from it; else they are left unsaved and asked
+    // for again.
     let mut from = seq;
     let mut parts = out.save.map(|r| clear_of(r, button)).unwrap_or_default();
     if let (Some(r), Some(_)) = (out.save, button) {
         if parts != [(r.top, r.bottom)] {
-            if let Some(c) = screen.clean_frame().filter(|c| same_screen(&thumb, size, c, &over)) {
+            let clean = |c: &Captured| same_screen(&thumb, size, c, &over) && button.is_some_and(|b| button_gone(&thumb, size.0, c, b));
+            if let Some(c) = screen.clean_frame().filter(clean) {
                 from = c.seq;
                 parts = vec![(r.top, r.bottom)];
             }
@@ -157,6 +159,32 @@ pub fn same_screen(thumb: &[u8], size: (u32, u32), c: &Captured, over: &[(u32, u
     }
     let rows = thumb.len() / THUMB_W;
     tracker::still_diff(thumb, &c.thumb, &cover(size.0, rows, over), 0, rows) <= tracker::STILL
+}
+
+/// Whether the button (x, y, w, h on a screen `width` wide), which `thumb`
+/// holds, is gone from `c` (of the same size): the cells wholly under it
+/// differ. An image the mirror composed before the button was hidden, however
+/// late it came, still shows the button there, and would save it over the page.
+pub fn button_gone(thumb: &[u8], width: u32, c: &Captured, button: (u32, u32, u32, u32)) -> bool {
+    if c.thumb.len() != thumb.len() {
+        return false;
+    }
+    let scale = width.max(1) as f64 / THUMB_W as f64;
+    let rows = thumb.len() / THUMB_W;
+    let (x, y, w, h) = button;
+    let inside = |from: u32, len: u32, max: usize| {
+        let a = (from as f64 / scale).ceil() as usize;
+        (a, ((from.saturating_add(len) as f64 / scale).floor() as usize).min(max))
+    };
+    let ((c0, c1), (r0, r1)) = (inside(x, w, THUMB_W), inside(y, h, rows));
+    let (mut sum, mut n) = (0u64, 0u64);
+    for r in r0..r1 {
+        for i in r * THUMB_W + c0..r * THUMB_W + c1.max(c0) {
+            sum += thumb[i].abs_diff(c.thumb[i]) as u64;
+            n += 1;
+        }
+    }
+    n > 0 && sum as f32 > tracker::MATCH * n as f32
 }
 
 /// The thumbnail cells under the rectangles (x, y, w, h on a screen `width`

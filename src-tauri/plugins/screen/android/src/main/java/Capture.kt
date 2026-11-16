@@ -42,6 +42,8 @@ object Capture {
      * detection find them however many frames come meanwhile.
      */
     private val pinned = HashSet<Long>()
+    /** The frame `next` last handed over: the one a clean frame is taken for. */
+    private var delivered = 0L
 
     /** How long [cleanFrame] waits for an image with the button gone, at most. */
     private const val CLEAN_WAIT_MS = 700L
@@ -85,9 +87,9 @@ object Capture {
             // The button going away changes the screen, so the mirror sends
             // it again: once that has had time to come, the newest image
             // since the hiding is the clean one, even if the screen then
-            // stays still and no other image follows.
-            // ponytail: an image composed before the hiding that arrives after it,
-            // with the clean one later than SETTLE_MS, is taken for clean.
+            // stays still and no other image follows. One composed before
+            // the hiding may still come late: it shows the button, and is
+            // passed over for the next ([buttonGone]; Rust checks it again).
             SystemClock.sleep(maxOf(0L, hiddenAt + SETTLE_MS - SystemClock.uptimeMillis()))
             CaptureService.flush()
             return newestSince(hiddenAt)
@@ -96,12 +98,15 @@ object Capture {
         }
     }
 
-    /** The newest frame whose image came at [after] or later, waiting for one. */
+    /**
+     * The newest frame whose image came at [after] or later and no longer
+     * shows the button, waiting for one.
+     */
     private fun newestSince(after: Long): JSObject? {
         val deadline = SystemClock.uptimeMillis() + CLEAN_WAIT_MS
         synchronized(lock) {
             while (true) {
-                frames.keys.lastOrNull { (arrived[it] ?: 0) >= after }?.let {
+                frames.keys.lastOrNull { (arrived[it] ?: 0) >= after }?.takeIf { buttonGone(delivered, it) }?.let {
                     pinned.add(it)
                     return frameJson(it)
                 }
@@ -111,6 +116,35 @@ object Capture {
             }
         }
     }
+
+    /**
+     * Whether the button, which frame [held] shows, is gone from frame [c]:
+     * the thumbnail cells wholly under it differ (`pipeline::button_gone`).
+     */
+    private fun buttonGone(held: Long, c: Long): Boolean {
+        val a = thumbs[held] ?: return false
+        val b = thumbs[c] ?: return false
+        val width = frames[c]?.width ?: return false
+        val r = Overlay.buttonRect ?: return false
+        if (a.size != b.size) return false
+        val scale = width.toDouble() / THUMB_W
+        val rows = a.size / THUMB_W
+        val c0 = Math.ceil(r[0] / scale).toInt()
+        val c1 = minOf(THUMB_W, Math.floor((r[0] + r[2]) / scale).toInt())
+        val r0 = Math.ceil(r[1] / scale).toInt()
+        val r1 = minOf(rows, Math.floor((r[1] + r[3]) / scale).toInt())
+        var sum = 0L
+        var n = 0
+        for (row in r0 until r1) for (col in c0 until c1) {
+            val i = row * THUMB_W + col
+            sum += Math.abs((a[i].toInt() and 255) - (b[i].toInt() and 255))
+            n += 1
+        }
+        return n > 0 && sum > GONE * n
+    }
+
+    /** Mean difference under the button above which it is gone (`tracker::MATCH`). */
+    private const val GONE = 6.0
 
     /** The last frame once more, under a new number: the screen has not changed. */
     fun repeatLast() {
@@ -146,6 +180,7 @@ object Capture {
             thumbs.clear()
             arrived.clear()
             pinned.clear()
+            delivered = 0
             fresh = 0
         }
     }
@@ -164,6 +199,7 @@ object Capture {
         // Rust is done with the frames before: only this one is worked on now.
         pinned.clear()
         pinned.add(s)
+        delivered = s
         waiting = null
         invoke.resolve(json)
     }
