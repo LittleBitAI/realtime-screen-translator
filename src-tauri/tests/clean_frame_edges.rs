@@ -83,7 +83,7 @@ impl FakeScreen {
                 }
             }
         }
-        Captured { seq: *seq, width: SCREEN_W, height: SCREEN_H, thumb, captured_at: *seq as i64 * 100, button: Some(BUTTON) }
+        Captured { seq: *seq, width: SCREEN_W, height: SCREEN_H, thumb, captured_at: *seq as i64 * 100, button: Some(BUTTON), bars: vec![] }
     }
     fn show(&self, offset: i64, n: usize) {
         for _ in 0..n {

@@ -51,21 +51,25 @@ class CaptureService : Service() {
     private var idle = 0
     private val tick = object : Runnable {
         override fun run() {
-            val img = held
-            if (img != null) {
-                held = null
-                idle = 0
-                try {
-                    if (!Capture.paused) Capture.onFrame(bitmap(img), heldAt)
-                } finally {
-                    img.close()
-                }
-            } else if (!Capture.paused) {
+            if (!sendHeld() && !Capture.paused) {
                 idle += 1
                 if (idle <= STILL_REPEATS || idle % IDLE_EVERY == 0) Capture.repeatLast()
             }
             handler.postDelayed(this, FRAME_GAP_MS)
         }
+    }
+
+    /** On the capture thread: hands the held image to [Capture], if there is one. */
+    private fun sendHeld(): Boolean {
+        val img = held ?: return false
+        held = null
+        idle = 0
+        try {
+            if (!Capture.paused) Capture.onFrame(bitmap(img), heldAt)
+        } finally {
+            img.close()
+        }
+        return true
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -221,6 +225,20 @@ class CaptureService : Service() {
                     s.held = null
                 }
             }
+        }
+
+        /**
+         * From a worker thread: the image waiting for the next tick goes to
+         * [Capture] now, so every image the mirror has sent so far is there.
+         */
+        fun flush() {
+            val s = running ?: return
+            val done = java.util.concurrent.CountDownLatch(1)
+            s.handler.post {
+                s.sendHeld()
+                done.countDown()
+            }
+            done.await(FRAME_GAP_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
         }
 
         private val main = Handler(Looper.getMainLooper())

@@ -22,7 +22,7 @@ use windows::Win32::Foundation::{HMODULE, POINT};
 use windows::Win32::Graphics::Direct3D::D3D_DRIVER_TYPE_HARDWARE;
 use windows::Win32::Graphics::Direct3D11::*;
 use windows::Win32::Graphics::Dxgi::IDXGIDevice;
-use windows::Win32::Graphics::Gdi::{MonitorFromPoint, MONITOR_DEFAULTTOPRIMARY};
+use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTOPRIMARY};
 use windows::Win32::System::WinRT::Direct3D11::{CreateDirect3D11DeviceFromDXGIDevice, IDirect3DDxgiInterfaceAccess};
 use windows::Win32::System::WinRT::Graphics::Capture::IGraphicsCaptureItemInterop;
 
@@ -35,6 +35,36 @@ const KEEP: usize = 4;
 /// screen is sent again this many times, then every `IDLE_EVERY` ticks.
 const STILL_REPEATS: u32 = 3;
 const IDLE_EVERY: u32 = 10;
+
+/// The taskbar, in the pixels of a `width` x `height` capture of the
+/// primary monitor: what of the monitor is not its work area, at any edge.
+/// (An auto-hidden taskbar leaves the work area whole and is not reported.)
+fn taskbar(width: u32, height: u32) -> Vec<(u32, u32, u32, u32)> {
+    let mut mi = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
+    // SAFETY: the primary monitor handle is always valid and `mi` carries its size.
+    if !unsafe { GetMonitorInfoW(MonitorFromPoint(POINT { x: 0, y: 0 }, MONITOR_DEFAULTTOPRIMARY), &mut mi) }.as_bool() {
+        return vec![];
+    }
+    let (m, w) = (mi.rcMonitor, mi.rcWork);
+    let (mw, mh) = ((m.right - m.left).max(1) as f64, (m.bottom - m.top).max(1) as f64);
+    // The capture is in physical pixels, the monitor rectangle may not be.
+    let x = |v: i32| ((v - m.left) as f64 * width as f64 / mw).round() as u32;
+    let y = |v: i32| ((v - m.top) as f64 * height as f64 / mh).round() as u32;
+    let mut out = vec![];
+    if w.top > m.top {
+        out.push((0, 0, width, y(w.top)));
+    }
+    if w.bottom < m.bottom {
+        out.push((0, y(w.bottom), width, height.saturating_sub(y(w.bottom))));
+    }
+    if w.left > m.left {
+        out.push((0, 0, x(w.left), height));
+    }
+    if w.right < m.right {
+        out.push((x(w.right), 0, width.saturating_sub(x(w.right)), height));
+    }
+    out
+}
 
 /// A Windows Graphics Capture session on the primary monitor.
 struct Wgc {
@@ -261,7 +291,7 @@ impl Screen for WinScreen {
             while i.frames.len() > KEEP {
                 i.frames.pop_front();
             }
-            return Some(Event::Frame(Captured { seq, width, height, thumb, captured_at: crate::now_ms(), button: None }));
+            return Some(Event::Frame(Captured { seq, width, height, thumb, captured_at: crate::now_ms(), button: None, bars: taskbar(width, height) }));
         }
     }
 

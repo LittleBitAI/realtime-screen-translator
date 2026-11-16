@@ -11,23 +11,14 @@ pub const STILL: f32 = 2.0;
 pub const MATCH: f32 = 6.0;
 
 /// A capture blocked by the app shows up as a black frame with only what the
-/// system draws over it: the status bar and the navigation bar or taskbar,
-/// in [`EDGE_BAND`] of the rows at the top and at the bottom. (This app's
-/// own button is blacked out by the capture loop, `pipeline::step`.)
-/// Anything else lit, beyond a few stray pixels (a cursor), is a picture:
-/// a dark page with one white balloon on it is not blocked.
+/// system draws over it. The capture loop blacks that out before P6 (the
+/// system bars where the platform reports them, this app's own button:
+/// `pipeline::step`), so anything lit beyond a few stray pixels is a picture,
+/// wherever it is: a dark page with one white balloon on it is not blocked.
 pub fn is_blocked(thumb: &[u8]) -> bool {
-    let rows = thumb.len() / THUMB_W;
-    let band = (rows * EDGE_BAND).div_ceil(100);
-    let middle = if rows > 2 * band { &thumb[band * THUMB_W..(rows - band) * THUMB_W] } else { thumb };
-    let lit = middle.iter().filter(|&&v| v > 16).count();
-    // ponytail: a page that is black but for text in its top or bottom band reads as blocked.
-    rows > 0 && lit * 1000 <= middle.len() * 2
+    let lit = thumb.iter().filter(|&&v| v > 16).count();
+    !thumb.is_empty() && lit * 1000 <= thumb.len() * 2
 }
-
-/// Rows (percent of the screen) at the top and at the bottom where the
-/// system draws over every app: status bar, navigation bar, taskbar.
-pub const EDGE_BAND: usize = 8;
 
 /// Thumbnail pixels left out of a comparison, one per pixel (empty: none).
 /// On Android the capture holds our own overlay: a translation that appears

@@ -17,6 +17,7 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.view.Gravity
 import android.view.View
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.TextView
 
@@ -68,6 +69,51 @@ object Overlay {
         b.viewTreeObserver.addOnGlobalLayoutListener { measureButton(b) }
         ctx.getSystemService(WindowManager::class.java).addView(b, lp)
         button = b
+        showProbe(ctx)
+    }
+
+    /**
+     * The system bars showing now, as insets (left, top, right, bottom) in
+     * screen pixels: the capture holds them, and they are not the picture.
+     * A reader app that hides them leaves zeros.
+     */
+    @Volatile var barInsets = IntArray(4)
+    private var probe: View? = null
+
+    /**
+     * A window over the whole screen that shows nothing and takes no touch
+     * (fully clear, so Android 12+ lets touches through it): Android tells it
+     * where the status bar and the navigation bar are, and whether they show.
+     */
+    private fun showProbe(ctx: Context) {
+        if (probe != null) return
+        val v = View(ctx)
+        v.setOnApplyWindowInsetsListener { _, insets ->
+            barInsets = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val i = insets.getInsets(WindowInsets.Type.systemBars())
+                intArrayOf(i.left, i.top, i.right, i.bottom)
+            } else {
+                @Suppress("DEPRECATION")
+                intArrayOf(insets.systemWindowInsetLeft, insets.systemWindowInsetTop, insets.systemWindowInsetRight, insets.systemWindowInsetBottom)
+            }
+            insets
+        }
+        val match = WindowManager.LayoutParams.MATCH_PARENT
+        val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR
+        val lp = WindowManager.LayoutParams(match, match, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, flags, PixelFormat.TRANSPARENT).apply {
+            gravity = Gravity.TOP or Gravity.START
+            alpha = 0f
+            // Laid over the bars, not fitted inside them: else it is told of none.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) fitInsetsTypes = 0
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
+        ctx.getSystemService(WindowManager::class.java).addView(v, lp)
+        probe = v
     }
 
     /**

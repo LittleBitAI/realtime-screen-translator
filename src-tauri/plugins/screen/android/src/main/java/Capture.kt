@@ -36,9 +36,16 @@ object Capture {
     /** When the image of each frame came from the mirror (uptime ms). */
     private val arrived = HashMap<Long, Long>()
 
-    /** Frames that still have to wait for the button to be gone, at most. */
+    /**
+     * Frames Rust still works on: the one `next` last handed over and the
+     * clean frame taken for it. They outlive [KEEP], so its strips and
+     * detection find them however many frames come meanwhile.
+     */
+    private val pinned = HashSet<Long>()
+
+    /** How long [cleanFrame] waits for an image with the button gone, at most. */
     private const val CLEAN_WAIT_MS = 700L
-    /** An image composed this long after the button was hidden no longer holds it. */
+    /** By this long after the button was hidden, the mirror has sent the screen without it. */
     private const val SETTLE_MS = 50L
 
     /** A new image from the mirror, which came at uptime [at]. */
@@ -57,7 +64,7 @@ object Capture {
         thumbs[seq] = thumb
         arrived[seq] = at
         while (frames.size > KEEP) {
-            val old = frames.keys.first()
+            val old = frames.keys.first { it !in pinned }
             frames.remove(old)
             thumbs.remove(old)
             arrived.remove(old)
@@ -75,18 +82,29 @@ object Capture {
         if (paused) return null
         val hiddenAt = Overlay.hideButtonNow() ?: return null
         try {
-            return arrivedAfter(hiddenAt + SETTLE_MS)
+            // The button going away changes the screen, so the mirror sends
+            // it again: once that has had time to come, the newest image
+            // since the hiding is the clean one, even if the screen then
+            // stays still and no other image follows.
+            // ponytail: an image composed before the hiding that arrives after it,
+            // with the clean one later than SETTLE_MS, is taken for clean.
+            SystemClock.sleep(maxOf(0L, hiddenAt + SETTLE_MS - SystemClock.uptimeMillis()))
+            CaptureService.flush()
+            return newestSince(hiddenAt)
         } finally {
             Overlay.restoreButton()
         }
     }
 
     /** The newest frame whose image came at [after] or later, waiting for one. */
-    private fun arrivedAfter(after: Long): JSObject? {
+    private fun newestSince(after: Long): JSObject? {
         val deadline = SystemClock.uptimeMillis() + CLEAN_WAIT_MS
         synchronized(lock) {
             while (true) {
-                frames.keys.lastOrNull { (arrived[it] ?: 0) >= after }?.let { return frameJson(it) }
+                frames.keys.lastOrNull { (arrived[it] ?: 0) >= after }?.let {
+                    pinned.add(it)
+                    return frameJson(it)
+                }
                 val left = deadline - SystemClock.uptimeMillis()
                 if (left <= 0) return null
                 (lock as java.lang.Object).wait(left)
@@ -127,6 +145,7 @@ object Capture {
             frames.clear()
             thumbs.clear()
             arrived.clear()
+            pinned.clear()
             fresh = 0
         }
     }
@@ -142,6 +161,9 @@ object Capture {
         val s = fresh
         val json = frameJson(s) ?: return
         fresh = 0
+        // Rust is done with the frames before: only this one is worked on now.
+        pinned.clear()
+        pinned.add(s)
         waiting = null
         invoke.resolve(json)
     }
@@ -156,7 +178,22 @@ object Capture {
             put("thumb", Base64.encodeToString(thumbs[s], Base64.NO_WRAP))
             put("capturedAt", System.currentTimeMillis())
             Overlay.buttonRect?.let { r -> put("button", JSArray().apply { r.forEach { put(it) } }) }
+            put("bars", bars(bmp.width, bmp.height))
         }
+    }
+
+    /** The system bars showing now ([Overlay.barInsets]) as [x, y, w, h] in a `w` x `h` frame. */
+    private fun bars(w: Int, h: Int): JSArray {
+        val (left, top, right, bottom) = Overlay.barInsets
+        val out = JSArray()
+        fun rect(x: Int, y: Int, rw: Int, rh: Int) {
+            if (rw > 0 && rh > 0) out.put(JSArray().apply { put(x); put(y); put(rw); put(rh) })
+        }
+        rect(0, 0, w, top)
+        rect(0, h - bottom, w, bottom)
+        rect(0, 0, left, h)
+        rect(w - right, 0, right, h)
+        return out
     }
 
     /** A2: 96 px wide, grayscale, `height * 96 / width` rows. */

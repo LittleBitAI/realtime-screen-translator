@@ -130,6 +130,13 @@ mod android {
         /// The floating button's [x, y, w, h] in the frame (the capture holds it).
         #[serde(default)]
         button: Option<[u32; 4]>,
+        /// The status bar and the navigation bar as [x, y, w, h], while they show.
+        #[serde(default)]
+        bars: Vec<[u32; 4]>,
+    }
+
+    fn rects(r: &[[u32; 4]]) -> Vec<(u32, u32, u32, u32)> {
+        r.iter().map(|b| (b[0], b[1], b[2], b[3])).collect()
     }
 
     #[derive(Deserialize)]
@@ -179,6 +186,7 @@ mod android {
                             thumb: b64(&n.thumb),
                             captured_at: n.captured_at,
                             button: n.button.map(|b| (b[0], b[1], b[2], b[3])),
+                            bars: rects(&n.bars),
                         }))
                     }
                     Err(e) => {
@@ -225,6 +233,7 @@ mod android {
                 thumb: b64(&n.thumb),
                 captured_at: n.captured_at,
                 button: n.button.map(|b| (b[0], b[1], b[2], b[3])),
+                bars: rects(&n.bars),
             })
         }
     }

@@ -1,6 +1,6 @@
 //! Edge cases of the sixth review: a start whose book cannot be made, a stop
 //! racing a start, exports racing each other, corner rounding over the
-//! source text, and a blocked capture with bright system pixels in it.
+//! source text, and a blocked capture with a stray lit pixel in it.
 
 mod support;
 
@@ -145,22 +145,13 @@ fn the_rounded_shape_covers_the_source_text_to_its_corners() {
 }
 
 #[test]
-fn a_black_capture_with_the_status_bar_and_the_navigation_bar_in_it_is_blocked() {
-    // (The floating button is blacked out by the capture loop before P6:
-    // `blocked_capture_edges` covers it.)
+fn a_black_capture_with_a_stray_lit_pixel_in_it_is_blocked() {
+    // (The system bars and the floating button are blacked out by the
+    // capture loop before P6: `blocked_capture_edges` covers them.)
     let rows = (SCREEN_H * THUMB_W / SCREEN_W) as usize;
     let w = THUMB_W as usize;
     let mut thumb = vec![0u8; w * rows];
-    // Status bar text and icons, the navigation bar, a cursor.
-    for r in 0..3 {
-        for c in 0..w {
-            thumb[r * w + c] = if c % 3 == 0 { 230 } else { 0 };
-        }
-    }
-    for c in 0..w {
-        thumb[(rows - 2) * w + c] = 40;
-    }
     thumb[(rows / 2) * w + 40] = 255;
-    assert!(tracker::is_blocked(&thumb), "bright system pixels made a blocked capture a picture");
+    assert!(tracker::is_blocked(&thumb), "a stray pixel made a blocked capture a picture");
     assert!(!tracker::is_blocked(&Scene::new(602).thumb(0, SCREEN_W, SCREEN_H)));
 }

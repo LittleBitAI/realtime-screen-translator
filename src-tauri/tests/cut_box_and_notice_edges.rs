@@ -84,7 +84,7 @@ impl FakeScreen {
             *seq += 1;
             self.offsets.lock().unwrap().push((*seq, offset));
             let thumb = self.scene.thumb(offset, SCREEN_W, SCREEN_H);
-            let f = Captured { seq: *seq, width: SCREEN_W, height: SCREEN_H, thumb, captured_at: *seq as i64 * 100, button: None };
+            let f = Captured { seq: *seq, width: SCREEN_W, height: SCREEN_H, thumb, captured_at: *seq as i64 * 100, button: None, bars: vec![] };
             self.events.lock().unwrap().push_back(Event::Frame(f));
         }
     }
