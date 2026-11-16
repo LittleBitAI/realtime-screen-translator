@@ -64,12 +64,8 @@ object Overlay {
             x = 16
             y = nav + (24 * res.displayMetrics.density).toInt()
         }
-        b.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
-            val at = IntArray(2)
-            v.getLocationOnScreen(at)
-            val m = 4
-            buttonRect = intArrayOf(maxOf(0, at[0] - m), maxOf(0, at[1] - m), v.width + 2 * m, v.height + 2 * m)
-        }
+        // Its window moves when the screen turns: measured again after every layout pass.
+        b.viewTreeObserver.addOnGlobalLayoutListener { measureButton(b) }
         ctx.getSystemService(WindowManager::class.java).addView(b, lp)
         button = b
     }
@@ -93,6 +89,16 @@ object Overlay {
     }
 
     fun restoreButton() = main.post { button?.visibility = View.VISIBLE }
+
+    private fun measureButton(v: View) {
+        val at = IntArray(2)
+        v.getLocationOnScreen(at)
+        val m = 4
+        buttonRect = intArrayOf(maxOf(0, at[0] - m), maxOf(0, at[1] - m), v.width + 2 * m, v.height + 2 * m)
+    }
+
+    /** The screen turned: the button's place is measured again once its window has moved. */
+    fun screenTurned() = main.postDelayed({ button?.let { measureButton(it) } }, 300)
 
     fun setOn(on: Boolean) = main.post {
         button?.text = if (on) "번역 끄기" else "번역 켜기"

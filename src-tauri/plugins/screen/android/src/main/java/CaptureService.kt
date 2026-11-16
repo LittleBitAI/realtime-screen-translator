@@ -22,6 +22,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import android.util.DisplayMetrics
+import android.view.Display
 import android.view.WindowManager
 import androidx.core.content.ContextCompat
 
@@ -93,14 +94,7 @@ class CaptureService : Service() {
             }
         }, handler)
         val m = metrics()
-        // Three buffers: one held for the next tick, one being acquired, one being written.
-        val r = ImageReader.newInstance(m.widthPixels, m.heightPixels, PixelFormat.RGBA_8888, 3)
-        r.setOnImageAvailableListener({ ir ->
-            val img = ir.acquireLatestImage() ?: return@setOnImageAvailableListener
-            held?.close()
-            held = img
-            heldAt = SystemClock.uptimeMillis()
-        }, handler)
+        val r = newReader(m.widthPixels, m.heightPixels)
         display = p.createVirtualDisplay(
             "rst-capture", m.widthPixels, m.heightPixels, m.densityDpi,
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, if (capturing) r.surface else null, null, handler,
@@ -109,6 +103,7 @@ class CaptureService : Service() {
         reader = r
         running = this
         Capture.alive = true
+        getSystemService(DisplayManager::class.java).registerDisplayListener(turns, handler)
         handler.post(tick)
         started()
         return START_NOT_STICKY
@@ -117,6 +112,7 @@ class CaptureService : Service() {
     override fun onDestroy() {
         running = null
         started()
+        getSystemService(DisplayManager::class.java).unregisterDisplayListener(turns)
         handler.removeCallbacks(tick)
         handler.post {
             held?.close()
@@ -130,6 +126,47 @@ class CaptureService : Service() {
         projection?.stop()
         thread.quitSafely()
         super.onDestroy()
+    }
+
+    /** Three buffers: one held for the next tick, one being acquired, one being written. */
+    private fun newReader(w: Int, h: Int): ImageReader {
+        val r = ImageReader.newInstance(w, h, PixelFormat.RGBA_8888, 3)
+        r.setOnImageAvailableListener({ ir ->
+            val img = ir.acquireLatestImage() ?: return@setOnImageAvailableListener
+            held?.close()
+            held = img
+            heldAt = SystemClock.uptimeMillis()
+        }, handler)
+        return r
+    }
+
+    /** On the capture thread: the screen turned or changed size. */
+    private val turns = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) {}
+        override fun onDisplayRemoved(displayId: Int) {}
+        override fun onDisplayChanged(displayId: Int) {
+            if (displayId == Display.DEFAULT_DISPLAY) resize()
+        }
+    }
+
+    /**
+     * The mirror follows the screen's new size, so frames keep the screen's
+     * coordinates and P6 sees the turned screen (a new picture in its size);
+     * the overlay and the button are placed in the same coordinates.
+     */
+    private fun resize() {
+        val d = display ?: return
+        val old = reader ?: return
+        val m = metrics()
+        if (m.widthPixels == old.width && m.heightPixels == old.height) return
+        val r = newReader(m.widthPixels, m.heightPixels)
+        d.resize(m.widthPixels, m.heightPixels, m.densityDpi)
+        d.setSurface(if (capturing) r.surface else null)
+        reader = r
+        held?.close()
+        held = null
+        old.close()
+        Overlay.screenTurned()
     }
 
     private fun metrics(): DisplayMetrics {

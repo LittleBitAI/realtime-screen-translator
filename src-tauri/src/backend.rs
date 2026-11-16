@@ -627,6 +627,9 @@ impl Backend {
                             s.turning = true;
                             s.set_scroll(0.0);
                             s.anchor = None;
+                            // The band belonged to the screen before: a new page is
+                            // taken whole until a scroll shows a band again.
+                            s.fixed = (0, 0);
                         }
                     }
                 }
