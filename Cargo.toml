@@ -1,3 +1,11 @@
 [workspace]
 members = ["src-tauri", "xtask"]
 resolver = "2"
+
+# Frame matching, PNG and JSON work run per frame: keep test builds fast enough
+# to answer within a frame's time.
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.dev.package.realtime-screen-translator]
+opt-level = 2

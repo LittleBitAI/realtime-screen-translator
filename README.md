@@ -16,3 +16,8 @@
 - 화면 위 아래 스크롤과 앞뒤로 슬라이딩으로 이전/다음 페이지를 넘기는 방식을 구분할것.
 - 화면 위 아래 스크롤 방식에서, 어떻게 트래킹 할것인가?
 - 번역하는 화면에서, 어떻게 "이미 했던 번역"임은 어떻게 알것인가?
+
+## Development
+
+- Backend: `src-tauri/` (Rust). The commands of `docs/design/api.yaml` live in `src/backend.rs`; the Tauri shell is `src/app.rs` behind the `app` feature (`cargo tauri dev --features app`).
+- Tests: install [cargo-nextest](https://nexte.st), then `cargo run -q -p xtask -- artifacts/junit.xml` runs every test and writes a JUnit report. The contract tests drive the backend through the `contract-host` binary.
