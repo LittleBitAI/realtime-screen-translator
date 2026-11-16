@@ -82,18 +82,16 @@ pub fn nms(mut d: Vec<Detection>, max_iou: f32) -> Vec<Detection> {
     keep
 }
 
-/// A box this close to the top or bottom of the screen may be cut by it.
+/// A box this close to the top or bottom of the screen may be cut by it:
+/// P7 holds it until it knows (`Backend::crops`).
 pub const EDGE: f32 = 12.0;
 
-/// P7 crops of the boxes in screen rows `top..bottom`: whole text areas only.
-/// A box at the top or bottom edge may be cut off, so it waits until the
-/// screen has moved and it is seen whole. Then it reaches into the new rows,
-/// or comes within [`EDGE`] of them, which is how a box left at the edge is
-/// taken and a box already taken whole is not.
+/// P7 crops of the boxes in screen rows `top..bottom`. A box reaching into
+/// those rows, or within [`EDGE`] of them, is taken: a box held at the edge
+/// before is sent again once a scroll shows it whole there.
 pub fn crops(img: &Rgb, dets: &[Detection], top: u32, bottom: u32) -> Vec<CropIn> {
     let (lo, hi) = (top as f32 - EDGE, bottom as f32 + EDGE);
     dets.iter()
-        .filter(|d| d.y > EDGE && d.y + d.h < img.h as f32 - EDGE)
         .filter(|d| d.y < hi && d.y + d.h > lo)
         .filter_map(|d| {
             let (x, y) = (d.x.max(0.0) as u32, d.y.max(0.0) as u32);

@@ -1,6 +1,6 @@
-//! Edge cases of the tenth review: a text area cut by the screen edge is
-//! read once it is seen whole, an answer with anything after its JSON
-//! failed, and `detector_missing` goes once the model runs.
+//! Edge cases of the tenth review: a text area seen whole after a scroll is
+//! read where it reaches the new rows, an answer with anything after its
+//! JSON failed, and `detector_missing` goes once the model runs.
 
 mod support;
 
@@ -21,20 +21,19 @@ fn area(y: f32, h: f32) -> Detection {
 }
 
 #[test]
-fn a_text_area_cut_by_the_screen_bottom_is_read_whole_after_the_scroll() {
+fn a_text_area_seen_whole_after_a_scroll_is_read_where_it_reaches_the_new_rows() {
     let img = Rgb::new(960, 2400);
-    // Screen rows 2100 .. 2500: cut off by the bottom edge, so not read yet.
-    assert!(detect::crops(&img, &[area(2100.0, 400.0)], 0, 2400).is_empty(), "a cut-off text area was read");
-    // 300 px later it is whole at 1800 .. 2200 and reaches into the new rows 2100 .. 2400.
+    // 300 px after a scroll it is whole at 1800 .. 2200 and reaches into the new rows 2100 .. 2400.
     let c = detect::crops(&img, &[area(1800.0, 400.0), area(700.0, 400.0)], 2100, 2400);
     assert_eq!(c.len(), 1, "{c:?}");
     assert_eq!((c[0].y, c[0].h), (1800, 400), "the text area was not read whole");
-    // One that ended just above the edge waited too, and is taken the same way.
-    assert!(detect::crops(&img, &[area(1990.0, 400.0)], 0, 2400).is_empty());
+    // One that ends within EDGE above the new rows is taken the same way.
     assert_eq!(detect::crops(&img, &[area(1690.0, 400.0)], 2100, 2400).len(), 1);
-    // A cut one at the top edge waits for a scroll up.
-    assert!(detect::crops(&img, &[area(-100.0, 400.0)], 0, 2400).is_empty());
     assert_eq!(detect::crops(&img, &[area(200.0, 400.0)], 0, 300).len(), 1);
+    // One cut by the screen edge is sent clipped to it: P7 holds it until it
+    // knows whether the edge cut it (`edge_box_and_creep_edges`).
+    let c = detect::crops(&img, &[area(2100.0, 400.0)], 0, 2400);
+    assert_eq!((c[0].y, c[0].h), (2100, 300));
 }
 
 #[test]

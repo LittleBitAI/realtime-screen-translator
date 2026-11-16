@@ -268,10 +268,9 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
             val found = if (detector != null && frame != null) runCatching { detector.detect(frame) }.getOrNull() else null
             if (frame != null && found != null) {
                 for (b in found) {
-                    // As `detect::crops` in Rust: whole text areas only, a box at
-                    // the screen's top or bottom edge waits until it is seen whole,
-                    // then is taken because it reaches within EDGE of the new rows.
-                    if (b.y <= EDGE || b.y + b.h >= frame.height - EDGE) continue
+                    // As `detect::crops` in Rust: a box reaching into the asked
+                    // rows or within EDGE of them; P7 holds one at the screen's
+                    // edge until it knows whether the edge cut it.
                     if (b.y >= args.bottom + EDGE || b.y + b.h <= args.top - EDGE) continue
                     val x = b.x.toInt().coerceIn(0, frame.width - 1)
                     val y = b.y.toInt().coerceIn(0, frame.height - 1)
