@@ -99,13 +99,20 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
         }
     }
     if let Some(r) = out.detect {
-        let crops = screen.detect(seq, r.top, r.bottom).unwrap_or_else(|notice| {
-            backend.detect_failed(out.picture_id, seq, r);
-            if let Some(n) = notice {
-                backend.notify(n);
+        let crops = match screen.detect(seq, r.top, r.bottom) {
+            Ok(c) => {
+                // The model is in place and ran.
+                backend.clear_notice("detector_missing");
+                c
             }
-            vec![]
-        });
+            Err(notice) => {
+                backend.detect_failed(out.picture_id, seq, r);
+                if let Some(n) = notice {
+                    backend.notify(n);
+                }
+                vec![]
+            }
+        };
         if !crops.is_empty() {
             match backend.crops(CropsIn { picture_id: out.picture_id, frame_seq: seq, crops }) {
                 Ok(c) if !c.placed.is_empty() => {

@@ -141,7 +141,8 @@ pub fn parse(prefill: &str, continuation: &str, key: &str, n: usize) -> Option<V
     } else {
         format!("{prefill}{continuation}")
     };
-    let v: Value = serde_json::Deserializer::from_str(&full).into_iter::<Value>().next()?.ok()?;
+    // The whole answer is the JSON, nothing after it (T13: anything else failed).
+    let v: Value = serde_json::from_str(&full).ok()?;
     let list: Vec<String> = v[key].as_array()?.iter().map(|s| s.as_str().map(|s| s.trim().to_string())).collect::<Option<_>>()?;
     (list.len() == n).then_some(list)
 }
@@ -156,5 +157,8 @@ mod tests {
         assert_eq!(parse(TRANSLATE_PREFILL, "{\"ko\":[\"안녕\"]}", "ko", 1), Some(vec!["안녕".into()]));
         assert_eq!(parse(TRANSLATE_PREFILL, "죄송하지만 도와드릴 수 없습니다.", "ko", 1), None);
         assert_eq!(parse(TRANSLATE_PREFILL, "안녕\"]}", "ko", 2), None);
+        assert_eq!(parse(TRANSLATE_PREFILL, "안녕\"]} trailing", "ko", 1), None);
+        assert_eq!(parse(TRANSLATE_PREFILL, "안녕\"]}
+", "ko", 1), Some(vec!["안녕".into()]));
     }
 }

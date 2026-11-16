@@ -79,6 +79,11 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
     // Model runs and PNG encoding stay off the UI thread.
     private val worker = Executors.newSingleThreadExecutor()
 
+    private companion object {
+        /** `detect::EDGE`: a box this close to the screen's top or bottom may be cut by it. */
+        const val EDGE = 12f
+    }
+
     /**
      * Drawing over other apps. From Android 12 an opaque window of another
      * app holds back the touches under it unless it is an accessibility
@@ -231,8 +236,11 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
             val found = if (detector != null && frame != null) runCatching { detector.detect(frame) }.getOrNull() else null
             if (frame != null && found != null) {
                 for (b in found) {
-                    val cy = b.y + b.h / 2
-                    if (cy < args.top || cy >= args.bottom) continue
+                    // As `detect::crops` in Rust: whole text areas only, a box at
+                    // the screen's top or bottom edge waits until it is seen whole,
+                    // then is taken because it reaches within EDGE of the new rows.
+                    if (b.y <= EDGE || b.y + b.h >= frame.height - EDGE) continue
+                    if (b.y >= args.bottom + EDGE || b.y + b.h <= args.top - EDGE) continue
                     val x = b.x.toInt().coerceIn(0, frame.width - 1)
                     val y = b.y.toInt().coerceIn(0, frame.height - 1)
                     val w = minOf((b.x + b.w).toInt(), frame.width) - x

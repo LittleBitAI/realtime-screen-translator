@@ -359,6 +359,14 @@ impl Backend {
         self.lock().notice = Some(notice);
     }
 
+    /// The screen side works again: its notice, if still shown, goes.
+    pub fn clear_notice(&self, notice: &'static str) {
+        let mut st = self.lock();
+        if st.notice == Some(notice) {
+            st.notice = None;
+        }
+    }
+
     /// The local model could not look at screen rows `range` of frame
     /// `frame_seq`, which P6 had marked as detected: they are asked again later.
     pub fn detect_failed(&self, picture_id: i64, frame_seq: u64, range: Range) {

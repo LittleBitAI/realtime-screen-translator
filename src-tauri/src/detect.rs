@@ -82,10 +82,19 @@ pub fn nms(mut d: Vec<Detection>, max_iou: f32) -> Vec<Detection> {
     keep
 }
 
-/// P7 crops of the boxes whose centre lies in screen rows `top..bottom`.
+/// A box this close to the top or bottom of the screen may be cut by it.
+pub const EDGE: f32 = 12.0;
+
+/// P7 crops of the boxes in screen rows `top..bottom`: whole text areas only.
+/// A box at the top or bottom edge may be cut off, so it waits until the
+/// screen has moved and it is seen whole. Then it reaches into the new rows,
+/// or comes within [`EDGE`] of them, which is how a box left at the edge is
+/// taken and a box already taken whole is not.
 pub fn crops(img: &Rgb, dets: &[Detection], top: u32, bottom: u32) -> Vec<CropIn> {
+    let (lo, hi) = (top as f32 - EDGE, bottom as f32 + EDGE);
     dets.iter()
-        .filter(|d| (top as f32..bottom as f32).contains(&(d.y + d.h / 2.0)))
+        .filter(|d| d.y > EDGE && d.y + d.h < img.h as f32 - EDGE)
+        .filter(|d| d.y < hi && d.y + d.h > lo)
         .filter_map(|d| {
             let (x, y) = (d.x.max(0.0) as u32, d.y.max(0.0) as u32);
             let (w, h) = ((d.x + d.w).min(img.w as f32) as u32, (d.y + d.h).min(img.h as f32) as u32);
@@ -154,7 +163,7 @@ mod tests {
         assert_eq!(d.len(), 2, "{d:?}");
         assert_eq!((d[0].x, d[0].y, d[0].w, d[0].h, d[0].label), (220.0, 500.0, 160.0, 200.0, DIALOGUE));
         let c = crops(&img, &d, 0, 1200);
-        assert_eq!(c.len(), 1, "only the box whose centre is in the range");
+        assert_eq!(c.len(), 1, "only the box in the range");
         assert_eq!((c[0].kind.as_str(), c[0].w, c[0].h), ("dialogue", 160, 200));
         assert_eq!(crops(&img, &d, 1200, 2400)[0].kind, "effect");
     }
