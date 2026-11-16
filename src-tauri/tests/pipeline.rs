@@ -68,7 +68,7 @@ impl Screen for FakeScreen {
     fn next(&self) -> Option<Event> {
         self.script.lock().unwrap().events.pop_front()
     }
-    fn detect(&self, seq: u64, top: u32, bottom: u32) -> Result<Vec<CropIn>, &'static str> {
+    fn detect(&self, seq: u64, top: u32, bottom: u32) -> Result<Vec<CropIn>, Option<&'static str>> {
         self.script.lock().unwrap().detected.push((top, bottom));
         let y = self.balloon.y - self.offset(seq);
         if y < top as i64 || y >= bottom as i64 {

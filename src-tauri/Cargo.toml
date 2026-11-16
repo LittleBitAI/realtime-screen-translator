@@ -26,6 +26,7 @@ png = "0.18"
 rusqlite = { version = "0.43", features = ["bundled"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
+sha2 = "0.10"
 tauri = { version = "2.12.5", optional = true }
 ureq = "3.5.2"
 
@@ -54,7 +55,7 @@ getrandom = "0.2"
 
 # R25 where Rust runs the local model (A7: Windows); Android runs it in the plugin.
 [target."cfg(not(target_os = \"android\"))".dependencies]
-tract-onnx = { version = "0.23.10", optional = true }
+ort = { version = "2.0.0-rc.15", optional = true }
 
 # A1: the Kotlin plugin that captures, detects and draws on Android (a no-op
 # elsewhere, built everywhere so its Rust side is checked on desktop too).
@@ -65,7 +66,7 @@ optional = true
 [features]
 # The Tauri app shell (`cargo tauri build --features app`). The contract tests
 # drive the same backend through `contract-host` and do not need it.
-app = ["dep:tauri", "dep:tauri-build", "dep:windows", "dep:tract-onnx", "dep:tauri-plugin-rst-screen"]
+app = ["dep:tauri", "dep:tauri-build", "dep:windows", "dep:ort", "dep:tauri-plugin-rst-screen"]
 
 [build-dependencies]
 tauri-build = { version = "2.7.4", optional = true }

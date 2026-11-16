@@ -14,7 +14,7 @@ use crate::tracker::{self, THUMB_W};
 use crate::now_ms;
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 const KEY_SETTING: &str = "gemini_api_key";
 const MODEL_SETTING: &str = "gemini_model";
@@ -40,6 +40,26 @@ struct Pic {
     placements: Vec<PlacementRow>,
     /// Settled thumbnail of a page, to recognise it when the reader comes back.
     page_thumb: Option<Vec<u8>>,
+    /// Rows whose detection or translation failed. They are detected again
+    /// once the screen moves or comes back here, or after [`RETRY_MS`].
+    retry: Vec<(i64, i64)>,
+    retry_at: i64,
+}
+
+const RETRY_MS: i64 = 15_000;
+
+impl Pic {
+    fn failed(&mut self, rows: (i64, i64), now: i64) {
+        if self.retry.is_empty() {
+            self.retry_at = now + RETRY_MS;
+        }
+        add(&mut self.retry, rows);
+    }
+    fn reopen(&mut self) {
+        for r in std::mem::take(&mut self.retry) {
+            subtract(&mut self.detected, r);
+        }
+    }
 }
 
 /// A balloon on its way through Gemini, with every place it was seen while waiting.
@@ -62,9 +82,16 @@ struct Session {
     last_pic: Option<i64>,
     prev: Option<Vec<u8>>,
     screen: (u32, u32),
+    /// Thumbnail rows of a frame of this screen.
+    rows: usize,
     fixed: (usize, usize),
-    /// Picture y of the screen's top row.
+    /// Picture y of the screen's top row: `scroll_f` rounded. The scroll is
+    /// summed with sub-pixel precision so frame-by-frame rounding does not add up.
     scroll_y: i64,
+    scroll_f: f64,
+    /// Last resting thumbnail and its `scroll_f`: a scroll is measured again
+    /// against it when the screen rests, so what the steps got wrong is undone.
+    anchor: Option<(Vec<u8>, f64)>,
     turning: bool,
     mode: Option<&'static str>,
     last_seq: Option<u64>,
@@ -72,11 +99,19 @@ struct Session {
     frames: VecDeque<(u64, i64, i64)>,
     pending: Vec<Pending>,
     revision: u64,
+    /// This session's Gemini connections; shut down by P5 so nothing is in
+    /// flight or goes out after stop.
+    agent: ureq::Agent,
 }
 
 impl Session {
+    /// Screen pixels per thumbnail row.
     fn scale(&self) -> f64 {
-        self.screen.0 as f64 / THUMB_W as f64
+        self.screen.1 as f64 / self.rows.max(1) as f64
+    }
+    fn set_scroll(&mut self, f: f64) {
+        self.scroll_f = f;
+        self.scroll_y = f.round() as i64;
     }
     fn pic(&mut self) -> Option<&mut Pic> {
         let id = self.current?;
@@ -143,7 +178,6 @@ pub struct Backend {
     platform: Arc<dyn Platform>,
     data_dir: PathBuf,
     gemini_base: String,
-    agent: OnceLock<ureq::Agent>,
 }
 
 /// The parts of `r` outside `have` (sorted, disjoint), top to bottom.
@@ -174,6 +208,20 @@ fn missing(r: (i64, i64), have: &[(i64, i64)]) -> Vec<(i64, i64)> {
 /// The biggest part of the screen not handled yet; the rest is asked for on the next resting frame.
 fn new_part(vis: (i64, i64), have: &[(i64, i64)]) -> Option<(i64, i64)> {
     missing(vis, have).into_iter().max_by_key(|p| (p.1 - p.0, -p.0))
+}
+
+/// Take `r` out of the sorted, disjoint `have`.
+fn subtract(have: &mut Vec<(i64, i64)>, r: (i64, i64)) {
+    let mut out = vec![];
+    for &(t, b) in have.iter() {
+        if t < r.0 {
+            out.push((t, b.min(r.0)));
+        }
+        if b > r.1 {
+            out.push((t.max(r.1), b));
+        }
+    }
+    *have = out;
 }
 
 /// Add `r` to the sorted, disjoint `have`, merging what touches.
@@ -260,7 +308,6 @@ impl Backend {
             platform,
             data_dir,
             gemini_base: gemini_base.unwrap_or_else(|| gemini::DEFAULT_BASE.to_string()),
-            agent: OnceLock::new(),
         })
     }
 
@@ -273,6 +320,17 @@ impl Backend {
     /// A notice from the screen side, shown by P1 (`detector_missing`).
     pub fn notify(&self, notice: &'static str) {
         self.lock().notice = Some(notice);
+    }
+
+    /// The local model could not look at screen rows `range` of frame
+    /// `frame_seq`, which P6 had marked as detected: they are asked again later.
+    pub fn detect_failed(&self, picture_id: i64, frame_seq: u64, range: Range) {
+        let mut st = self.lock();
+        let Some(s) = st.session.as_mut() else { return };
+        let Ok(offset) = s.frame_offset(frame_seq, picture_id) else { return };
+        if let Some(pic) = s.pics.get_mut(&picture_id) {
+            pic.failed((offset + range.top as i64, offset + range.bottom as i64), now_ms());
+        }
     }
 
     pub fn status(&self) -> Status {
@@ -346,14 +404,18 @@ impl Backend {
             last_pic: None,
             prev: None,
             screen: (0, 0),
+            rows: 0,
             fixed: (0, 0),
             scroll_y: 0,
+            scroll_f: 0.0,
+            anchor: None,
             turning: false,
             mode: None,
             last_seq: None,
             frames: VecDeque::new(),
             pending: vec![],
             revision: 0,
+            agent: gemini::agent(),
         });
         Ok(StartOut { on: true, book_id })
     }
@@ -361,8 +423,11 @@ impl Backend {
     pub fn stop(&self) -> ApiResult<StopOut> {
         let mut st = self.lock();
         let Some(s) = st.session.take() else { return Err(ApiError("not_on")) };
-        // Results of requests still in flight belong to this generation and get dropped.
+        // Requests in flight are cut off and the agent refuses new ones, so a
+        // worker past its last check sends nothing; anything that still comes
+        // back belongs to this generation and gets dropped.
         st.generation += 1;
+        s.agent.clone().shutdown();
         let now = now_ms();
         for id in s.pics.keys() {
             store::close_picture(&st.db, *id, now)?;
@@ -389,13 +454,25 @@ impl Backend {
         }
         s.last_seq = Some(req.seq);
         let rows = thumb.len() / THUMB_W;
-        if s.screen != (req.width, req.height) || s.prev.as_ref().is_some_and(|p| p.len() != thumb.len()) {
+        let now = now_ms();
+        let mut clear = false;
+        if s.screen != (req.width, req.height) || s.rows != rows {
+            // A new screen size (the phone turned): its rows and coordinates do
+            // not continue the picture on screen, so a new picture starts.
+            if s.screen != (0, 0) {
+                if let Some(id) = s.current.take() {
+                    store::close_picture(&st.db, id, now)?;
+                }
+                s.turning = false;
+                clear = true;
+            }
             s.screen = (req.width, req.height);
+            s.rows = rows;
             s.prev = None;
             s.fixed = (0, 0);
+            s.anchor = None;
         }
         let scale = s.scale();
-        let now = now_ms();
 
         if tracker::is_blocked(&thumb) {
             st.notice = Some("capture_blocked");
@@ -419,7 +496,6 @@ impl Backend {
 
         let mut motion = "still";
         let mut dy = 0i32;
-        let mut clear = false;
         let mut settled = false;
         match s.prev.take() {
             None => {
@@ -428,7 +504,7 @@ impl Backend {
                     s.pics.insert(id, new_pic(id));
                     s.current = Some(id);
                     s.last_pic = Some(id);
-                    s.scroll_y = 0;
+                    s.set_scroll(0.0);
                 }
             }
             Some(prev) => {
@@ -437,9 +513,9 @@ impl Backend {
                     settled = true;
                 } else {
                     let (ft, fb) = tracker::fixed_rows(&prev, &thumb, rows);
-                    let shift = tracker::best_shift(&prev, &thumb, rows, ft, fb)
+                    let shift = tracker::fine_shift(&prev, &thumb, rows, ft, fb, false)
                         .map(|m| (m, (ft, fb)))
-                        .or_else(|| tracker::best_shift(&prev, &thumb, rows, top, bottom).map(|m| (m, (top, bottom))));
+                        .or_else(|| tracker::fine_shift(&prev, &thumb, rows, top, bottom, false).map(|m| (m, (top, bottom))));
                     match shift {
                         Some((rows_moved, fixed)) => {
                             s.fixed = fixed;
@@ -447,10 +523,12 @@ impl Backend {
                                 self.finish_turn(db, s, &prev)?;
                             }
                             motion = "scroll";
-                            dy = (rows_moved as f64 * scale).round() as i32;
-                            s.scroll_y += dy as i64;
+                            let before = s.scroll_y;
+                            s.set_scroll(s.scroll_f + rows_moved * scale);
+                            dy = (s.scroll_y - before) as i32;
                             s.mode = Some("scroll");
                             if let Some(pic) = s.pic() {
+                                pic.reopen();
                                 if pic.kind == "page" {
                                     pic.kind = "stitched";
                                     pic.page_thumb = None;
@@ -469,7 +547,8 @@ impl Backend {
                                 store::close_picture(db, id, now)?;
                             }
                             s.turning = true;
-                            s.scroll_y = 0;
+                            s.set_scroll(0.0);
+                            s.anchor = None;
                         }
                     }
                 }
@@ -482,10 +561,20 @@ impl Backend {
             if s.turning {
                 self.finish_turn(db, s, &thumb)?;
             }
+            // Measured again from the last resting screen in one step.
+            if let Some((a, f)) = s.anchor.take() {
+                if let Some(m) = tracker::fine_shift(&a, &thumb, rows, s.fixed.0, s.fixed.1, true) {
+                    s.set_scroll(f + m * scale);
+                }
+            }
+            s.anchor = Some((thumb.clone(), s.scroll_f));
             let (h, ft, fb) = (req.height as i64, (s.fixed.0 as f64 * scale) as i64, (s.fixed.1 as f64 * scale) as i64);
             let scroll_y = s.scroll_y;
             if let Some(pic) = s.pic() {
                 let vis = (scroll_y + ft, scroll_y + h - fb);
+                if now >= pic.retry_at {
+                    pic.reopen();
+                }
                 if let Some(d) = new_part(vis, &pic.detected) {
                     add(&mut pic.detected, d);
                     detect = Some(Range { top: (d.0 - scroll_y) as u32, bottom: (d.1 - scroll_y) as u32 });
@@ -525,15 +614,18 @@ impl Backend {
     /// The page change settled on `thumb`: back on a page seen before, or a new page.
     fn finish_turn(&self, db: &Db, s: &mut Session, thumb: &[u8]) -> ApiResult<()> {
         s.turning = false;
-        s.scroll_y = 0;
+        s.set_scroll(0.0);
+        s.anchor = None;
         let rows = thumb.len() / THUMB_W;
         let seen = s.pics.values().find(|p| {
             p.page_thumb.as_ref().is_some_and(|t| t.len() == thumb.len() && tracker::still_diff(t, thumb, 0, rows) <= tracker::MATCH)
         });
-        let id = match seen {
-            Some(p) => {
-                store::reopen_picture(db, p.id)?;
-                p.id
+        let id = match seen.map(|p| p.id) {
+            Some(id) => {
+                store::reopen_picture(db, id)?;
+                // Back on this page: what failed here is tried again.
+                s.pics.get_mut(&id).unwrap().reopen();
+                id
             }
             None => {
                 let id = store::create_picture(db, s.book_id, "page", s.screen.0)?;
@@ -567,7 +659,9 @@ impl Backend {
                 result.skipped_effects += 1;
                 continue;
             }
-            let Some(img) = export::decode_png(&c.image) else {
+            // The picture must be the text area it says it is, or it is not
+            // the crop it claims (a whole screen sent as a small crop).
+            let Some(img) = export::decode_png(&c.image).filter(|i| (i.w, i.h) == (c.w, c.h)) else {
                 result.discarded += 1;
                 continue;
             };
@@ -611,19 +705,18 @@ impl Backend {
         }
         if !jobs.is_empty() {
             let s = st.session.as_mut().unwrap();
-            let gen = s.gen;
+            let (gen, agent) = (s.gen, s.agent.clone());
             let model = st.model.clone();
             drop(guard);
-            self.spawn_jobs(gen, key, model, jobs);
+            self.spawn_jobs(gen, agent, key, model, jobs);
         }
         Ok(result)
     }
 
-    fn spawn_jobs(&self, gen: u64, key: String, model: String, jobs: Vec<Job>) {
+    fn spawn_jobs(&self, gen: u64, agent: ureq::Agent, key: String, model: String, jobs: Vec<Job>) {
         let state = self.state.clone();
         let platform = self.platform.clone();
         let base = self.gemini_base.clone();
-        let agent = self.agent.get_or_init(gemini::agent).clone();
         std::thread::spawn(move || {
             // Checked and counted under the lock right before each send, so
             // nothing goes out once translation is switched off.
@@ -780,7 +873,7 @@ impl Backend {
                     let _ = std::fs::remove_file(&path);
                     return Err(storage_error(e));
                 }
-                files.push(path.to_string_lossy().to_string());
+                files.push(self.publish(&path)?);
                 continue;
             }
             // WebP is at most 16383 rows: a longer picture goes out in parts.
@@ -791,15 +884,23 @@ impl Backend {
                 let stem = if many { format!("translated-{stem}-{}-{}", i + 1, k + 1) } else { format!("translated-{stem}-{}", i + 1) };
                 let path = export::free_path(&dir, &stem, ext);
                 std::fs::write(&path, bytes).map_err(storage_error)?;
-                files.push(path.to_string_lossy().to_string());
+                files.push(self.publish(&path)?);
             }
         }
         Ok(ExportOut { count: files.len() as u32, files })
     }
+
+    fn publish(&self, path: &std::path::Path) -> ApiResult<String> {
+        self.platform.publish(path).map_err(|e| {
+            eprintln!("cannot hand {} over: {e}", path.display());
+            let _ = std::fs::remove_file(path);
+            ApiError("storage_denied")
+        })
+    }
 }
 
 fn new_pic(id: i64) -> Pic {
-    Pic { id, kind: "page", covered: vec![], detected: vec![], placements: vec![], page_thumb: None }
+    Pic { id, kind: "page", covered: vec![], detected: vec![], placements: vec![], page_thumb: None, retry: vec![], retry_at: 0 }
 }
 
 fn storage_error(e: std::io::Error) -> ApiError {
@@ -848,14 +949,18 @@ fn finish_jobs(state: &Mutex<State>, platform: &dyn Platform, gen: u64, model: &
         targets.push(i.map(|i| s.pending.remove(i).targets).unwrap_or_default());
     }
     let now = now_ms();
+    let retry = |s: &mut Session, targets: &[(i64, Rect)]| {
+        for &(picture_id, r) in targets {
+            if let Some(pic) = s.pics.get_mut(&picture_id) {
+                pic.failed((r.1, r.1 + r.3 as i64), now);
+            }
+        }
+    };
     let rows: Vec<(Translation, &Job)> = match outcome {
         Err(GeminiError::Cancelled) => return,
-        Err(GeminiError::KeyInvalid) => {
-            st.notice = Some("key_invalid");
-            return;
-        }
-        Err(GeminiError::Unreachable) => {
-            st.notice = Some("gemini_unreachable");
+        Err(e @ (GeminiError::KeyInvalid | GeminiError::Unreachable)) => {
+            targets.iter().for_each(|t| retry(s, t));
+            st.notice = Some(if e == GeminiError::KeyInvalid { "key_invalid" } else { "gemini_unreachable" });
             return;
         }
         Err(GeminiError::Unreadable) => jobs.iter().map(|j| (translation(j, None, None, "failed"), j)).collect(),
@@ -897,7 +1002,12 @@ fn finish_jobs(state: &Mutex<State>, platform: &dyn Platform, gen: u64, model: &
                 None
             }
         };
-        let Some(ko) = ko else { continue };
+        let Some(ko) = ko else {
+            if t.status != "skip" {
+                retry(st.session.as_mut().unwrap(), &targets);
+            }
+            continue;
+        };
         for (picture_id, rect) in targets {
             let s = st.session.as_mut().unwrap();
             let Some(pic) = s.pics.get(&picture_id) else { continue };

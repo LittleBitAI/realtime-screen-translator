@@ -1,10 +1,14 @@
 package ai.littlebit.rst.screen
 
 import android.app.Activity
+import android.content.ContentValues
 import android.content.Intent
 import android.graphics.Bitmap
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Base64
 import androidx.activity.result.ActivityResult
@@ -17,6 +21,7 @@ import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.util.concurrent.Executors
 
 @InvokeArg
@@ -41,6 +46,19 @@ class PlacementArg {
 class DrawArgs {
     var placements: Array<PlacementArg> = arrayOf()
     var clear: Boolean = false
+}
+
+@InvokeArg
+class DetectArgs {
+    var seq: Long = 0
+    var top: Int = 0
+    var bottom: Int = 0
+    var model: String = ""
+}
+
+@InvokeArg
+class PublishArgs {
+    var path: String = ""
 }
 
 @InvokeArg
@@ -127,9 +145,46 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
     fun stop(invoke: Invoke) {
         Capture.paused = true
         Capture.clear()
-        Overlay.draw(emptyList())
+        // The layer comes down with translation; only the on/off button stays.
+        Overlay.hideLayer()
         Overlay.setOn(false)
         invoke.resolve()
+    }
+
+    /**
+     * An exported picture (a file in the app's cache) goes into the gallery
+     * under Pictures/RealtimeTranslator through MediaStore (R19); answered
+     * with its content URI.
+     */
+    @Command
+    fun publish(invoke: Invoke) {
+        val args = invoke.parseArgs(PublishArgs::class.java)
+        worker.execute {
+            val file = File(args.path)
+            val resolver = activity.contentResolver
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, file.name)
+                put(MediaStore.Images.Media.MIME_TYPE, if (file.name.endsWith(".webp")) "image/webp" else "image/png")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/RealtimeTranslator")
+                    put(MediaStore.Images.Media.IS_PENDING, 1)
+                }
+            }
+            var uri: Uri? = null
+            try {
+                val u = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: throw IllegalStateException("gallery refused the picture")
+                uri = u
+                resolver.openOutputStream(u)!!.use { out -> file.inputStream().use { it.copyTo(out) } }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    resolver.update(u, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+                }
+                file.delete()
+                invoke.resolve(JSObject().apply { put("location", u.toString()) })
+            } catch (e: Exception) {
+                uri?.let { runCatching { resolver.delete(it, null, null) } }
+                invoke.reject(e.message ?: "gallery save failed")
+            }
+        }
     }
 
     /** Answered with the next frame or button tap, whenever it comes. */
@@ -140,13 +195,15 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun detect(invoke: Invoke) {
-        val args = invoke.parseArgs(RangeArgs::class.java)
+        val args = invoke.parseArgs(DetectArgs::class.java)
         worker.execute {
             val crops = JSArray()
-            val detector = Detector.get(activity.applicationContext)
+            val detector = runCatching { Detector.get(args.model) }.getOrNull()
             val frame = Capture.frame(args.seq)
-            if (detector != null && frame != null) {
-                for (b in detector.detect(frame)) {
+            // Rows the model could not look at are asked for again later.
+            val found = if (detector != null && frame != null) runCatching { detector.detect(frame) }.getOrNull() else null
+            if (frame != null && found != null) {
+                for (b in found) {
                     val cy = b.y + b.h / 2
                     if (cy < args.top || cy >= args.bottom) continue
                     val x = b.x.toInt().coerceIn(0, frame.width - 1)
@@ -159,7 +216,7 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
                         put("y", y)
                         put("w", w)
                         put("h", h)
-                        put("kind", if (b.cls == 1) "effect" else "dialogue")
+                        put("kind", if (b.label == Detector.EFFECT) "effect" else "dialogue")
                         put("score", b.score.toDouble())
                         put("image", png(Bitmap.createBitmap(frame, x, y, w, h)))
                     })
@@ -167,6 +224,7 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
             }
             invoke.resolve(JSObject().apply {
                 put("missing", detector == null)
+                put("failed", found == null)
                 put("crops", crops)
             })
         }

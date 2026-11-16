@@ -3,59 +3,57 @@ package ai.littlebit.rst.screen
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
-import android.content.Context
 import android.graphics.Bitmap
 import java.io.File
 import java.nio.FloatBuffer
+import java.nio.LongBuffer
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.roundToInt
 
 /**
- * R25: the balloon model (`balloons.onnx`, the same file and contract as
- * `src-tauri/src/detect.rs`): YOLOv8 export, input [1, 3, 640, 640] RGB in
- * 0..1 letterboxed on gray 114, output [1, 4 + classes, n]; class 0 dialogue
- * text, class 1 sound-effect text.
+ * R25: the balloon model, the same file and contract as
+ * `src-tauri/src/detect.rs`: the pinned RT-DETR-v2 "comic-text-and-bubble-
+ * detector" that Rust downloads into the app data folder (`models.rs`).
+ * Inputs `images` [1, 3, 640, 640] RGB in 0..1, the screen resized (not
+ * letterboxed), and `orig_target_sizes` [1, 2] (width, height); outputs
+ * `labels` [1, n], `boxes` [1, n, 4] (x1, y1, x2, y2 in screen pixels) and
+ * `scores` [1, n]. Label 1 is dialogue text, 2 sound-effect text, 0 the
+ * balloon outline (left out).
  */
 class Detector private constructor(private val env: OrtEnvironment, private val session: OrtSession) {
-    class Box(val x: Float, val y: Float, val w: Float, val h: Float, val cls: Int, val score: Float)
+    class Box(val x: Float, val y: Float, val w: Float, val h: Float, val label: Long, val score: Float)
 
     fun detect(bmp: Bitmap): List<Box> {
-        val scale = min(SIZE / bmp.width.toFloat(), SIZE / bmp.height.toFloat())
-        val w = (bmp.width * scale).roundToInt()
-        val h = (bmp.height * scale).roundToInt()
-        val padX = (SIZE - w) / 2
-        val padY = (SIZE - h) / 2
-        val small = Bitmap.createScaledBitmap(bmp, w, h, false)
-        val px = IntArray(w * h)
-        small.getPixels(px, 0, w, 0, 0, w, h)
+        val small = Bitmap.createScaledBitmap(bmp, SIZE, SIZE, false)
+        val px = IntArray(SIZE * SIZE)
+        small.getPixels(px, 0, SIZE, 0, 0, SIZE, SIZE)
         val n = SIZE * SIZE
         val input = FloatBuffer.allocate(3 * n)
-        for (i in 0 until 3 * n) input.put(i, 114f / 255f)
-        for (y in 0 until h) {
-            for (x in 0 until w) {
-                val c = px[y * w + x]
-                val d = (y + padY) * SIZE + x + padX
-                input.put(d, ((c shr 16) and 255) / 255f)
-                input.put(n + d, ((c shr 8) and 255) / 255f)
-                input.put(2 * n + d, (c and 255) / 255f)
-            }
+        for (d in 0 until n) {
+            val c = px[d]
+            input.put(d, ((c shr 16) and 255) / 255f)
+            input.put(n + d, ((c shr 8) and 255) / 255f)
+            input.put(2 * n + d, (c and 255) / 255f)
         }
+        val sizes = LongBuffer.wrap(longArrayOf(bmp.width.toLong(), bmp.height.toLong()))
         val boxes = ArrayList<Box>()
-        OnnxTensor.createTensor(env, input, longArrayOf(1, 3, SIZE.toLong(), SIZE.toLong())).use { tensor ->
-            session.run(mapOf(session.inputNames.first() to tensor)).use { result ->
-                @Suppress("UNCHECKED_CAST")
-                val out = (result[0].value as Array<Array<FloatArray>>)[0]
-                val channels = out.size
-                if (channels < 5) return emptyList()
-                for (i in out[0].indices) {
-                    var cls = 0
-                    for (c in 5 until channels) if (out[c][i] > out[4 + cls][i]) cls = c - 4
-                    val score = out[4 + cls][i]
-                    if (score < MIN_SCORE) continue
-                    val bw = out[2][i] / scale
-                    val bh = out[3][i] / scale
-                    boxes.add(Box((out[0][i] - padX) / scale - bw / 2, (out[1][i] - padY) / scale - bh / 2, bw, bh, cls, score))
+        OnnxTensor.createTensor(env, input, longArrayOf(1, 3, SIZE.toLong(), SIZE.toLong())).use { images ->
+            OnnxTensor.createTensor(env, sizes, longArrayOf(1, 2)).use { orig ->
+                session.run(mapOf("images" to images, "orig_target_sizes" to orig)).use { result ->
+                    @Suppress("UNCHECKED_CAST")
+                    val labels = (result.get("labels").get().value as Array<LongArray>)[0]
+                    @Suppress("UNCHECKED_CAST")
+                    val xyxy = (result.get("boxes").get().value as Array<Array<FloatArray>>)[0]
+                    @Suppress("UNCHECKED_CAST")
+                    val scores = (result.get("scores").get().value as Array<FloatArray>)[0]
+                    for (i in labels.indices) {
+                        val l = labels[i]
+                        if ((l != DIALOGUE && l != EFFECT) || scores[i] < MIN_SCORE) continue
+                        val b = xyxy[i]
+                        val w = b[2] - b[0]
+                        val h = b[3] - b[1]
+                        if (w > 0 && h > 0) boxes.add(Box(b[0], b[1], w, h, l, scores[i]))
+                    }
                 }
             }
         }
@@ -79,29 +77,22 @@ class Detector private constructor(private val env: OrtEnvironment, private val 
 
     companion object {
         const val SIZE = 640
-        const val MIN_SCORE = 0.35f
-        const val MAX_IOU = 0.45f
-        const val FILE = "balloons.onnx"
+        const val MIN_SCORE = 0.45f
+        const val MAX_IOU = 0.5f
+        const val DIALOGUE = 1L
+        const val EFFECT = 2L
 
         @Volatile private var loaded: Detector? = null
 
-        /** The model, or null while no model file is on the device (`detector_missing`). */
-        fun get(ctx: Context): Detector? {
+        /** The model at `path`, or null until Rust has it in place (`detector_missing`). */
+        fun get(path: String): Detector? {
             loaded?.let { return it }
             synchronized(this) {
                 loaded?.let { return it }
-                val bytes = modelBytes(ctx) ?: return null
+                if (!File(path).isFile) return null
                 val env = OrtEnvironment.getEnvironment()
-                return Detector(env, env.createSession(bytes, OrtSession.SessionOptions())).also { loaded = it }
+                return Detector(env, env.createSession(path, OrtSession.SessionOptions())).also { loaded = it }
             }
-        }
-
-        private fun modelBytes(ctx: Context): ByteArray? {
-            for (dir in listOf(ctx.dataDir, ctx.filesDir)) {
-                val f = File(dir, "models/$FILE")
-                if (f.isFile) return f.readBytes()
-            }
-            return runCatching { ctx.assets.open(FILE).use { it.readBytes() } }.getOrNull()
         }
     }
 }

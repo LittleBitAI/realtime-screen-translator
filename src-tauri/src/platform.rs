@@ -3,7 +3,7 @@
 //! Android Keystore). Windows: Windows Graphics Capture, a click-through
 //! transparent Tauri window, the Downloads folder, DPAPI.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Permissions {
@@ -22,8 +22,15 @@ pub trait Platform: Send + Sync {
     fn stop(&self);
     /// Tell the overlay that placements changed (a Tauri event in the app).
     fn emit(&self, event: &str, payload: serde_json::Value);
-    /// Folder exported pictures go to: the gallery or the Downloads folder.
+    /// Folder exported pictures are written to: the Downloads folder, or on
+    /// Android a cache folder they leave for the gallery through [`Self::publish`].
     fn export_dir(&self) -> PathBuf;
+    /// Hand a written export over to where the person finds it (Android:
+    /// MediaStore, the gallery) and say where it is now. Elsewhere the file
+    /// is already there.
+    fn publish(&self, path: &Path) -> Result<String, String> {
+        Ok(path.to_string_lossy().into_owned())
+    }
     /// Seal and unseal secrets with the device's secure storage.
     fn seal(&self, data: &[u8]) -> Option<Vec<u8>>;
     fn unseal(&self, data: &[u8]) -> Option<Vec<u8>>;

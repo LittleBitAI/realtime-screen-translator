@@ -83,7 +83,14 @@ mod android {
     struct Detected {
         #[serde(default)]
         missing: bool,
+        #[serde(default)]
+        failed: bool,
         crops: Vec<Crop>,
+    }
+
+    #[derive(Deserialize)]
+    pub struct Published {
+        pub location: String,
     }
 
     #[derive(Deserialize)]
@@ -91,8 +98,9 @@ mod android {
         pub data: Option<String>,
     }
 
-    /// The Kotlin plugin as the capture loop's screen side.
-    pub struct AndroidScreen(pub AppHandle);
+    /// The Kotlin plugin as the capture loop's screen side; `.1` is where
+    /// [`crate::models`] keeps the balloon model.
+    pub struct AndroidScreen(pub AppHandle, pub String);
 
     impl pipeline::Screen for AndroidScreen {
         fn next(&self) -> Option<pipeline::Event> {
@@ -116,13 +124,15 @@ mod android {
             }
         }
 
-        fn detect(&self, seq: u64, top: u32, bottom: u32) -> Result<Vec<CropIn>, &'static str> {
-            let d = call::<Detected>(&self.0, "detect", json!({"seq": seq, "top": top, "bottom": bottom})).unwrap_or_else(|e| {
-                eprintln!("{e}");
-                Detected { missing: false, crops: vec![] }
-            });
+        fn detect(&self, seq: u64, top: u32, bottom: u32) -> Result<Vec<CropIn>, Option<&'static str>> {
+            let d = call::<Detected>(&self.0, "detect", json!({"seq": seq, "top": top, "bottom": bottom, "model": self.1}))
+                .map_err(|e| eprintln!("{e}"))
+                .map_err(|_| None)?;
             if d.missing {
-                return Err("detector_missing");
+                return Err(Some("detector_missing"));
+            }
+            if d.failed {
+                return Err(None);
             }
             Ok(d.crops
                 .into_iter()
@@ -225,7 +235,16 @@ impl Platform for AppPlatform {
     }
 
     fn export_dir(&self) -> PathBuf {
+        // Android: written to the cache, then handed to the gallery by `publish`.
+        #[cfg(target_os = "android")]
+        return self.app.path().app_cache_dir().unwrap_or_else(|_| self.data_dir.join("cache")).join("export");
+        #[cfg(not(target_os = "android"))]
         self.app.path().download_dir().unwrap_or_else(|_| self.data_dir.join("export"))
+    }
+
+    #[cfg(target_os = "android")]
+    fn publish(&self, path: &std::path::Path) -> Result<String, String> {
+        android::call::<android::Published>(&self.app, "publish", serde_json::json!({"path": path.to_string_lossy()})).map(|p| p.location)
     }
 
     // DPAPI on Windows, the Android Keystore through the plugin.
@@ -314,6 +333,8 @@ pub fn run() {
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             let handle = app.handle().clone();
+            // R25: the pinned balloon model, fetched once and checked.
+            crate::models::fetch_in_background(crate::models::path(&data_dir));
             #[cfg(windows)]
             let screen = Arc::new(crate::wgc::WinScreen::new(handle.clone(), data_dir.clone()));
             let platform = Arc::new(AppPlatform {
@@ -322,6 +343,8 @@ pub fn run() {
                 #[cfg(windows)]
                 screen: screen.clone(),
             });
+            #[cfg(target_os = "android")]
+            let model = crate::models::path(&data_dir);
             let backend = Backend::open(data_dir, std::env::var("RST_GEMINI_BASE_URL").ok(), platform)?;
             app.manage(backend);
             // The capture loop: frames, detection and strips while translation is on.
@@ -331,7 +354,7 @@ pub fn run() {
                 #[cfg(windows)]
                 pipeline::run(&backend, &*screen);
                 #[cfg(target_os = "android")]
-                pipeline::run(&backend, &android::AndroidScreen(handle.clone()));
+                pipeline::run(&backend, &android::AndroidScreen(handle.clone(), model.to_string_lossy().into_owned()));
             });
             Ok(())
         })

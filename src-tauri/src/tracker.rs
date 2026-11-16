@@ -42,44 +42,73 @@ pub fn fixed_rows(prev: &[u8], cur: &[u8], rows: usize) -> (usize, usize) {
     (if top <= cap { top } else { 0 }, if bottom <= cap { bottom } else { 0 })
 }
 
-/// Shift `s` (in thumbnail rows, content moved up by `s`) that best maps the
-/// previous frame onto the current one within rows `top..rows-bottom`, if it
-/// matches well enough.
-pub fn best_shift(prev: &[u8], cur: &[u8], rows: usize, top: usize, bottom: usize) -> Option<i32> {
+/// Mean difference of `cur` against `prev` moved up by `s` rows, within
+/// rows `top..end`; `None` once it is over `limit`.
+fn shifted_diff(prev: &[u8], cur: &[u8], top: usize, end: usize, s: i32, limit: f32) -> Option<f32> {
+    let from = top as i32 + (-s).max(0);
+    let to = end as i32 - s.max(0);
+    if to <= from {
+        return None;
+    }
+    let n = ((to - from) as usize * THUMB_W / 2) as f32;
+    let mut sum = 0u64;
+    for r in from..to {
+        let (a, b) = (row(cur, r as usize), row(prev, (r + s) as usize));
+        sum += a.iter().zip(b).step_by(2).map(|(&x, &y)| x.abs_diff(y) as u64).sum::<u64>();
+        if sum as f32 > limit * n {
+            return None;
+        }
+    }
+    Some(sum as f32 / n)
+}
+
+/// The best whole-row shift and its difference; `zero` lets "not moved" win.
+fn search(prev: &[u8], cur: &[u8], rows: usize, top: usize, bottom: usize, zero: bool) -> Option<(i32, f32)> {
     let end = rows.saturating_sub(bottom);
     if end <= top + 4 {
         return None;
     }
     let span = end - top;
-    let min_overlap = (span * 3 / 10).max(4);
-    let max_shift = (span - min_overlap) as i32;
-    let mut best: Option<(f32, i32)> = None;
+    let max_shift = (span - (span * 3 / 10).max(4)) as i32;
+    let mut best: Option<(i32, f32)> = None;
     for s in -max_shift..=max_shift {
-        if s == 0 {
+        if s == 0 && !zero {
             continue;
         }
-        let from = top as i32 + (-s).max(0);
-        let to = end as i32 - s.max(0);
-        let n = (to - from) as usize;
-        let limit = best.map(|(d, _)| d).unwrap_or(MATCH) * (n * THUMB_W / 2) as f32;
-        let mut sum = 0u64;
-        let mut over = false;
-        for r in from..to {
-            let (a, b) = (row(cur, r as usize), row(prev, (r + s) as usize));
-            sum += a.iter().zip(b).step_by(2).map(|(&x, &y)| x.abs_diff(y) as u64).sum::<u64>();
-            if sum as f32 > limit {
-                over = true;
-                break;
-            }
-        }
-        if !over {
-            let d = sum as f32 / (n * THUMB_W / 2) as f32;
-            if best.map(|(bd, _)| d < bd).unwrap_or(true) {
-                best = Some((d, s));
+        let limit = best.map(|b| b.1).unwrap_or(MATCH);
+        if let Some(d) = shifted_diff(prev, cur, top, end, s, limit) {
+            if best.is_none_or(|b| d < b.1) {
+                best = Some((s, d));
             }
         }
     }
-    best.filter(|(d, _)| *d <= MATCH).map(|(_, s)| s)
+    best.filter(|b| b.1 <= MATCH)
+}
+
+/// Shift `s` (in thumbnail rows, content moved up by `s`) that best maps the
+/// previous frame onto the current one within rows `top..rows-bottom`, if it
+/// matches well enough.
+pub fn best_shift(prev: &[u8], cur: &[u8], rows: usize, top: usize, bottom: usize) -> Option<i32> {
+    search(prev, cur, rows, top, bottom, false).map(|b| b.0)
+}
+
+/// [`best_shift`] to a fraction of a row: a real scroll is rarely a whole
+/// thumbnail row (11.25 screen px on a 1080-px-wide phone), and rounding
+/// every frame adds up. The fraction comes from the differences one row to
+/// either side (an equiangular line fit); an exact match stays whole.
+pub fn fine_shift(prev: &[u8], cur: &[u8], rows: usize, top: usize, bottom: usize, zero: bool) -> Option<f64> {
+    let (s, d0) = search(prev, cur, rows, top, bottom, zero)?;
+    let end = rows.saturating_sub(bottom);
+    let at = |k: i32| shifted_diff(prev, cur, top, end, k, f32::MAX);
+    if d0 < 0.25 {
+        return Some(s as f64);
+    }
+    let (Some(a), Some(b)) = (at(s - 1), at(s + 1)) else { return Some(s as f64) };
+    let rise = a.max(b) - d0;
+    if rise <= 0.0 {
+        return Some(s as f64);
+    }
+    Some(s as f64 + ((a - b) / (2.0 * rise)).clamp(-0.5, 0.5) as f64)
 }
 
 /// A2: the 96-px-wide grayscale thumbnail of a `w` x `h` grayscale screen,

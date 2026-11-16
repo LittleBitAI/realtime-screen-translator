@@ -171,7 +171,7 @@ pub struct WinScreen {
 
 impl WinScreen {
     pub fn new(app: AppHandle, data_dir: PathBuf) -> WinScreen {
-        let model = std::env::var_os("RST_DETECTOR_MODEL").map(PathBuf::from).unwrap_or_else(|| data_dir.join("models").join(detect::MODEL_FILE));
+        let model = crate::models::path(&data_dir);
         WinScreen { app, model, inner: Mutex::default(), wake: Condvar::new(), detector: Mutex::new(None) }
     }
 
@@ -242,7 +242,7 @@ impl Screen for WinScreen {
         }
     }
 
-    fn detect(&self, seq: u64, top: u32, bottom: u32) -> Result<Vec<CropIn>, &'static str> {
+    fn detect(&self, seq: u64, top: u32, bottom: u32) -> Result<Vec<CropIn>, Option<&'static str>> {
         let model = {
             // Loaded on first use, and again later if the file was missing then.
             let mut d = self.detector.lock().unwrap_or_else(|e| e.into_inner());
@@ -252,14 +252,14 @@ impl Screen for WinScreen {
                     Err(e) => eprintln!("balloon model: {e}"),
                 }
             }
-            d.clone().ok_or("detector_missing")?
+            d.clone().ok_or(Some("detector_missing"))?
         };
-        let Some(img) = self.frame(seq) else { return Ok(vec![]) };
+        let img = self.frame(seq).ok_or(None)?;
         match model.detect(&img) {
             Ok(d) => Ok(detect::crops(&img, &d, top, bottom)),
             Err(e) => {
                 eprintln!("balloon model: {e}");
-                Ok(vec![])
+                Err(None)
             }
         }
     }

@@ -31,8 +31,9 @@ pub trait Screen: Send + Sync {
     /// Block until the next frame or button tap. `None` ends the loop.
     fn next(&self) -> Option<Event>;
     /// Text areas the local model finds in screen rows `top..bottom` of frame
-    /// `seq`. The error is a P1 notice (`detector_missing`).
-    fn detect(&self, seq: u64, top: u32, bottom: u32) -> Result<Vec<CropIn>, &'static str>;
+    /// `seq`. On failure the rows are tried again later, and the error may
+    /// carry a P1 notice (`detector_missing`).
+    fn detect(&self, seq: u64, top: u32, bottom: u32) -> Result<Vec<CropIn>, Option<&'static str>>;
     /// PNG of the clean screen rows `top..bottom` of frame `seq`.
     fn strip(&self, seq: u64, top: u32, bottom: u32) -> Option<Vec<u8>>;
     /// Show `placements` (screen coordinates); `clear` empties the overlay first.
@@ -74,7 +75,10 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
     }
     if let Some(r) = out.detect {
         let crops = screen.detect(seq, r.top, r.bottom).unwrap_or_else(|notice| {
-            backend.notify(notice);
+            backend.detect_failed(out.picture_id, seq, r);
+            if let Some(n) = notice {
+                backend.notify(n);
+            }
             vec![]
         });
         if !crops.is_empty() {

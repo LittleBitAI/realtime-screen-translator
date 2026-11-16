@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.RectF
 import android.graphics.drawable.GradientDrawable
+import android.hardware.input.InputManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -61,8 +62,26 @@ object Overlay {
     fun showLayer(ctx: Context) = main.post {
         if (layer != null) return@post
         val v = Layer(ctx)
-        ctx.getSystemService(WindowManager::class.java).addView(v, params(WindowManager.LayoutParams.MATCH_PARENT, touchable = false))
+        val lp = params(WindowManager.LayoutParams.MATCH_PARENT, touchable = false).apply {
+            // Android 12+ drops touches that pass through an untrusted window
+            // more opaque than this, so the reader's app would stop scrolling.
+            alpha = passThroughAlpha(ctx)
+        }
+        ctx.getSystemService(WindowManager::class.java).addView(v, lp)
         layer = v
+    }
+
+    /** Takes the layer down (P5): nothing of it stays over other apps. */
+    fun hideLayer() = main.post {
+        val v = layer ?: return@post
+        layer = null
+        runCatching { v.context.getSystemService(WindowManager::class.java).removeView(v) }
+    }
+
+    private fun passThroughAlpha(ctx: Context): Float {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return 1f
+        val max = ctx.getSystemService(InputManager::class.java)?.maximumObscuringOpacityForTouch ?: 0.8f
+        return minOf(max, 0.8f)
     }
 
     fun draw(shapes: List<Shape>) = main.post {
