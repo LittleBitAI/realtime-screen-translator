@@ -107,7 +107,8 @@ struct Session {
     scroll_f: f64,
     /// Last resting thumbnail and its `scroll_f`: a scroll is measured again
     /// against it when the screen rests, so what the steps got wrong is undone.
-    anchor: Option<(Vec<u8>, f64)>,
+    /// With the seq of the frame it is.
+    anchor: Option<(Vec<u8>, f64, u64)>,
     /// `scroll_y` the overlay was drawn at before the last frame.
     drawn_before: i64,
     turning: bool,
@@ -169,18 +170,20 @@ impl Session {
             return vec![];
         }
         let Some(pic) = self.current.and_then(|id| self.pics.get(&id)) else { return vec![] };
-        if pic.placements.is_empty() || self.rows == 0 {
+        if (pic.placements.is_empty() && pic.erased.is_empty()) || self.rows == 0 {
             return vec![];
         }
         let (sx, sy) = (self.screen.0 as f64 / THUMB_W as f64, self.scale());
         let mut mask = vec![false; self.rows * THUMB_W];
-        for p in &pic.placements {
+        // Shapes erased lately may still be in the frames compared (`erased`).
+        let shapes = pic.placements.iter().map(|p| (p.x, p.y, p.w, p.h)).chain(pic.erased.iter().map(|e| e.0));
+        for (x, py, w, h) in shapes {
             for &off in scrolls {
-                let y = (p.y - off) as f64;
+                let y = (py - off) as f64;
                 let r0 = ((y / sy).floor() as i64 - 1).clamp(0, self.rows as i64) as usize;
-                let r1 = (((y + p.h as f64) / sy).ceil() as i64 + 1).clamp(0, self.rows as i64) as usize;
-                let c0 = ((p.x as f64 / sx).floor() as i64 - 1).clamp(0, THUMB_W as i64) as usize;
-                let c1 = (((p.x + p.w as i64) as f64 / sx).ceil() as i64 + 1).clamp(0, THUMB_W as i64) as usize;
+                let r1 = (((y + h as f64) / sy).ceil() as i64 + 1).clamp(0, self.rows as i64) as usize;
+                let c0 = ((x as f64 / sx).floor() as i64 - 1).clamp(0, THUMB_W as i64) as usize;
+                let c1 = (((x + w as i64) as f64 / sx).ceil() as i64 + 1).clamp(0, THUMB_W as i64) as usize;
                 for r in r0..r1 {
                     mask[r * THUMB_W + c0..r * THUMB_W + c1].fill(true);
                 }
@@ -557,6 +560,13 @@ impl Backend {
             return Err(ApiError("bad_frame"));
         }
         s.last_seq = Some(req.seq);
+        // An erased shape may be in this frame, the one before it or the
+        // resting screen scrolls are measured against: left out of the
+        // comparisons until none of them was taken before it went.
+        let anchor_seq = s.anchor.as_ref().map_or(u64::MAX, |a| a.2);
+        if let Some(pic) = s.pic() {
+            pic.erased.retain(|&(_, from)| req.seq <= from || anchor_seq < from);
+        }
         let rows = thumb.len() / THUMB_W;
         let now = now_ms();
         let mut clear = false;
@@ -708,7 +718,7 @@ impl Backend {
             }
             // Measured again from the last resting screen in one step.
             let mut kept = None;
-            if let Some((a, f)) = s.anchor.take() {
+            if let Some((a, f, at)) = s.anchor.take() {
                 let mask = s.overlay_mask(&[f.round() as i64, s.scroll_y, s.drawn_before]);
                 match tracker::fine_shift(&a, &thumb, &mask, rows, s.fixed.0, s.fixed.1, true) {
                     // Not a tenth of a row from it: still that screen. It is
@@ -716,13 +726,13 @@ impl Backend {
                     // up against it instead of being lost every frame.
                     Some(m) if m.abs() < 0.1 => {
                         s.set_scroll(f);
-                        kept = Some((a, f));
+                        kept = Some((a, f, at));
                     }
                     Some(m) => s.set_scroll(f + m * scale),
                     None => {}
                 }
             }
-            s.anchor = Some(kept.unwrap_or_else(|| (thumb.clone(), s.scroll_f)));
+            s.anchor = Some(kept.unwrap_or_else(|| (thumb.clone(), s.scroll_f, req.seq)));
             let (h, ft, fb) = (req.height as i64, (s.fixed.0 as f64 * scale) as i64, (s.fixed.1 as f64 * scale) as i64);
             let scroll_y = s.scroll_y;
             let no_band = s.fixed == (0, 0);
@@ -1170,7 +1180,6 @@ fn take_crop(st: &mut State, picture_id: i64, c: CropIn, (seq, offset): (u64, i6
         result.pending += 1;
         return Ok(());
     }
-    pic.erased.retain(|&(_, from)| seq < from);
     if at_edge {
         st.session.as_mut().unwrap().pics.get_mut(&picture_id).unwrap().edge_rects.push(rect);
     }
