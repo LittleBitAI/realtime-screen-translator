@@ -218,6 +218,11 @@ pub fn insert_placement(db: &Db, picture_id: i64, p: &PlacementRow) -> Res<i64> 
     Ok(db.last_insert_rowid())
 }
 
+pub fn delete_placement(db: &Db, id: i64) -> Res<()> {
+    db.execute("DELETE FROM Placement WHERE id = ?1", [id])?;
+    Ok(())
+}
+
 pub fn placements(db: &Db, picture_id: i64) -> Res<Vec<PlacementRow>> {
     let mut st = db.prepare(
         "SELECT p.id, p.fingerprint, p.x, p.y, p.w, p.h, p.radius, p.font_px, COALESCE(t.translation_ko, '')

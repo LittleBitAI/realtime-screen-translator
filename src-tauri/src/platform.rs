@@ -32,6 +32,12 @@ pub trait Platform: Send + Sync {
     fn publish(&self, path: &Path) -> Result<String, String> {
         Ok(path.to_string_lossy().into_owned())
     }
+    /// Whether captured frames hold this app's overlay. Android's do (the
+    /// screen is mirrored as shown); Windows leaves the overlay out of
+    /// capture, so frames show the page under the translations.
+    fn overlay_in_capture(&self) -> bool {
+        true
+    }
     /// Seal and unseal secrets with the device's secure storage.
     fn seal(&self, data: &[u8]) -> Option<Vec<u8>>;
     fn unseal(&self, data: &[u8]) -> Option<Vec<u8>>;

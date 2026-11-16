@@ -52,9 +52,10 @@ struct Pic {
     /// (the first resting screen). A status bar or toolbar there was taken as
     /// content; once a scroll shows the band, those rows are handled again.
     unbanded: Option<i64>,
-    /// P7 crops at the screen's top or bottom edge, with the offset of their
-    /// frame, held until a scroll or a page turn tells whether they are cut.
-    edge: Vec<(CropIn, i64)>,
+    /// Text areas taken at the screen's top or bottom edge (picture
+    /// coordinates), which the edge may have cut: one seen larger later
+    /// replaces what was placed for it (`take_crop`).
+    edge_rects: Vec<(i64, i64, u32, u32)>,
 }
 
 const RETRY_MS: i64 = 15_000;
@@ -116,6 +117,8 @@ struct Session {
     /// This session's Gemini connections; shut down by P5 so nothing is in
     /// flight or goes out after stop.
     agent: ureq::Agent,
+    /// The capture holds this app's overlay (`Platform::overlay_in_capture`).
+    overlay_in_capture: bool,
 }
 
 impl Session {
@@ -131,7 +134,36 @@ impl Session {
     /// the screen at each of `scrolls`, a pixel of margin around: the capture
     /// holds our own overlay on Android, and its translations are not the
     /// screen changing. Empty when nothing is placed.
+    /// Whether `thumb` differs from page `pic`'s settled thumbnail under any
+    /// of its placements. Where the capture does not hold the overlay
+    /// (Windows) that is the balloon's own text: another page, drawn alike
+    /// but for its words, is not this one. (Where it holds the overlay the
+    /// white shapes are there instead, and nothing can be told.)
+    fn other_words(&self, pic: &Pic, thumb: &[u8]) -> bool {
+        let Some(page) = pic.page_thumb.as_ref().filter(|t| !self.overlay_in_capture && t.len() == thumb.len()) else { return false };
+        let rows = thumb.len() / THUMB_W;
+        let (sx, sy) = (pic.screen.0 as f64 / THUMB_W as f64, pic.screen.1 as f64 / rows.max(1) as f64);
+        pic.placements.iter().any(|p| {
+            let r = ((p.y as f64 / sy).ceil().max(0.0) as usize, (((p.y + p.h as i64) as f64 / sy).floor().max(0.0) as usize).min(rows));
+            let c = ((p.x as f64 / sx).ceil().max(0.0) as usize, (((p.x + p.w as i64) as f64 / sx).floor().max(0.0) as usize).min(THUMB_W));
+            let (mut sum, mut n) = (0u64, 0u64);
+            for row in r.0..r.1 {
+                for col in c.0..c.1 {
+                    let i = row * THUMB_W + col;
+                    sum += page[i].abs_diff(thumb[i]) as u64;
+                    n += 1;
+                }
+            }
+            n > 0 && sum as f32 > tracker::MATCH * n as f32
+        })
+    }
+
     fn overlay_mask(&self, scrolls: &[i64]) -> Vec<bool> {
+        // Where the capture does not hold the overlay (Windows), the pixels
+        // under it are the page's: a change there is the screen changing.
+        if !self.overlay_in_capture {
+            return vec![];
+        }
         let Some(pic) = self.current.and_then(|id| self.pics.get(&id)) else { return vec![] };
         if pic.placements.is_empty() || self.rows == 0 {
             return vec![];
@@ -478,6 +510,7 @@ impl Backend {
             pending: vec![],
             revision: 0,
             agent: gemini::agent(),
+            overlay_in_capture: self.platform.overlay_in_capture(),
         });
         Ok(StartOut { on: true, book_id })
     }
@@ -570,7 +603,6 @@ impl Backend {
 
         let mut motion = "still";
         let mut dy = 0i32;
-        let mut edges = vec![];
         let mut settled = false;
         // The overlay in this frame was drawn for the last frame, the one in
         // the previous frame for the frame before: both are left out.
@@ -596,13 +628,19 @@ impl Backend {
                 let crept = diff > 0.0
                     && diff <= tracker::STILL
                     && tracker::fine_shift(&prev, &thumb, &mask, rows, top, bottom, true).is_some_and(|m| m.abs() >= 0.5);
-                if diff <= tracker::STILL && !crept {
+                // A page alike but for the words in its balloons: a page turn.
+                let other = s.scroll_y == 0 && s.current.and_then(|id| s.pics.get(&id)).is_some_and(|p| s.other_words(p, &thumb));
+                if diff <= tracker::STILL && !crept && !other {
                     settled = true;
                 } else {
                     let (ft, fb) = tracker::fixed_rows(&prev, &thumb, &mask, rows);
-                    let shift = tracker::fine_shift(&prev, &thumb, &mask, rows, ft, fb, false)
-                        .map(|m| (m, (ft, fb)))
-                        .or_else(|| tracker::fine_shift(&prev, &thumb, &mask, rows, top, bottom, false).map(|m| (m, (top, bottom))));
+                    let shift = if other {
+                        None
+                    } else {
+                        tracker::fine_shift(&prev, &thumb, &mask, rows, ft, fb, false)
+                            .map(|m| (m, (ft, fb)))
+                            .or_else(|| tracker::fine_shift(&prev, &thumb, &mask, rows, top, bottom, false).map(|m| (m, (top, bottom))))
+                    };
                     match shift {
                         Some((rows_moved, fixed)) => {
                             s.fixed = fixed;
@@ -618,8 +656,6 @@ impl Backend {
                             let band = ((s.fixed.0 as f64 * scale) as i64, (s.fixed.1 as f64 * scale) as i64);
                             if let Some(pic) = s.pic() {
                                 pic.reopen();
-                                // What was at the edge comes into view whole now.
-                                pic.edge.clear();
                                 // Rows saved and detected while no band was known held
                                 // the band, not content: the content that scrolls
                                 // into them is asked for like any new rows.
@@ -647,10 +683,6 @@ impl Backend {
                             s.mode = Some("slide");
                             if let Some(id) = s.current.take() {
                                 store::close_picture(db, id, now)?;
-                                // Left without a scroll: its edges were the page's.
-                                if let Some(pic) = s.pics.get_mut(&id).filter(|p| p.kind == "page") {
-                                    edges.extend(std::mem::take(&mut pic.edge).into_iter().map(|e| (id, e)));
-                                }
                             }
                             s.turning = true;
                             s.set_scroll(0.0);
@@ -714,7 +746,7 @@ impl Backend {
                 s.frames.pop_front();
             }
         }
-        let out = FrameOut {
+        Ok(FrameOut {
             motion,
             dy,
             mode: s.mode.unwrap_or("scroll"),
@@ -723,11 +755,7 @@ impl Backend {
             save,
             clear,
             placements: s.visible(),
-        };
-        if !edges.is_empty() {
-            self.take_edges(guard, edges);
-        }
-        Ok(out)
+        })
     }
 
     /// The page change settled on `thumb`: back on a page seen before, or a new page.
@@ -743,6 +771,7 @@ impl Backend {
         let seen = s.pics.values().find(|p| {
             p.screen == screen
                 && p.page_thumb.as_ref().is_some_and(|t| t.len() == thumb.len() && tracker::still_diff(t, thumb, &[], 0, rows) <= tracker::MATCH)
+                && !s.other_words(p, thumb)
         });
         let id = match seen.map(|p| p.id) {
             Some(id) => {
@@ -778,39 +807,11 @@ impl Backend {
         let mut result = CropsOut { placed: vec![], pending: 0, skipped_effects: 0, discarded: 0 };
         let mut jobs: Vec<Job> = vec![];
         let now = now_ms();
-        let (screen_h, slide) = (s.screen.1 as u64, s.mode == Some("slide"));
         for c in req.crops {
-            // A text area at the screen's top or bottom edge may be cut by it.
-            // On a page reached by a page turn the edge is the page's: taken.
-            // Else it waits: a scroll shows it whole (and drops it here), and a
-            // page turn away shows the page never scrolled (`take_edges`).
-            let (y0, y1) = (c.y as u64, c.y as u64 + c.h as u64);
-            let at_edge = c.kind == "dialogue" && y1 <= screen_h && (y0 as f32 <= detect::EDGE || y1 as f32 >= screen_h as f32 - detect::EDGE);
-            // One already translated is the whole balloon (a cut one has another
-            // fingerprint and shape): its translation goes on at once.
-            if at_edge && !slide && !known_crop(st, &c) {
-                result.pending += 1;
-                st.session.as_mut().unwrap().pics.get_mut(&req.picture_id).unwrap().edge.push((c, offset));
-                continue;
-            }
             take_crop(st, req.picture_id, c, offset, now, &mut result, &mut jobs)?;
         }
         self.send_jobs(guard, key, jobs);
         Ok(result)
-    }
-
-    /// Edge crops P7 held for pictures left by a page turn without a
-    /// scroll: their edges were the page's, so they are taken now.
-    fn take_edges(&self, mut guard: MutexGuard<'_, State>, edges: Vec<(i64, (CropIn, i64))>) {
-        let Some(key) = guard.key.clone() else { return };
-        let mut result = CropsOut { placed: vec![], pending: 0, skipped_effects: 0, discarded: 0 };
-        let (mut jobs, now) = (vec![], now_ms());
-        for (picture_id, (c, offset)) in edges {
-            if let Err(e) = take_crop(&mut guard, picture_id, c, offset, now, &mut result, &mut jobs) {
-                eprintln!("edge crop of picture {picture_id}: {e}");
-            }
-        }
-        self.send_jobs(guard, key, jobs);
     }
 
     fn send_jobs(&self, guard: MutexGuard<'_, State>, key: String, jobs: Vec<Job>) {
@@ -1054,7 +1055,7 @@ impl Backend {
 }
 
 fn new_pic(id: i64, screen: (u32, u32)) -> Pic {
-    Pic { id, kind: "page", screen, covered: vec![], detected: vec![], placements: vec![], page_thumb: None, retry: vec![], retry_at: 0, unbanded: None, edge: vec![] }
+    Pic { id, kind: "page", screen, covered: vec![], detected: vec![], placements: vec![], page_thumb: None, retry: vec![], retry_at: 0, unbanded: None, edge_rects: vec![] }
 }
 
 fn storage_error(e: std::io::Error) -> ApiError {
@@ -1075,12 +1076,38 @@ fn encode_error(e: String) -> ApiError {
 /// unless its white shape, grown to hold the text, would cover more than
 /// half of a placement already there (or be more than half covered): the
 /// translation shown first stays (E6).
-/// Whether `c` is a balloon whose translation is stored and ready (A3).
-fn known_crop(st: &State, c: &CropIn) -> bool {
-    let Some(img) = export::decode_png(&c.image).filter(|i| (i.w, i.h) == (c.w, c.h)) else { return false };
-    let fp = fingerprint::dhash(&img.gray(), img.w as usize, img.h as usize);
-    let aspect = c.w.max(1) as f32 / c.h.max(1) as f32;
-    st.find_known(fp, aspect).is_some_and(|k| k.status == "ready")
+/// Whether `big` holds all of `small` (give or take [`detect::EDGE`]) and more of it.
+fn grows(small: (i64, i64, u32, u32), big: (i64, i64, u32, u32)) -> bool {
+    let e = detect::EDGE as i64;
+    let holds = big.0 <= small.0 + e
+        && big.1 <= small.1 + e
+        && big.0 + big.2 as i64 + e >= small.0 + small.2 as i64
+        && big.1 + big.3 as i64 + e >= small.1 + small.3 as i64;
+    holds && big.3 as i64 >= small.3 as i64 + e
+}
+
+/// A text area taken at the screen's edge that `rect` shows larger was cut
+/// there: its placements and the answer still awaited for it go.
+fn replace_cut(st: &mut State, picture_id: i64, rect: (i64, i64, u32, u32)) -> ApiResult<()> {
+    let s = st.session.as_mut().unwrap();
+    let pic = s.pics.get_mut(&picture_id).unwrap();
+    let cut: Vec<_> = pic.edge_rects.iter().copied().filter(|&e| grows(e, rect)).collect();
+    if cut.is_empty() {
+        return Ok(());
+    }
+    pic.edge_rects.retain(|e| !cut.contains(e));
+    let (gone, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut pic.placements).into_iter().partition(|p| cut.iter().any(|&e| overlap(e, (p.x, p.y, p.w, p.h)) > 0.5));
+    pic.placements = kept;
+    for p in s.pending.iter_mut() {
+        p.targets.retain(|t| !(t.0 == picture_id && cut.contains(&t.1)));
+    }
+    if !gone.is_empty() {
+        s.revision += 1;
+    }
+    for p in gone {
+        store::delete_placement(&st.db, p.id)?;
+    }
+    Ok(())
 }
 
 /// One P7 crop of picture `picture_id` (frame at `offset`): the stored
@@ -1107,6 +1134,15 @@ fn take_crop(st: &mut State, picture_id: i64, c: CropIn, offset: i64, now: i64, 
     let fp = fingerprint::dhash(&img.gray(), img.w as usize, img.h as usize);
     let aspect = c.w.max(1) as f32 / c.h.max(1) as f32;
     let rect = (c.x as i64, c.y as i64 + offset, c.w, c.h);
+    // A text area at the screen's top or bottom edge may be cut by it, or be
+    // whole there (a page that does not scroll): it is read as it is, and
+    // remembered. Seen larger later, once a scroll shows more of it, it was
+    // cut: what was placed or asked for it gives way to the whole one.
+    let at_edge = c.y as f32 <= detect::EDGE || (c.y + c.h) as f32 >= screen.1 as f32 - detect::EDGE;
+    replace_cut(st, picture_id, rect)?;
+    if at_edge {
+        st.session.as_mut().unwrap().pics.get_mut(&picture_id).unwrap().edge_rects.push(rect);
+    }
     let s = st.session.as_mut().unwrap();
     let pic = s.pics.get_mut(&picture_id).unwrap();
     // Our own overlay is in the capture: a crop over a placement is either

@@ -1,7 +1,7 @@
 //! Edge cases of the twentieth review: a small thing creeping a row a frame
-//! over a flat page is a scroll, not a rest; and a whole text area at the
-//! screen's edge is read on a page that does not scroll, while one a scroll
-//! may still show whole waits for it.
+//! over a flat page is a scroll, not a rest; and a text area at the screen's
+//! edge is read at once, its translation giving way to the whole one if a
+//! scroll later shows it was cut.
 
 mod support;
 
@@ -129,33 +129,42 @@ fn a_whole_text_area_at_the_edge_of_a_turned_page_is_read() {
 }
 
 #[test]
-fn a_text_area_at_the_edge_is_read_once_the_page_is_left_without_a_scroll() {
+fn a_whole_text_area_at_the_edge_of_the_first_screen_is_read_at_once() {
     let mut run = Run::new();
-    let (a, b) = (Scene::new(2004), Scene::new(2005));
-    run.send(a.thumb(0, SCREEN_W, SCREEN_H));
-    let f = run.send(a.thumb(0, SCREEN_W, SCREEN_H));
-    // Nothing moved yet: the edge may have cut it, so it waits.
+    let scene = Scene::new(2004);
+    run.send(scene.thumb(0, SCREEN_W, SCREEN_H));
+    let f = run.send(scene.thumb(0, SCREEN_W, SCREEN_H));
+    // Nothing has moved since translation was switched on.
     run.edge_crop(&f, run.seq);
-    std::thread::sleep(Duration::from_millis(300));
-    assert_eq!(run.gemini.count(), 0, "a text area that may be cut was read at once");
-    // The reader slides on without scrolling: the first page was whole.
-    run.send(b.thumb(0, SCREEN_W, SCREEN_H));
-    run.wait_for("the text area at the edge of the page left was never read", || run.placements_of(f.picture_id) == 1);
+    run.wait_for("the text area at the edge of a resting screen was not read", || run.placements_of(f.picture_id) == 1);
     std::mem::forget(run.dirs);
 }
 
 #[test]
-fn a_text_area_at_the_edge_waits_for_the_scroll_that_shows_it_whole() {
+fn a_text_area_cut_by_the_edge_gives_way_to_the_whole_one_a_scroll_shows() {
     let mut run = Run::new();
     let scene = Scene::new(2006);
     run.send(scene.thumb(0, SCREEN_W, SCREEN_H));
     let f = run.send(scene.thumb(0, SCREEN_W, SCREEN_H));
-    run.edge_crop(&f, run.seq);
-    // A scroll up: the text area comes away from the edge and is detected
-    // there again; the cut one held at the edge is dropped.
-    assert_eq!(run.send(scene.thumb(-300, SCREEN_W, SCREEN_H)).motion, "scroll");
-    std::thread::sleep(Duration::from_millis(300));
-    assert_eq!(run.gemini.count(), 0, "the text area held at the edge was read after the scroll");
-    assert_eq!(run.placements_of(f.picture_id), 0);
+    // Screen rows 2200 .. 2400 of a text area 400 rows tall: the bottom edge cuts it.
+    let cut = Balloon::new(200, 2200, 120, 200, 2007);
+    let whole = Balloon::new(200, 1900, 120, 400, 2008);
+    run.gemini.read_as(cut.size(), "うん");
+    run.gemini.translate_as("うん", "응");
+    run.gemini.read_as(whole.size(), "そうだね");
+    run.gemini.translate_as("そうだね", "그렇지");
+    let crop = |b: &Balloon, y: u32| CropIn { x: 200, y, w: b.w, h: b.h, kind: "dialogue".into(), score: 0.9, image: b.png(0, 0) };
+    run.backend.crops(CropsIn { picture_id: f.picture_id, frame_seq: run.seq, crops: vec![crop(&cut, 2200)] }).unwrap();
+    run.wait_for("the cut text area was not read", || run.placements_of(f.picture_id) == 1);
+    // 300 px further down the whole text area is on screen at 1900 .. 2300.
+    assert_eq!(run.send(scene.thumb(300, SCREEN_W, SCREEN_H)).motion, "scroll");
+    let g = run.send(scene.thumb(300, SCREEN_W, SCREEN_H));
+    assert_eq!(g.picture_id, f.picture_id);
+    run.backend.crops(CropsIn { picture_id: g.picture_id, frame_seq: run.seq, crops: vec![crop(&whole, 1900)] }).unwrap();
+    run.wait_for("the cut translation was not replaced by the whole one", || {
+        let shown = run.backend.placements(Default::default()).unwrap().placements;
+        shown.len() == 1 && shown[0].ko == "그렇지"
+    });
+    assert_eq!(run.placements_of(f.picture_id), 1, "the cut one stayed in the translated picture");
     std::mem::forget(run.dirs);
 }

@@ -240,6 +240,11 @@ mod android {
 }
 
 impl Platform for AppPlatform {
+    fn overlay_in_capture(&self) -> bool {
+        // Windows: the overlay window is excluded from capture (WDA_EXCLUDEFROMCAPTURE).
+        cfg!(target_os = "android")
+    }
+
     fn request_permissions(&self) -> Permissions {
         #[cfg(target_os = "android")]
         {
