@@ -10,9 +10,16 @@ pub const STILL: f32 = 2.0;
 /// Mean absolute difference per pixel below which a shifted frame matches.
 pub const MATCH: f32 = 6.0;
 
-/// A capture blocked by the app shows up as an (almost) all-black frame.
+/// A capture blocked by the app shows up as an (almost) all-black frame:
+/// nearly every row nearly black. The rows and spots the system or this app
+/// draws over the black (status bar, navigation bar, the floating button)
+/// do not make it a picture.
 pub fn is_blocked(thumb: &[u8]) -> bool {
-    thumb.iter().all(|&v| v <= 16)
+    let rows = thumb.chunks(THUMB_W);
+    let all = rows.len();
+    let dark = rows.filter(|r| r.iter().filter(|&&v| v <= 16).count() * 10 >= r.len() * 9).count();
+    // ponytail: a fixed share of dark rows; a page drawn almost all black reads as blocked too.
+    all > 0 && dark * 100 >= all * 85
 }
 
 /// Thumbnail pixels left out of a comparison, one per pixel (empty: none).

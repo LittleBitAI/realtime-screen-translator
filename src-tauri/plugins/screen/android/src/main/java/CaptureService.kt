@@ -25,9 +25,12 @@ import android.view.WindowManager
 import androidx.core.content.ContextCompat
 
 /**
- * Holds the MediaProjection for as long as the person allows it, mirroring
- * the screen at full size into an ImageReader. Frames reach [Capture] at
- * most every [FRAME_GAP_MS]; while translation is off they are dropped.
+ * Holds the MediaProjection for as long as the person allows it. While
+ * translation is on the screen is mirrored at full size into an ImageReader
+ * and frames reach [Capture] at most every [FRAME_GAP_MS]. While it is off
+ * the mirror has no surface, so nothing is captured (P5); the projection and
+ * its one virtual display stay, because Android 14 lets a consent make only
+ * one display and R29 asks only the first time.
  */
 class CaptureService : Service() {
     private var projection: MediaProjection? = null
@@ -74,15 +77,17 @@ class CaptureService : Service() {
         }, handler)
         display = p.createVirtualDisplay(
             "rst-capture", m.widthPixels, m.heightPixels, m.densityDpi,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, r.surface, null, handler,
+            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, if (capturing) r.surface else null, null, handler,
         )
         projection = p
         reader = r
+        running = this
         Capture.alive = true
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
+        running = null
         Capture.alive = false
         Capture.paused = true
         Capture.clear()
@@ -128,6 +133,15 @@ class CaptureService : Service() {
         const val FRAME_GAP_MS = 100L
         private const val CHANNEL = "rst-capture"
         private const val NOTIFICATION_ID = 7031
+        @Volatile private var running: CaptureService? = null
+        @Volatile private var capturing = false
+
+        /** P4 gives the mirror its surface back; P5 takes it away, and capture stops. */
+        fun setCapturing(on: Boolean) {
+            capturing = on
+            val s = running ?: return
+            s.handler.post { s.display?.setSurface(if (capturing) s.reader?.surface else null) }
+        }
 
         fun start(ctx: Context) {
             ContextCompat.startForegroundService(ctx, Intent(ctx, CaptureService::class.java))

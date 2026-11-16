@@ -230,15 +230,18 @@ pub fn render(width: u32, top: i64, bottom: i64, strips: &[StripRow], placements
     Ok(img)
 }
 
-/// `dir/<stem>.<ext>`, adding `-2`, `-3`, ... if the name is taken.
-pub fn free_path(dir: &Path, stem: &str, ext: &str) -> PathBuf {
-    let mut p = dir.join(format!("{stem}.{ext}"));
-    let mut n = 2;
-    while p.exists() {
-        p = dir.join(format!("{stem}-{n}.{ext}"));
-        n += 1;
+/// Creates `dir/<stem>.<ext>`, or `-2`, `-3`, ... if the name is taken. The
+/// file is created exclusively, so two exports at once never share a name.
+pub fn create_free(dir: &Path, stem: &str, ext: &str) -> std::io::Result<(PathBuf, std::fs::File)> {
+    for n in 1.. {
+        let p = if n == 1 { dir.join(format!("{stem}.{ext}")) } else { dir.join(format!("{stem}-{n}.{ext}")) };
+        match std::fs::OpenOptions::new().write(true).create_new(true).open(&p) {
+            Ok(f) => return Ok((p, f)),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e),
+        }
     }
-    p
+    unreachable!()
 }
 
 #[cfg(test)]

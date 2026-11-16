@@ -12,6 +12,10 @@ pub struct Shape {
 }
 
 pub const PAD: u32 = 4;
+/// The largest corner radius whose rounding still covers a point PAD in from
+/// both edges, so the source text under the shape is hidden to its corners:
+/// 2·(r − PAD)² ≤ r² holds up to r = PAD·(2 + √2) ≈ 13.6.
+pub const MAX_RADIUS: u32 = 13;
 const MAX_FONT: u32 = 40;
 const MIN_FONT: u32 = 10;
 
@@ -61,7 +65,7 @@ pub fn fit(x: i64, y: i64, w: u32, h: u32, ko: &str) -> Shape {
         y: y - PAD as i64 - grow / 2,
         w: sw,
         h: sh,
-        radius: (sw.min(sh) / 4).min(24) as u16,
+        radius: (sw.min(sh) / 4).min(MAX_RADIUS) as u16,
         font_px: font as u16,
     }
 }

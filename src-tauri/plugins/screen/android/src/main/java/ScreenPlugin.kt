@@ -2,7 +2,6 @@ package ai.littlebit.rst.screen
 
 import android.app.Activity
 import android.content.ContentValues
-import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.media.projection.MediaProjectionManager
@@ -80,9 +79,20 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
     // Model runs and PNG encoding stay off the UI thread.
     private val worker = Executors.newSingleThreadExecutor()
 
+    /**
+     * Drawing over other apps. From Android 12 an opaque window of another
+     * app holds back the touches under it unless it is an accessibility
+     * overlay, so there the overlay also needs the "번역 오버레이" service
+     * (Overlay.kt): without it the white could not hide the Japanese (R28)
+     * while every touch still reaches the reader's app (P4).
+     */
+    private fun overlayReady(): Boolean =
+        Settings.canDrawOverlays(activity) &&
+            (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || OverlayService.enabled(activity))
+
     private fun state(): JSObject = JSObject().apply {
         put("capture", Capture.alive)
-        put("overlay", Settings.canDrawOverlays(activity))
+        put("overlay", overlayReady())
     }
 
     @Command
@@ -126,11 +136,8 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
     private fun overlayAnswered(invoke: Invoke, @Suppress("UNUSED_PARAMETER") result: ActivityResult) {
         if (Settings.canDrawOverlays(activity)) {
             Overlay.showButton(activity.applicationContext)
-            // Optional, offered once: the accessibility overlay that lets the
-            // white shapes hide the Japanese fully while touches pass (Overlay.kt).
-            val prefs = activity.getSharedPreferences("rst_screen", Context.MODE_PRIVATE)
-            if (!OverlayService.enabled(activity) && !prefs.getBoolean("asked_overlay_service", false)) {
-                prefs.edit().putBoolean("asked_overlay_service", true).apply()
+            if (!overlayReady()) {
+                // The second half of the overlay permission on Android 12+ (overlayReady).
                 Toast.makeText(activity, R.string.rst_overlay_service_ask, Toast.LENGTH_LONG).show()
                 startActivityForResult(invoke, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS), "serviceAnswered")
                 return
@@ -146,13 +153,14 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun start(invoke: Invoke) {
-        if (!Capture.alive || !Settings.canDrawOverlays(activity)) {
+        if (!Capture.alive || !overlayReady()) {
             invoke.reject("permission_required")
             return
         }
         Overlay.showButton(activity.applicationContext)
         Overlay.showLayer(activity.applicationContext)
         Overlay.setOn(true)
+        CaptureService.setCapturing(true)
         Capture.paused = false
         invoke.resolve()
     }
@@ -160,6 +168,7 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun stop(invoke: Invoke) {
         Capture.paused = true
+        CaptureService.setCapturing(false)
         Capture.clear()
         // The layer comes down with translation; only the on/off button stays.
         Overlay.hideLayer()

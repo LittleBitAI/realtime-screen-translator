@@ -67,9 +67,11 @@ object Overlay {
      * that never takes a touch (P4: touches always reach the reader's app).
      * Android 12+ holds back a touch that passes through another app's
      * window unless that window is at most 80% opaque or an accessibility
-     * overlay. With [OverlayService] on, the shapes are accessibility
-     * overlays and fully opaque, so the white hides the Japanese completely
-     * (R28); without it they are as opaque as Android still lets touches
+     * overlay, so there translation starts only with [OverlayService] on
+     * (ScreenPlugin.overlayReady): the shapes are accessibility overlays and
+     * fully opaque, and the white hides the Japanese completely (R28). Only
+     * while the service is still binding, or after it was switched off
+     * mid-session, are they drawn as opaque as Android still lets touches
      * through (`InputManager.maximumObscuringOpacityForTouch`).
      */
     fun showLayer(ctx: Context) = main.post {

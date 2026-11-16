@@ -207,6 +207,10 @@ impl State {
 
 pub struct Backend {
     state: Arc<Mutex<State>>,
+    // Held through a whole P4 or P5, platform calls included, so one stop
+    // never takes down the capture and overlay of a start that came after it.
+    // Taken before `state`; nothing else takes it.
+    lifecycle: Mutex<()>,
     platform: Arc<dyn Platform>,
     data_dir: PathBuf,
     gemini_base: String,
@@ -337,6 +341,7 @@ impl Backend {
         let state = State { db, key, model, known, session: None, generation: 0, gemini_requests: 0, notice: None };
         Ok(Backend {
             state: Arc::new(Mutex::new(state)),
+            lifecycle: Mutex::new(()),
             platform,
             data_dir,
             gemini_base: gemini_base.unwrap_or_else(|| gemini::DEFAULT_BASE.to_string()),
@@ -408,6 +413,7 @@ impl Backend {
     }
 
     pub fn start(&self) -> ApiResult<StartOut> {
+        let _life = self.lifecycle.lock().unwrap_or_else(|e| e.into_inner());
         let mut st = self.lock();
         if st.session.is_some() {
             return Err(ApiError("already_on"));
@@ -424,7 +430,15 @@ impl Backend {
             ApiError("permission_required")
         })?;
         let now = now_ms();
-        let book_id = store::create_book(&st.db, &title(now), now)?;
+        let book_id = match store::create_book(&st.db, &title(now), now) {
+            Ok(id) => id,
+            Err(e) => {
+                // No session to stop later: capture and the overlay come down now.
+                drop(st);
+                self.platform.stop();
+                return Err(e.into());
+            }
+        };
         st.generation += 1;
         st.gemini_requests = 0;
         st.notice = None;
@@ -454,6 +468,7 @@ impl Backend {
     }
 
     pub fn stop(&self) -> ApiResult<StopOut> {
+        let _life = self.lifecycle.lock().unwrap_or_else(|e| e.into_inner());
         let mut st = self.lock();
         let Some(s) = st.session.take() else { return Err(ApiError("not_on")) };
         // Requests in flight are cut off and the agent refuses new ones, so a
@@ -951,9 +966,8 @@ impl Backend {
             let (top, bottom) = (p.covered_top, p.covered_bottom.max(p.covered_top + 1));
             if ext == "png" {
                 // Streamed band by band: a long scroll picture never sits in memory whole.
-                let path = export::free_path(&dir, &format!("translated-{stem}-{}", i + 1), ext);
-                let written = std::fs::File::create(&path)
-                    .and_then(|f| export::write_png(std::io::BufWriter::new(f), p.width, top, bottom, strips, placements));
+                let (path, file) = export::create_free(&dir, &format!("translated-{stem}-{}", i + 1), ext).map_err(storage_error)?;
+                let written = export::write_png(std::io::BufWriter::new(file), p.width, top, bottom, strips, placements);
                 if let Err(e) = written {
                     let _ = std::fs::remove_file(&path);
                     return Err(storage_error(e));
@@ -967,8 +981,13 @@ impl Backend {
                 let part = export::render(p.width, t, (t + export::WEBP_MAX as i64).min(bottom), strips, placements).map_err(storage_error)?;
                 let bytes = export::encode_webp(&part).map_err(encode_error)?;
                 let stem = if many { format!("translated-{stem}-{}-{}", i + 1, k + 1) } else { format!("translated-{stem}-{}", i + 1) };
-                let path = export::free_path(&dir, &stem, ext);
-                std::fs::write(&path, bytes).map_err(storage_error)?;
+                let (path, mut file) = export::create_free(&dir, &stem, ext).map_err(storage_error)?;
+                if let Err(e) = std::io::Write::write_all(&mut file, &bytes) {
+                    drop(file);
+                    let _ = std::fs::remove_file(&path);
+                    return Err(storage_error(e));
+                }
+                drop(file);
                 files.push(self.publish(&path)?);
             }
         }

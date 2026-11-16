@@ -13,7 +13,7 @@
             android:name="ai.littlebit.rst.screen.CaptureService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />
-        <!-- Optional: lets the overlay be fully opaque while touches pass (Overlay.kt). -->
+        <!-- Part of the overlay permission on Android 12+: lets the overlay be fully opaque while touches pass (Overlay.kt). -->
         <service
             android:name="ai.littlebit.rst.screen.OverlayService"
             android:exported="false"
