@@ -111,6 +111,9 @@ struct Session {
     anchor: Option<(Vec<u8>, f64, u64)>,
     /// `scroll_y` the overlay was drawn at before the last frame.
     drawn_before: i64,
+    /// (`revision`, `scroll_y`) as the last two frames came in, the newer
+    /// first: the overlay each of them holds was drawn from about these.
+    entries: [Option<(u64, i64)>; 2],
     turning: bool,
     mode: Option<&'static str>,
     last_seq: Option<u64>,
@@ -145,22 +148,7 @@ impl Session {
     /// but for its words, is not this one. (Where it holds the overlay the
     /// white shapes are there instead, and nothing can be told.)
     fn other_words(&self, pic: &Pic, thumb: &[u8]) -> bool {
-        let Some(page) = pic.page_thumb.as_ref().filter(|t| !self.overlay_in_capture && t.len() == thumb.len()) else { return false };
-        let rows = thumb.len() / THUMB_W;
-        let (sx, sy) = (pic.screen.0 as f64 / THUMB_W as f64, pic.screen.1 as f64 / rows.max(1) as f64);
-        pic.placements.iter().any(|p| {
-            let r = ((p.y as f64 / sy).ceil().max(0.0) as usize, (((p.y + p.h as i64) as f64 / sy).floor().max(0.0) as usize).min(rows));
-            let c = ((p.x as f64 / sx).ceil().max(0.0) as usize, (((p.x + p.w as i64) as f64 / sx).floor().max(0.0) as usize).min(THUMB_W));
-            let (mut sum, mut n) = (0u64, 0u64);
-            for row in r.0..r.1 {
-                for col in c.0..c.1 {
-                    let i = row * THUMB_W + col;
-                    sum += page[i].abs_diff(thumb[i]) as u64;
-                    n += 1;
-                }
-            }
-            n > 0 && sum as f32 > tracker::MATCH * n as f32
-        })
+        !self.overlay_in_capture && pic.page_thumb.as_ref().is_some_and(|page| words_differ(pic, 0, page, thumb))
     }
 
     fn overlay_mask(&self, scrolls: &[i64]) -> Vec<bool> {
@@ -510,6 +498,7 @@ impl Backend {
             scroll_f: 0.0,
             anchor: None,
             drawn_before: 0,
+            entries: [None; 2],
             turning: false,
             mode: None,
             last_seq: None,
@@ -623,6 +612,13 @@ impl Backend {
         let entry_scroll = s.scroll_y;
         let mask = s.overlay_mask(&[entry_scroll, s.drawn_before]);
         s.drawn_before = entry_scroll;
+        // Nothing placed, taken away or moved since the frame before last:
+        // this frame and the last hold the same overlay, so a change under
+        // it is the page under it changing (the overlay lets it through, or
+        // is not in the capture).
+        let entry = Some((s.revision, entry_scroll));
+        let same_overlay = s.entries == [entry, entry];
+        s.entries = [entry, s.entries[0]];
         match s.prev.take() {
             None => {
                 if s.current.is_none() && !s.turning {
@@ -643,7 +639,9 @@ impl Backend {
                     && diff <= tracker::STILL
                     && tracker::fine_shift(&prev, &thumb, &mask, rows, top, bottom, true).is_some_and(|m| m.abs() >= 0.5);
                 // A page alike but for the words in its balloons: a page turn.
-                let other = s.scroll_y == 0 && s.current.and_then(|id| s.pics.get(&id)).is_some_and(|p| s.other_words(p, &thumb));
+                let shown = s.current.and_then(|id| s.pics.get(&id));
+                let other = (s.scroll_y == 0 && shown.is_some_and(|p| s.other_words(p, &thumb)))
+                    || (same_overlay && shown.is_some_and(|p| words_differ(p, s.scroll_y, &prev, &thumb)));
                 if diff <= tracker::STILL && !crept && !other {
                     settled = true;
                 } else {
@@ -794,7 +792,9 @@ impl Backend {
         let seen = s.pics.values().find(|p| {
             p.screen == screen
                 && p.page_thumb.as_ref().is_some_and(|t| t.len() == thumb.len() && tracker::still_diff(t, thumb, &[], 0, rows) <= tracker::MATCH)
-                && !s.other_words(p, thumb)
+                // The overlay was cleared for the turn (A6): this frame shows
+                // the page's own words wherever its translations were.
+                && !words_differ(p, 0, p.page_thumb.as_deref().unwrap_or_default(), thumb)
         });
         let id = match seen.map(|p| p.id) {
             Some(id) => {
@@ -1139,6 +1139,31 @@ fn replace_cut(st: &mut State, picture_id: i64, rect: (i64, i64, u32, u32)) -> A
         store::delete_placement(&st.db, p.id)?;
     }
     Ok(())
+}
+
+/// Whether thumbnails `a` and `b` of a screen at `scroll_y` differ in the
+/// cells wholly under one of page `pic`'s placements: the words of its
+/// balloons, where neither holds the overlay or both hold it alike.
+fn words_differ(pic: &Pic, scroll_y: i64, a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let rows = b.len() / THUMB_W;
+    let (sx, sy) = (pic.screen.0 as f64 / THUMB_W as f64, pic.screen.1 as f64 / rows.max(1) as f64);
+    pic.placements.iter().any(|p| {
+        let y = (p.y - scroll_y) as f64;
+        let r = ((y / sy).ceil().max(0.0) as usize, (((y + p.h as f64) / sy).floor().max(0.0) as usize).min(rows));
+        let c = ((p.x as f64 / sx).ceil().max(0.0) as usize, (((p.x + p.w as i64) as f64 / sx).floor().max(0.0) as usize).min(THUMB_W));
+        let (mut sum, mut n) = (0u64, 0u64);
+        for row in r.0..r.1 {
+            for col in c.0..c.1 {
+                let i = row * THUMB_W + col;
+                sum += a[i].abs_diff(b[i]) as u64;
+                n += 1;
+            }
+        }
+        n > 0 && sum as f32 > tracker::MATCH * n as f32
+    })
 }
 
 /// One P7 crop of picture `picture_id` (frame at `offset`): the stored

@@ -1,6 +1,7 @@
-//! Edge case of the twenty-second review: where the capture leaves the
-//! overlay out (Windows), a page drawn alike but for the words in its
-//! balloons is another page, not the one still on screen.
+//! Edge cases of the twenty-second and twenty-seventh reviews: a page drawn
+//! alike but for the words in its balloons is another page, not the one
+//! still on screen: where the capture leaves the overlay out (Windows), and
+//! where it holds an overlay drawn alike in the frames compared (Android).
 
 mod support;
 
@@ -44,8 +45,9 @@ impl Platform for Device {
     }
 }
 
-/// A translated page, then the next one alike but for its balloon's words.
-fn turn_to_a_page_with_other_words(overlay_in_capture: bool) -> (FrameOut, FrameOut, FrameOut) {
+/// A translated page, looked at for `looked` more frames once its
+/// translation is shown, then the next one alike but for its balloon's words.
+fn turn_to_a_page_with_other_words(overlay_in_capture: bool, looked: usize) -> (FrameOut, FrameOut, FrameOut) {
     let dirs = Dirs::new();
     let gemini = Gemini::start();
     let device = Device { export: dirs.export.clone(), overlay_in_capture };
@@ -74,6 +76,9 @@ fn turn_to_a_page_with_other_words(overlay_in_capture: bool) -> (FrameOut, Frame
         assert!(Instant::now() < deadline, "no translation came");
         std::thread::sleep(Duration::from_millis(20));
     };
+    for _ in 0..looked {
+        assert_eq!(send(&a).motion, "still");
+    }
     // Page B: page A with other pixels under the translation only.
     let scale = (SCREEN_W / THUMB_W) as i32;
     let mut b = a.clone();
@@ -91,15 +96,27 @@ fn turn_to_a_page_with_other_words(overlay_in_capture: bool) -> (FrameOut, Frame
 
 #[test]
 fn a_page_alike_but_for_its_words_is_a_page_turn_where_the_overlay_is_not_captured() {
-    let (a, first, second) = turn_to_a_page_with_other_words(false);
+    let (a, first, second) = turn_to_a_page_with_other_words(false, 0);
     assert_eq!(first.motion, "page", "the next page was taken for the one still on screen");
     assert_ne!(second.picture_id, a.picture_id, "the next page kept the translated page's picture");
     assert!(second.placements.is_empty(), "the old translation stayed on the next page");
 }
 
 #[test]
-fn where_the_overlay_is_captured_its_place_is_left_out_of_the_comparison() {
-    let (a, first, second) = turn_to_a_page_with_other_words(true);
+fn a_page_alike_but_for_its_words_is_a_page_turn_under_an_overlay_drawn_alike_in_both_frames() {
+    // Android: the overlay is in the capture, but the last two frames hold it
+    // alike, so the change under it comes through from the page.
+    let (a, first, second) = turn_to_a_page_with_other_words(true, 2);
+    assert_eq!(first.motion, "page", "the next page was taken for the one still on screen");
+    assert_ne!(second.picture_id, a.picture_id, "the next page kept the translated page's picture");
+    assert!(second.placements.is_empty(), "the old translation stayed on the next page");
+}
+
+#[test]
+fn a_change_under_a_translation_just_drawn_is_the_overlay_coming_on() {
+    // Android, the frame right after the translation came: the change under
+    // it may be the white shape being drawn, so it is left out.
+    let (a, first, second) = turn_to_a_page_with_other_words(true, 0);
     assert_eq!(first.motion, "still");
     assert_eq!(second.picture_id, a.picture_id);
 }

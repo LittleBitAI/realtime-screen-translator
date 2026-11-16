@@ -31,6 +31,8 @@ class Shape(val x: Int, val y: Int, val w: Int, val h: Int, val radius: Int, val
  */
 object Overlay {
     private const val PAD = 4
+    /** The smallest Korean the overlay shrinks to when the device font runs over. */
+    private const val MIN_TEXT_PX = 6f
     private val main = Handler(Looper.getMainLooper())
     private var button: TextView? = null
     /**
@@ -243,17 +245,31 @@ object Overlay {
             val s = shape ?: return
             val r = s.radius.toFloat()
             canvas.drawRoundRect(RectF(0f, 0f, s.w.toFloat(), s.h.toFloat()), r, r, fill)
-            text.textSize = s.fontPx.toFloat()
             val inner = maxOf(1, s.w - 2 * PAD)
-            val layout = StaticLayout.Builder.obtain(s.ko, 0, s.ko.length, text, inner)
-                .setAlignment(Layout.Alignment.ALIGN_CENTER)
-                .setLineSpacing(0f, 1.2f)
-                .setIncludePad(false)
-                .build()
+            val room = maxOf(1, s.h - 2 * PAD)
+            // `layout.rs` fitted the size at 1.2 em a line: the lines are set
+            // that far apart, and the size comes down while the device's own
+            // font still takes more room than the shape has.
+            var size = s.fontPx.toFloat()
+            var layout = textLayout(s.ko, size, inner)
+            while (layout.height > room && size > MIN_TEXT_PX) {
+                size -= 1f
+                layout = textLayout(s.ko, size, inner)
+            }
             canvas.save()
             canvas.translate(PAD.toFloat(), (s.h - layout.height) / 2f)
             layout.draw(canvas)
             canvas.restore()
+        }
+
+        private fun textLayout(ko: String, size: Float, inner: Int): StaticLayout {
+            text.textSize = size
+            return StaticLayout.Builder.obtain(ko, 0, ko.length, text, inner)
+                .setAlignment(Layout.Alignment.ALIGN_CENTER)
+                // From the font's own line height to 1.2 em, as `layout::text_height`.
+                .setLineSpacing(1.2f * size - text.fontSpacing, 1f)
+                .setIncludePad(false)
+                .build()
         }
     }
 }
