@@ -780,7 +780,11 @@ impl Backend {
                 store::touch_translation(&st.db, &k.hex, now)?;
                 if k.status == "ready" {
                     let ko = k.ko.unwrap_or_default();
-                    let row = place(&st.db, req.picture_id, &k.hex, rect, &ko)?;
+                    let placed = &st.session.as_ref().unwrap().pics[&req.picture_id].placements;
+                    let Some(row) = place(&st.db, req.picture_id, &k.hex, rect, &ko, placed)? else {
+                        result.discarded += 1;
+                        continue;
+                    };
                     let s = st.session.as_mut().unwrap();
                     result.placed.push(out(&row, s.scroll_y));
                     s.pics.get_mut(&req.picture_id).unwrap().placements.push(row);
@@ -883,8 +887,9 @@ impl Backend {
         if img.w != s.screen.0 || img.h != req.bottom - req.top {
             return Err(ApiError("bad_image"));
         }
-        let dir = self.data_dir.join("strips").join(req.picture_id.to_string());
-        std::fs::create_dir_all(&dir).map_err(storage_error)?;
+        // E5: lossless WebP in the app's own folder, kept as a path relative to it.
+        let rel_dir = format!("strips/{}", req.picture_id);
+        std::fs::create_dir_all(self.data_dir.join(&rel_dir)).map_err(storage_error)?;
         // The strips and the picture's range are one commit: a kill or a full
         // disk in between leaves neither, never a strip outside the range.
         let mut covered = pic.covered.clone();
@@ -894,15 +899,12 @@ impl Backend {
             let mut first_id = None;
             for &range in &parts {
                 let (a, b) = ((range.0 - offset) as u32, (range.1 - offset) as u32);
-                let bytes = if (a, b) == (req.top, req.bottom) {
-                    req.image.clone()
-                } else {
-                    export::encode_png(&export::rows(&img, a - req.top, b - req.top)).map_err(encode_error)?
-                };
-                let path = dir.join(format!("{}-{}.png", range.0, now_ms()));
+                let bytes = export::encode_webp(&export::rows(&img, a - req.top, b - req.top)).map_err(encode_error)?;
+                let rel = format!("{rel_dir}/{}-{}.webp", range.0, now_ms());
+                let path = self.data_dir.join(&rel);
                 written.push(path.clone());
                 std::fs::write(&path, &bytes).map_err(storage_error)?;
-                let id = store::insert_strip(&tx, req.picture_id, range.0, (range.1 - range.0) as u32, &path.to_string_lossy(), now_ms())?;
+                let id = store::insert_strip(&tx, req.picture_id, range.0, (range.1 - range.0) as u32, &rel, now_ms())?;
                 first_id.get_or_insert(id);
                 add(&mut covered, range);
             }
@@ -942,7 +944,7 @@ impl Backend {
         for b in rows {
             let mut pictures = vec![];
             for p in store::pictures(&st.db, b.id)? {
-                let preview = store::strips(&st.db, p.id)?.into_iter().next().map(|s| s.file_path).unwrap_or_default();
+                let preview = self.strips(&st.db, p.id)?.into_iter().next().map(|s| s.file_path).unwrap_or_default();
                 pictures.push(PictureOut {
                     id: p.id,
                     kind: p.kind,
@@ -968,7 +970,7 @@ impl Backend {
             let book = store::book(&st.db, req.book_id)?.ok_or(ApiError("not_found"))?;
             let mut pictures = vec![];
             for p in store::pictures(&st.db, book.id)? {
-                let strips = store::strips(&st.db, p.id)?;
+                let strips = self.strips(&st.db, p.id)?;
                 let placements = store::placements(&st.db, p.id)?;
                 pictures.push((p, strips, placements));
             }
@@ -1013,6 +1015,16 @@ impl Backend {
         Ok(ExportOut { count: files.len() as u32, files })
     }
 
+    /// The picture's strips with their files as full paths (stored relative
+    /// to the app's folder; a full path stored earlier stays as it is).
+    fn strips(&self, db: &Db, picture_id: i64) -> ApiResult<Vec<store::StripRow>> {
+        let mut rows = store::strips(db, picture_id)?;
+        for s in &mut rows {
+            s.file_path = self.data_dir.join(&s.file_path).to_string_lossy().into_owned();
+        }
+        Ok(rows)
+    }
+
     fn publish(&self, path: &std::path::Path) -> ApiResult<String> {
         self.platform.publish(path).map_err(|e| {
             eprintln!("cannot hand {} over: {e}", path.display());
@@ -1040,9 +1052,15 @@ fn encode_error(e: String) -> ApiError {
     ApiError("encode_failed")
 }
 
-/// Store a placement of `ko` over the text area `rect` (picture coordinates).
-fn place(db: &Db, picture_id: i64, fingerprint: &str, rect: (i64, i64, u32, u32), ko: &str) -> ApiResult<PlacementRow> {
+/// Store a placement of `ko` over the text area `rect` (picture coordinates),
+/// unless its white shape, grown to hold the text, would cover more than
+/// half of a placement already there (or be more than half covered): the
+/// translation shown first stays (E6).
+fn place(db: &Db, picture_id: i64, fingerprint: &str, rect: (i64, i64, u32, u32), ko: &str, placed: &[PlacementRow]) -> ApiResult<Option<PlacementRow>> {
     let shape = layout::fit(rect.0, rect.1, rect.2, rect.3, ko);
+    if placed.iter().any(|p| overlap((shape.x, shape.y, shape.w, shape.h), (p.x, p.y, p.w, p.h)) > 0.5) {
+        return Ok(None);
+    }
     let mut row = PlacementRow {
         id: 0,
         fingerprint: fingerprint.to_string(),
@@ -1055,7 +1073,7 @@ fn place(db: &Db, picture_id: i64, fingerprint: &str, rect: (i64, i64, u32, u32)
         ko: ko.to_string(),
     };
     row.id = store::insert_placement(db, picture_id, &row)?;
-    Ok(row)
+    Ok(Some(row))
 }
 
 type Outcome = Result<(Vec<String>, Option<Result<Vec<String>, ()>>), GeminiError>;
@@ -1137,8 +1155,9 @@ fn finish_jobs(state: &Mutex<State>, platform: &dyn Platform, gen: u64, model: &
             if pic.placements.iter().any(|p| overlap(rect, (p.x, p.y, p.w, p.h)) > 0.5) {
                 continue;
             }
-            match place(&st.db, picture_id, &t.fingerprint, rect, &ko) {
-                Ok(row) => {
+            match place(&st.db, picture_id, &t.fingerprint, rect, &ko, &pic.placements) {
+                Ok(None) => {}
+                Ok(Some(row)) => {
                     let s = st.session.as_mut().unwrap();
                     s.pics.get_mut(&picture_id).unwrap().placements.push(row);
                     changed = true;

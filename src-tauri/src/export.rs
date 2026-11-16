@@ -79,6 +79,25 @@ pub fn encode_webp(img: &Rgb) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
+/// A lossless WebP (how strips are kept, E5) as RGB.
+pub fn decode_webp(bytes: &[u8]) -> Option<Rgb> {
+    let mut d = image_webp::WebPDecoder::new(std::io::Cursor::new(bytes)).ok()?;
+    let (w, h) = d.dimensions();
+    let mut buf = vec![0; d.output_buffer_size()?];
+    d.read_image(&mut buf).ok()?;
+    let px = if d.has_alpha() { buf.chunks(4).flat_map(|p| [p[0], p[1], p[2]]).collect() } else { buf };
+    Some(Rgb { w, h, px })
+}
+
+/// A strip file: lossless WebP, or PNG as strips were kept before.
+pub fn decode_strip(bytes: &[u8]) -> Option<Rgb> {
+    if bytes.starts_with(b"RIFF") {
+        decode_webp(bytes)
+    } else {
+        decode_png(bytes)
+    }
+}
+
 /// The `w` x `h` area of `img` at (`x`, `y`), clipped to the picture.
 pub fn crop(img: &Rgb, x: u32, y: u32, w: u32, h: u32) -> Rgb {
     let (x1, y1) = ((x + w).min(img.w), (y + h).min(img.h));
@@ -208,7 +227,7 @@ pub fn render(width: u32, top: i64, bottom: i64, strips: &[StripRow], placements
     for s in strips.iter().filter(|s| s.y_start < top + height as i64 && s.y_start + s.height as i64 > top) {
         let bytes = std::fs::read(&s.file_path).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, format!("{}: {e}", s.file_path)))?;
         // A strip that cannot be read would leave a white gap in the export.
-        let strip = decode_png(&bytes)
+        let strip = decode_strip(&bytes)
             .filter(|p| p.h == s.height)
             .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, format!("unreadable strip {}", s.file_path)))?;
         let w = strip.w.min(width) as usize;
@@ -273,8 +292,8 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let mut strips = vec![];
         for (i, shade) in [(0i64, 10u8), (1, 200)] {
-            let path = dir.join(format!("{i}.png"));
-            std::fs::write(&path, encode_png(&Rgb { w: 4, h: 3000, px: vec![shade; 4 * 3000 * 3] }).unwrap()).unwrap();
+            let path = dir.join(format!("{i}.webp"));
+            std::fs::write(&path, encode_webp(&Rgb { w: 4, h: 3000, px: vec![shade; 4 * 3000 * 3] }).unwrap()).unwrap();
             strips.push(StripRow { y_start: i * 3000, height: 3000, file_path: path.to_string_lossy().into() });
         }
         let out = dir.join("out.png");
