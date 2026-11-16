@@ -82,6 +82,22 @@ pub fn best_shift(prev: &[u8], cur: &[u8], rows: usize, top: usize, bottom: usiz
     best.filter(|(d, _)| *d <= MATCH).map(|(_, s)| s)
 }
 
+/// A2: the 96-px-wide grayscale thumbnail of a `w` x `h` grayscale screen,
+/// `h * 96 / w` rows, each pixel the average of the screen pixels under it.
+pub fn thumbnail(gray: &[u8], w: usize, h: usize) -> Vec<u8> {
+    let rows = h * THUMB_W / w.max(1);
+    let mut out = Vec::with_capacity(rows * THUMB_W);
+    for j in 0..rows {
+        let (y0, y1) = (j * h / rows, ((j + 1) * h / rows).max(j * h / rows + 1));
+        for i in 0..THUMB_W {
+            let (x0, x1) = (i * w / THUMB_W, ((i + 1) * w / THUMB_W).max(i * w / THUMB_W + 1));
+            let sum: u64 = (y0..y1).map(|y| gray[y * w + x0..y * w + x1].iter().map(|&v| v as u64).sum::<u64>()).sum();
+            out.push((sum / ((y1 - y0) * (x1 - x0)) as u64) as u8);
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -102,5 +118,14 @@ mod tests {
         assert_eq!(best_shift(&page(1, 240, 30), &page(1, 240, 0), 240, 0, 0), Some(-30));
         assert_eq!(best_shift(&a, &page(2, 240, 0), 240, 0, 0), None);
         assert!(is_blocked(&[0; 96 * 4]) && !is_blocked(&a));
+    }
+
+    #[test]
+    fn thumbnail_is_96_wide_and_averages() {
+        let (w, h) = (960, 2400);
+        let gray: Vec<u8> = (0..w * h).map(|i| if (i / w) < h / 2 { 0 } else { 200 }).collect();
+        let t = thumbnail(&gray, w, h);
+        assert_eq!(t.len(), 96 * 240);
+        assert_eq!((t[0], t[96 * 239]), (0, 200));
     }
 }

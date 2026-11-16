@@ -10,14 +10,18 @@ pub mod api;
 #[cfg(feature = "app")]
 pub mod app;
 pub mod backend;
+pub mod detect;
 pub mod export;
 pub mod fingerprint;
 pub mod gemini;
 pub mod layout;
+pub mod pipeline;
 pub mod platform;
 pub mod store;
 pub mod tracker;
 pub mod vault;
+#[cfg(all(feature = "app", windows))]
+pub mod wgc;
 
 pub use backend::Backend;
 

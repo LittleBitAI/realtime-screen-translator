@@ -20,4 +20,7 @@
 ## Development
 
 - Backend: `src-tauri/` (Rust). The commands of `docs/design/api.yaml` live in `src/backend.rs`; the Tauri shell is `src/app.rs` behind the `app` feature (`cargo tauri dev --features app`).
+- Capture loop: `src/pipeline.rs` drives P6, P7 and P9 from captured frames. On Windows `src/wgc.rs` captures with Windows Graphics Capture and runs the balloon model with tract; on Android the Kotlin plugin in `src-tauri/plugins/screen/android/` captures with MediaProjection, runs the model with ONNX Runtime, draws the overlay and the floating on/off button, and seals the Gemini key with the Android Keystore.
+- Balloon model: put a YOLOv8 detection export named `balloons.onnx` (contract in `src/detect.rs`: input `[1, 3, 640, 640]`, class 0 dialogue text, class 1 sound-effect text) in the app data folder under `models/` (Windows: `RST_DETECTOR_MODEL` overrides the path; Android: also read from the APK assets). Without it P1 shows `detector_missing`. `tests/fixtures/one-balloon.onnx` is only a contract stand-in for the tests.
+- Windows-only checks that need the `app` feature and a desktop session: `cargo test -p realtime-screen-translator --features app --lib -- detect wgc`.
 - Tests: install [cargo-nextest](https://nexte.st), then `cargo run -q -p xtask -- artifacts/junit.xml` runs every test and writes a JUnit report. The contract tests drive the backend through the `contract-host` binary.

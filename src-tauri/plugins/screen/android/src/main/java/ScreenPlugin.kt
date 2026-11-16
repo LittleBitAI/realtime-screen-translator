@@ -1,0 +1,217 @@
+package ai.littlebit.rst.screen
+
+import android.app.Activity
+import android.content.Intent
+import android.graphics.Bitmap
+import android.media.projection.MediaProjectionManager
+import android.net.Uri
+import android.provider.Settings
+import android.util.Base64
+import androidx.activity.result.ActivityResult
+import app.tauri.annotation.ActivityCallback
+import app.tauri.annotation.Command
+import app.tauri.annotation.InvokeArg
+import app.tauri.annotation.TauriPlugin
+import app.tauri.plugin.Invoke
+import app.tauri.plugin.JSArray
+import app.tauri.plugin.JSObject
+import app.tauri.plugin.Plugin
+import java.io.ByteArrayOutputStream
+import java.util.concurrent.Executors
+
+@InvokeArg
+class RangeArgs {
+    var seq: Long = 0
+    var top: Int = 0
+    var bottom: Int = 0
+}
+
+@InvokeArg
+class PlacementArg {
+    var x: Int = 0
+    var y: Int = 0
+    var w: Int = 0
+    var h: Int = 0
+    var radius: Int = 0
+    var ko: String = ""
+    var font_px: Int = 16
+}
+
+@InvokeArg
+class DrawArgs {
+    var placements: Array<PlacementArg> = arrayOf()
+    var clear: Boolean = false
+}
+
+@InvokeArg
+class BytesArgs {
+    var data: String = ""
+}
+
+/**
+ * The Android screen side (A1, A2, A6), called from Rust only:
+ * permissions and the floating on/off button (R29), MediaProjection frames
+ * as 96-px grayscale thumbnails (`next`), balloon detection with the local
+ * ONNX model (`detect`, R25), clean screen rows (`strip`), the overlay
+ * (`draw`, R28, R31) and the Keystore that seals the Gemini key (`seal`).
+ */
+@TauriPlugin
+class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
+    // Model runs and PNG encoding stay off the UI thread.
+    private val worker = Executors.newSingleThreadExecutor()
+
+    private fun state(): JSObject = JSObject().apply {
+        put("capture", Capture.alive)
+        put("overlay", Settings.canDrawOverlays(activity))
+    }
+
+    @Command
+    fun permissions(invoke: Invoke) {
+        invoke.resolve(state())
+    }
+
+    /** Screen capture first, then drawing over other apps (R29). */
+    @Command
+    fun requestPermissions(invoke: Invoke) {
+        if (Capture.alive) {
+            askOverlay(invoke)
+            return
+        }
+        val mgr = activity.getSystemService(MediaProjectionManager::class.java)
+        startActivityForResult(invoke, mgr.createScreenCaptureIntent(), "captureAnswered")
+    }
+
+    @ActivityCallback
+    private fun captureAnswered(invoke: Invoke, result: ActivityResult) {
+        val data = result.data
+        if (result.resultCode == Activity.RESULT_OK && data != null) {
+            // The service starts now, while the app is in front, and stays
+            // paused until translation is switched on.
+            Capture.grant = Capture.Grant(result.resultCode, data)
+            CaptureService.start(activity)
+        }
+        askOverlay(invoke)
+    }
+
+    private fun askOverlay(invoke: Invoke) {
+        if (Settings.canDrawOverlays(activity)) {
+            overlayAnswered(invoke, ActivityResult(Activity.RESULT_OK, null))
+            return
+        }
+        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + activity.packageName))
+        startActivityForResult(invoke, intent, "overlayAnswered")
+    }
+
+    @ActivityCallback
+    private fun overlayAnswered(invoke: Invoke, @Suppress("UNUSED_PARAMETER") result: ActivityResult) {
+        if (Settings.canDrawOverlays(activity)) {
+            Overlay.showButton(activity.applicationContext)
+        }
+        invoke.resolve(state())
+    }
+
+    @Command
+    fun start(invoke: Invoke) {
+        if (!Capture.alive || !Settings.canDrawOverlays(activity)) {
+            invoke.reject("permission_required")
+            return
+        }
+        Overlay.showButton(activity.applicationContext)
+        Overlay.showLayer(activity.applicationContext)
+        Overlay.setOn(true)
+        Capture.paused = false
+        invoke.resolve()
+    }
+
+    @Command
+    fun stop(invoke: Invoke) {
+        Capture.paused = true
+        Capture.clear()
+        Overlay.draw(emptyList())
+        Overlay.setOn(false)
+        invoke.resolve()
+    }
+
+    /** Answered with the next frame or button tap, whenever it comes. */
+    @Command
+    fun next(invoke: Invoke) {
+        Capture.next(invoke)
+    }
+
+    @Command
+    fun detect(invoke: Invoke) {
+        val args = invoke.parseArgs(RangeArgs::class.java)
+        worker.execute {
+            val crops = JSArray()
+            val detector = Detector.get(activity.applicationContext)
+            val frame = Capture.frame(args.seq)
+            if (detector != null && frame != null) {
+                for (b in detector.detect(frame)) {
+                    val cy = b.y + b.h / 2
+                    if (cy < args.top || cy >= args.bottom) continue
+                    val x = b.x.toInt().coerceIn(0, frame.width - 1)
+                    val y = b.y.toInt().coerceIn(0, frame.height - 1)
+                    val w = minOf((b.x + b.w).toInt(), frame.width) - x
+                    val h = minOf((b.y + b.h).toInt(), frame.height) - y
+                    if (w < 4 || h < 4) continue
+                    crops.put(JSObject().apply {
+                        put("x", x)
+                        put("y", y)
+                        put("w", w)
+                        put("h", h)
+                        put("kind", if (b.cls == 1) "effect" else "dialogue")
+                        put("score", b.score.toDouble())
+                        put("image", png(Bitmap.createBitmap(frame, x, y, w, h)))
+                    })
+                }
+            }
+            invoke.resolve(JSObject().apply {
+                put("missing", detector == null)
+                put("crops", crops)
+            })
+        }
+    }
+
+    @Command
+    fun strip(invoke: Invoke) {
+        val args = invoke.parseArgs(RangeArgs::class.java)
+        worker.execute {
+            val frame = Capture.frame(args.seq)
+            val top = args.top.coerceIn(0, frame?.height ?: 0)
+            val bottom = args.bottom.coerceIn(top, frame?.height ?: 0)
+            val data = if (frame != null && bottom > top) png(Bitmap.createBitmap(frame, 0, top, frame.width, bottom - top)) else null
+            invoke.resolve(JSObject().apply { put("data", data) })
+        }
+    }
+
+    @Command
+    fun draw(invoke: Invoke) {
+        val args = invoke.parseArgs(DrawArgs::class.java)
+        Overlay.draw(args.placements.map { Shape(it.x, it.y, it.w, it.h, it.radius, it.ko, it.font_px) })
+        invoke.resolve()
+    }
+
+    @Command
+    fun seal(invoke: Invoke) {
+        val args = invoke.parseArgs(BytesArgs::class.java)
+        worker.execute {
+            val out = runCatching { KeyVault.seal(Base64.decode(args.data, Base64.NO_WRAP)) }.getOrNull()
+            invoke.resolve(JSObject().apply { put("data", out?.let { Base64.encodeToString(it, Base64.NO_WRAP) }) })
+        }
+    }
+
+    @Command
+    fun unseal(invoke: Invoke) {
+        val args = invoke.parseArgs(BytesArgs::class.java)
+        worker.execute {
+            val out = KeyVault.unseal(Base64.decode(args.data, Base64.NO_WRAP))
+            invoke.resolve(JSObject().apply { put("data", out?.let { Base64.encodeToString(it, Base64.NO_WRAP) }) })
+        }
+    }
+
+    private fun png(b: Bitmap): String {
+        val out = ByteArrayOutputStream()
+        b.compress(Bitmap.CompressFormat.PNG, 100, out)
+        return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+    }
+}

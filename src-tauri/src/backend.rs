@@ -270,6 +270,11 @@ impl Backend {
 
     // ---- P1 .. P5
 
+    /// A notice from the screen side, shown by P1 (`detector_missing`).
+    pub fn notify(&self, notice: &'static str) {
+        self.lock().notice = Some(notice);
+    }
+
     pub fn status(&self) -> Status {
         let st = self.lock();
         let perms = self.platform.permissions();

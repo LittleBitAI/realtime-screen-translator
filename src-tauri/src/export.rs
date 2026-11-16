@@ -79,6 +79,18 @@ pub fn encode_webp(img: &Rgb) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
+/// The `w` x `h` area of `img` at (`x`, `y`), clipped to the picture.
+pub fn crop(img: &Rgb, x: u32, y: u32, w: u32, h: u32) -> Rgb {
+    let (x1, y1) = ((x + w).min(img.w), (y + h).min(img.h));
+    let (x, y) = (x.min(x1), y.min(y1));
+    let mut px = Vec::with_capacity(((x1 - x) * (y1 - y) * 3) as usize);
+    for row in y..y1 {
+        let start = (row as usize * img.w as usize + x as usize) * 3;
+        px.extend_from_slice(&img.px[start..start + (x1 - x) as usize * 3]);
+    }
+    Rgb { w: x1 - x, h: y1 - y, px }
+}
+
 /// Rows `top..bottom` of `img`.
 pub fn rows(img: &Rgb, top: u32, bottom: u32) -> Rgb {
     let bottom = bottom.min(img.h);

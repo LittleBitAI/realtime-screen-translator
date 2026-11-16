@@ -39,7 +39,7 @@
                       "description": "u32"
                     },
                     "notice": {
-                      "description": "key_invalid | capture_blocked | gemini_unreachable | null"
+                      "description": "key_invalid | capture_blocked | gemini_unreachable | detector_missing | null"
                     }
                   }
                 }

@@ -1,5 +1,7 @@
 [workspace]
 members = ["src-tauri", "xtask"]
+# Built only with the app (`--features app`), not by the workspace tests.
+exclude = ["src-tauri/plugins/screen"]
 resolver = "2"
 
 # Frame matching, PNG and JSON work run per frame: keep test builds fast enough

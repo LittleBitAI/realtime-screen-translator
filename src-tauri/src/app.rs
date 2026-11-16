@@ -1,15 +1,18 @@
 //! The Tauri app shell: every backend command registered under its A1 name
 //! (`POST /frames` is `post_frames`), argument names as in `api.yaml`.
 //!
-//! Desktop platform layer: nothing to ask for on Windows, the overlay is a
+//! Platform layer. Windows (A7): nothing to ask for, the overlay is a
 //! transparent, always-on-top, click-through window left out of screen
-//! capture, and exports go to the Downloads folder. Screen capture (Windows
-//! Graphics Capture) and balloon detection (ONNX) feed `post_frames` and
-//! `post_crops`; on Android the Kotlin plugin does the same.
+//! capture, `wgc::WinScreen` captures and detects, DPAPI seals the key and
+//! exports go to the Downloads folder. Android: the Kotlin `ScreenPlugin`
+//! asks for capture and draw-over-apps, captures, detects, draws the overlay
+//! and the floating on/off button, and seals the key with the Keystore.
+//! Either way `pipeline::run` drives P6, P7 and P9 from the captured frames.
 
 use crate::api::*;
+use crate::pipeline;
 use crate::platform::{Permissions, Platform};
-use crate::{vault, Backend};
+use crate::Backend;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -17,22 +20,161 @@ use tauri::{AppHandle, Emitter, Manager, State};
 struct AppPlatform {
     app: AppHandle,
     data_dir: PathBuf,
+    #[cfg(windows)]
+    screen: Arc<crate::wgc::WinScreen>,
 }
 
 const OVERLAY: &str = "overlay";
 
+#[cfg(target_os = "android")]
+mod android {
+    use super::*;
+    use base64::Engine;
+    use serde::Deserialize;
+    use serde_json::{json, Value};
+    use tauri_plugin_rst_screen::Screen as Plugin;
+
+    pub fn call<T: serde::de::DeserializeOwned>(app: &AppHandle, command: &str, args: Value) -> Result<T, String> {
+        app.state::<Plugin<tauri::Wry>>().call(command, args)
+    }
+
+    pub fn b64(s: &str) -> Vec<u8> {
+        base64::engine::general_purpose::STANDARD.decode(s).unwrap_or_default()
+    }
+
+    pub fn enc(b: &[u8]) -> String {
+        base64::engine::general_purpose::STANDARD.encode(b)
+    }
+
+    #[derive(Deserialize)]
+    pub struct Perms {
+        pub capture: bool,
+        pub overlay: bool,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Next {
+        kind: String,
+        #[serde(default)]
+        seq: u64,
+        #[serde(default)]
+        width: u32,
+        #[serde(default)]
+        height: u32,
+        #[serde(default)]
+        thumb: String,
+        #[serde(default)]
+        captured_at: i64,
+    }
+
+    #[derive(Deserialize)]
+    struct Crop {
+        x: u32,
+        y: u32,
+        w: u32,
+        h: u32,
+        kind: String,
+        score: f32,
+        image: String,
+    }
+
+    #[derive(Deserialize)]
+    struct Detected {
+        #[serde(default)]
+        missing: bool,
+        crops: Vec<Crop>,
+    }
+
+    #[derive(Deserialize)]
+    pub struct Bytes {
+        pub data: Option<String>,
+    }
+
+    /// The Kotlin plugin as the capture loop's screen side.
+    pub struct AndroidScreen(pub AppHandle);
+
+    impl pipeline::Screen for AndroidScreen {
+        fn next(&self) -> Option<pipeline::Event> {
+            loop {
+                match call::<Next>(&self.0, "next", json!({})) {
+                    Ok(n) if n.kind == "toggle" => return Some(pipeline::Event::Toggle),
+                    Ok(n) => {
+                        return Some(pipeline::Event::Frame(pipeline::Captured {
+                            seq: n.seq,
+                            width: n.width,
+                            height: n.height,
+                            thumb: b64(&n.thumb),
+                            captured_at: n.captured_at,
+                        }))
+                    }
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::thread::sleep(std::time::Duration::from_millis(500));
+                    }
+                }
+            }
+        }
+
+        fn detect(&self, seq: u64, top: u32, bottom: u32) -> Result<Vec<CropIn>, &'static str> {
+            let d = call::<Detected>(&self.0, "detect", json!({"seq": seq, "top": top, "bottom": bottom})).unwrap_or_else(|e| {
+                eprintln!("{e}");
+                Detected { missing: false, crops: vec![] }
+            });
+            if d.missing {
+                return Err("detector_missing");
+            }
+            Ok(d.crops
+                .into_iter()
+                .map(|c| CropIn { x: c.x, y: c.y, w: c.w, h: c.h, kind: c.kind, score: c.score, image: b64(&c.image) })
+                .collect())
+        }
+
+        fn strip(&self, seq: u64, top: u32, bottom: u32) -> Option<Vec<u8>> {
+            let b = call::<Bytes>(&self.0, "strip", json!({"seq": seq, "top": top, "bottom": bottom})).map_err(|e| eprintln!("{e}")).ok()?;
+            b.data.map(|d| b64(&d))
+        }
+
+        fn draw(&self, placements: &[PlacementOut], clear: bool) {
+            if let Err(e) = call::<Value>(&self.0, "draw", json!({"placements": placements, "clear": clear})) {
+                eprintln!("{e}");
+            }
+        }
+    }
+}
+
 impl Platform for AppPlatform {
     fn request_permissions(&self) -> Permissions {
+        #[cfg(target_os = "android")]
+        {
+            // R29: capture first, then drawing over other apps; the plugin
+            // puts the floating on/off button up once both are granted.
+            return match android::call::<android::Perms>(&self.app, "requestPermissions", serde_json::json!({})) {
+                Ok(p) => Permissions { capture: p.capture, overlay: p.overlay },
+                Err(e) => {
+                    eprintln!("{e}");
+                    Permissions::default()
+                }
+            };
+        }
+        #[cfg(not(target_os = "android"))]
         self.permissions()
     }
 
     fn permissions(&self) -> Permissions {
-        // Windows has no capture or draw-over-apps prompt.
-        let desktop = cfg!(desktop);
-        Permissions { capture: desktop, overlay: desktop }
+        #[cfg(target_os = "android")]
+        {
+            let p = android::call::<android::Perms>(&self.app, "permissions", serde_json::json!({}));
+            return p.map(|p| Permissions { capture: p.capture, overlay: p.overlay }).unwrap_or_default();
+        }
+        // Windows has no capture or draw-over-apps prompt; other desktops have no capture.
+        #[cfg(not(target_os = "android"))]
+        Permissions { capture: cfg!(windows), overlay: cfg!(windows) }
     }
 
     fn start(&self) -> Result<(), String> {
+        #[cfg(target_os = "android")]
+        return android::call::<serde_json::Value>(&self.app, "start", serde_json::json!({})).map(|_| ());
         #[cfg(desktop)]
         {
             if self.app.get_webview_window(OVERLAY).is_none() {
@@ -54,17 +196,31 @@ impl Platform for AppPlatform {
                     unsafe { SetWindowDisplayAffinity(hwnd.0 as _, WDA_EXCLUDEFROMCAPTURE) };
                 }
             }
+            #[cfg(windows)]
+            self.screen.set_on(true);
         }
+        #[cfg(not(target_os = "android"))]
         Ok(())
     }
 
     fn stop(&self) {
+        #[cfg(target_os = "android")]
+        if let Err(e) = android::call::<serde_json::Value>(&self.app, "stop", serde_json::json!({})) {
+            eprintln!("{e}");
+        }
+        #[cfg(windows)]
+        self.screen.set_on(false);
         if let Some(w) = self.app.get_webview_window(OVERLAY) {
             let _ = w.close();
         }
     }
 
     fn emit(&self, event: &str, payload: serde_json::Value) {
+        // A translation that came back late is drawn at once (R28).
+        #[cfg(target_os = "android")]
+        if event == "placements" {
+            let _ = android::call::<serde_json::Value>(&self.app, "draw", serde_json::json!({"placements": payload["placements"], "clear": false}));
+        }
         let _ = self.app.emit(event, payload);
     }
 
@@ -72,14 +228,25 @@ impl Platform for AppPlatform {
         self.app.path().download_dir().unwrap_or_else(|_| self.data_dir.join("export"))
     }
 
-    // DPAPI on Windows. Anywhere else (Android until the Kotlin plugin's
-    // Keystore binding exists) sealing is refused and P2 stores nothing.
+    // DPAPI on Windows, the Android Keystore through the plugin.
     fn seal(&self, data: &[u8]) -> Option<Vec<u8>> {
-        vault::seal(data)
+        #[cfg(target_os = "android")]
+        {
+            let r = android::call::<android::Bytes>(&self.app, "seal", serde_json::json!({"data": android::enc(data)}));
+            return r.map_err(|e| eprintln!("{e}")).ok()?.data.map(|d| android::b64(&d));
+        }
+        #[cfg(not(target_os = "android"))]
+        crate::vault::seal(data)
     }
 
     fn unseal(&self, data: &[u8]) -> Option<Vec<u8>> {
-        vault::unseal(data)
+        #[cfg(target_os = "android")]
+        {
+            let r = android::call::<android::Bytes>(&self.app, "unseal", serde_json::json!({"data": android::enc(data)}));
+            return r.map_err(|e| eprintln!("{e}")).ok()?.data.map(|d| android::b64(&d));
+        }
+        #[cfg(not(target_os = "android"))]
+        crate::vault::unseal(data)
     }
 }
 
@@ -143,11 +310,29 @@ fn post_books_export(b: B<'_>, book_id: i64, format: Option<String>) -> ApiResul
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_rst_screen::init())
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
-            let platform = Arc::new(AppPlatform { app: app.handle().clone(), data_dir: data_dir.clone() });
+            let handle = app.handle().clone();
+            #[cfg(windows)]
+            let screen = Arc::new(crate::wgc::WinScreen::new(handle.clone(), data_dir.clone()));
+            let platform = Arc::new(AppPlatform {
+                app: handle.clone(),
+                data_dir: data_dir.clone(),
+                #[cfg(windows)]
+                screen: screen.clone(),
+            });
             let backend = Backend::open(data_dir, std::env::var("RST_GEMINI_BASE_URL").ok(), platform)?;
             app.manage(backend);
+            // The capture loop: frames, detection and strips while translation is on.
+            #[cfg(any(windows, target_os = "android"))]
+            std::thread::spawn(move || {
+                let backend = handle.state::<Backend>();
+                #[cfg(windows)]
+                pipeline::run(&backend, &*screen);
+                #[cfg(target_os = "android")]
+                pipeline::run(&backend, &android::AndroidScreen(handle.clone()));
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
