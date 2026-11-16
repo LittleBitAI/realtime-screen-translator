@@ -43,8 +43,16 @@ pub fn to_hex(fp: u64) -> String {
     format!("{fp:016x}")
 }
 
+/// Stored `Translation.fingerprint`: the hash plus the aspect ratio in
+/// thousandths. Two crops with the same hash but different shapes are
+/// different balloons, so they need different keys.
+pub fn key(fp: u64, aspect: f32) -> String {
+    format!("{fp:016x}-{}", (aspect * 1000.0).round() as u32)
+}
+
+/// The hash part of a stored fingerprint.
 pub fn from_hex(s: &str) -> Option<u64> {
-    u64::from_str_radix(s, 16).ok()
+    u64::from_str_radix(s.get(..16)?, 16).ok()
 }
 
 #[cfg(test)]
@@ -59,5 +67,11 @@ mod tests {
         let flipped: Vec<u8> = (0..w * h).map(|i| ((w - i % w) * 2) as u8).collect();
         assert!(same_balloon(dhash(&img, w, h), 1.5, dhash(&shifted, w, h), 1.5));
         assert!(!same_balloon(dhash(&img, w, h), 1.5, dhash(&flipped, w, h), 1.5));
+    }
+
+    #[test]
+    fn same_hash_with_other_shape_gets_its_own_key() {
+        assert_ne!(key(0, 0.6), key(0, 2.4));
+        assert_eq!(from_hex(&key(0xabc, 0.6)), Some(0xabc));
     }
 }

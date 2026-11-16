@@ -122,16 +122,20 @@ pub fn translations(db: &Db) -> Res<Vec<Translation>> {
     rows.collect()
 }
 
-pub fn put_translation(db: &Db, t: &Translation, model: &str, now: i64) -> Res<()> {
-    db.execute(
+/// Store a translation. A `ready` row is never overwritten: placements read
+/// their Korean from it, so saved books keep the sentence they were shown.
+/// Returns whether the row now holds `t`.
+pub fn put_translation(db: &Db, t: &Translation, model: &str, now: i64) -> Res<bool> {
+    let n = db.execute(
         "INSERT INTO Translation (fingerprint, aspect, source_ja, translation_ko, status, model, created_at, last_seen_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)
          ON CONFLICT(fingerprint) DO UPDATE SET aspect = excluded.aspect, source_ja = excluded.source_ja,
              translation_ko = excluded.translation_ko, status = excluded.status, model = excluded.model,
-             last_seen_at = excluded.last_seen_at",
+             last_seen_at = excluded.last_seen_at
+         WHERE Translation.status <> 'ready'",
         params![t.fingerprint, t.aspect as f64, t.source_ja, t.translation_ko, t.status, model, now],
     )?;
-    Ok(())
+    Ok(n > 0)
 }
 
 pub fn touch_translation(db: &Db, fingerprint: &str, now: i64) -> Res<()> {

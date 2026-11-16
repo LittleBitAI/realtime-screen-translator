@@ -59,36 +59,39 @@ pub fn decode_png(bytes: &[u8]) -> Option<Rgb> {
     Some(Rgb { w: info.width, h: info.height, px })
 }
 
-/// Width and height from a PNG header, without decoding.
-pub fn png_size(b: &[u8]) -> Option<(u32, u32)> {
-    if b.len() < 24 || !b.starts_with(b"\x89PNG\r\n\x1a\n") {
-        return None;
-    }
-    let be = |i: usize| u32::from_be_bytes([b[i], b[i + 1], b[i + 2], b[i + 3]]);
-    Some((be(16), be(20)))
-}
-
-pub fn encode_png(img: &Rgb) -> Vec<u8> {
+pub fn encode_png(img: &Rgb) -> Result<Vec<u8>, String> {
     let mut out = Vec::new();
     let mut enc = png::Encoder::new(&mut out, img.w, img.h);
     enc.set_color(png::ColorType::Rgb);
     enc.set_depth(png::BitDepth::Eight);
-    if let Ok(mut w) = enc.write_header() {
-        let _ = w.write_image_data(&img.px);
-    }
-    out
+    let mut w = enc.write_header().map_err(|e| e.to_string())?;
+    w.write_image_data(&img.px).map_err(|e| e.to_string())?;
+    w.finish().map_err(|e| e.to_string())?;
+    Ok(out)
 }
 
-pub fn encode_webp(img: &Rgb) -> Vec<u8> {
+/// WebP pictures are at most 16383 px on a side.
+pub const WEBP_MAX: u32 = 16383;
+
+pub fn encode_webp(img: &Rgb) -> Result<Vec<u8>, String> {
     let mut out = Vec::new();
-    let _ = image_webp::WebPEncoder::new(&mut out).encode(&img.px, img.w, img.h, image_webp::ColorType::Rgb8);
-    out
+    image_webp::WebPEncoder::new(&mut out).encode(&img.px, img.w, img.h, image_webp::ColorType::Rgb8).map_err(|e| e.to_string())?;
+    Ok(out)
 }
 
-/// Rows `top..bottom` of `img`, re-encoded as PNG.
-pub fn crop_rows(img: &Rgb, top: u32, bottom: u32) -> Vec<u8> {
-    let (a, b) = ((top * img.w * 3) as usize, (bottom.min(img.h) * img.w * 3) as usize);
-    encode_png(&Rgb { w: img.w, h: bottom.min(img.h) - top, px: img.px[a..b].to_vec() })
+/// Rows `top..bottom` of `img`.
+pub fn rows(img: &Rgb, top: u32, bottom: u32) -> Rgb {
+    let bottom = bottom.min(img.h);
+    let (a, b) = ((top * img.w * 3) as usize, (bottom * img.w * 3) as usize);
+    Rgb { w: img.w, h: bottom - top, px: img.px[a..b].to_vec() }
+}
+
+/// `img` cut into pieces at most `max` rows tall, top to bottom.
+pub fn split_rows(img: Rgb, max: u32) -> Vec<Rgb> {
+    if img.h <= max {
+        return vec![img];
+    }
+    (0..img.h).step_by(max as usize).map(|t| rows(&img, t, t + max)).collect()
 }
 
 const FONT_PATHS: [&str; 8] = [
@@ -181,8 +184,11 @@ pub fn render(width: u32, top: i64, bottom: i64, strips: &[StripRow], placements
     let height = (bottom - top).max(1) as u32;
     let mut img = Rgb::new(width, height);
     for s in strips {
-        let bytes = std::fs::read(&s.file_path)?;
-        let Some(strip) = decode_png(&bytes) else { continue };
+        let bytes = std::fs::read(&s.file_path).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, format!("{}: {e}", s.file_path)))?;
+        // A strip that cannot be read would leave a white gap in the export.
+        let strip = decode_png(&bytes)
+            .filter(|p| p.h == s.height)
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, format!("unreadable strip {}", s.file_path)))?;
         let w = strip.w.min(width) as usize;
         for row in 0..strip.h as i64 {
             let y = s.y_start - top + row;
@@ -227,5 +233,16 @@ mod tests {
         assert_eq!(at(10, 10), 90);
         let dark = (24..96).flat_map(|y| (44..156).map(move |x| (x, y))).filter(|&(x, y)| at(x, y) < 128).count();
         assert!(dark > 0);
+    }
+
+    #[test]
+    fn too_tall_webp_is_refused_and_split_parts_encode() {
+        let tall = Rgb { w: 4, h: WEBP_MAX + 100, px: vec![200; (4 * (WEBP_MAX + 100) * 3) as usize] };
+        assert!(encode_webp(&tall).is_err());
+        let parts = split_rows(tall, WEBP_MAX);
+        assert_eq!(parts.iter().map(|p| p.h).collect::<Vec<_>>(), vec![WEBP_MAX, 100]);
+        for p in &parts {
+            assert!(encode_webp(p).is_ok_and(|b| b.starts_with(b"RIFF")));
+        }
     }
 }

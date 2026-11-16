@@ -41,10 +41,15 @@ struct Pic {
     page_thumb: Option<Vec<u8>>,
 }
 
+/// A balloon on its way through Gemini, with every place it was seen while waiting.
 struct Pending {
     fp: u64,
     aspect: f32,
+    /// (picture id, text area in picture coordinates)
+    targets: Vec<(i64, Rect)>,
 }
+
+type Rect = (i64, i64, u32, u32);
 
 struct Session {
     gen: u64,
@@ -124,7 +129,8 @@ impl State {
     fn find_known(&self, fp: u64, aspect: f32) -> Option<&Known> {
         self.known
             .iter()
-            .filter(|k| fingerprint::same_balloon(fp, aspect, k.fp, k.aspect))
+            // A failed attempt is not a translation: the balloon is asked again.
+            .filter(|k| k.status != "failed" && fingerprint::same_balloon(fp, aspect, k.fp, k.aspect))
             .min_by_key(|k| (k.fp ^ fp).count_ones())
     }
 }
@@ -194,8 +200,6 @@ fn tail(key: &str) -> String {
 struct Job {
     fp: u64,
     aspect: f32,
-    picture_id: i64,
-    rect: (i64, i64, u32, u32),
     png: Vec<u8>,
 }
 
@@ -260,7 +264,8 @@ impl Backend {
         if !key_ok(&key) {
             return Err(ApiError("key_format"));
         }
-        let sealed = self.platform.seal(key.as_bytes()).ok_or(ApiError("internal"))?;
+        // No secure store on this device: refuse rather than keep the key weakly.
+        let sealed = self.platform.seal(key.as_bytes()).ok_or(ApiError("secure_storage_unavailable"))?;
         store::put_setting(&st.db, KEY_SETTING, &sealed, now_ms())?;
         let tail = tail(&key);
         st.key = Some(key);
@@ -558,18 +563,17 @@ impl Backend {
                 continue;
             }
             let s = st.session.as_mut().unwrap();
-            if s.pending.iter().any(|p| fingerprint::same_balloon(fp, aspect, p.fp, p.aspect))
-                || jobs.iter().any(|j| fingerprint::same_balloon(fp, aspect, j.fp, j.aspect))
-            {
-                result.pending += 1;
+            result.pending += 1;
+            // Already asked (earlier or in this batch): this place gets the same answer.
+            if let Some(p) = s.pending.iter_mut().find(|p| fingerprint::same_balloon(fp, aspect, p.fp, p.aspect)) {
+                p.targets.push((req.picture_id, rect));
                 continue;
             }
-            jobs.push(Job { fp, aspect, picture_id: req.picture_id, rect, png: c.image });
-            result.pending += 1;
+            s.pending.push(Pending { fp, aspect, targets: vec![(req.picture_id, rect)] });
+            jobs.push(Job { fp, aspect, png: c.image });
         }
         if !jobs.is_empty() {
             let s = st.session.as_mut().unwrap();
-            s.pending.extend(jobs.iter().map(|j| Pending { fp: j.fp, aspect: j.aspect }));
             let gen = s.gen;
             let model = st.model.clone();
             drop(guard);
@@ -584,21 +588,24 @@ impl Backend {
         let base = self.gemini_base.clone();
         let agent = self.agent.get_or_init(gemini::agent).clone();
         std::thread::spawn(move || {
-            let sent = || {
+            // Checked and counted under the lock right before each send, so
+            // nothing goes out once translation is switched off.
+            let may_send = || {
                 let mut st = state.lock().unwrap_or_else(|e| e.into_inner());
-                if st.generation == gen {
-                    st.gemini_requests += 1;
+                if st.generation != gen {
+                    return false;
                 }
+                st.gemini_requests += 1;
+                true
             };
-            let alive = || state.lock().map(|st| st.generation == gen).unwrap_or(false);
             let client = gemini::Client { agent: &agent, base: &base, model: &model, key: &key };
             let pngs: Vec<Vec<u8>> = jobs.iter().map(|j| j.png.clone()).collect();
-            let outcome = client.read(&pngs, &sent).and_then(|ja| {
+            let outcome = client.read(&pngs, &may_send).and_then(|ja| {
                 let lines: Vec<String> = ja.iter().filter(|j| !j.is_empty()).cloned().collect();
-                if lines.is_empty() || !alive() {
+                if lines.is_empty() {
                     return Ok((ja, None));
                 }
-                match client.translate(&lines, &sent) {
+                match client.translate(&lines, &may_send) {
                     Ok(ko) => Ok((ja, Some(Ok(ko)))),
                     Err(GeminiError::Unreadable) => Ok((ja, Some(Err(())))),
                     Err(e) => Err(e),
@@ -648,12 +655,16 @@ impl Backend {
                 range.1 = c.0;
             }
         }
+        // The strip must really be screen rows top..bottom, or the export is wrong.
+        let img = export::decode_png(&req.image).ok_or(ApiError("bad_image"))?;
+        if img.w != s.screen.0 || img.h != req.bottom - req.top {
+            return Err(ApiError("bad_image"));
+        }
         let (a, b) = ((range.0 - offset) as u32, (range.1 - offset) as u32);
-        let bytes = if (a, b) == (req.top, req.bottom) && export::png_size(&req.image).is_some() {
+        let bytes = if (a, b) == (req.top, req.bottom) {
             req.image
         } else {
-            let img = export::decode_png(&req.image).ok_or(ApiError("bad_image"))?;
-            export::crop_rows(&img, a - req.top, b - req.top)
+            export::encode_png(&export::rows(&img, a - req.top, b - req.top)).map_err(encode_error)?
         };
         let dir = self.data_dir.join("strips").join(req.picture_id.to_string());
         let name = format!("{}-{}.png", range.0, now_ms());
@@ -725,10 +736,16 @@ impl Backend {
         let mut files = vec![];
         for (i, (p, strips, placements)) in pictures.iter().enumerate() {
             let img = export::render(p.width, p.covered_top, p.covered_bottom, strips, placements).map_err(storage_error)?;
-            let bytes = if ext == "png" { export::encode_png(&img) } else { export::encode_webp(&img) };
-            let path = export::free_path(&dir, &format!("translated-{stem}-{}", i + 1), ext);
-            std::fs::write(&path, bytes).map_err(storage_error)?;
-            files.push(path.to_string_lossy().to_string());
+            // A long scroll picture is taller than WebP allows: it goes out in parts.
+            let parts = if ext == "png" { vec![img] } else { export::split_rows(img, export::WEBP_MAX) };
+            let many = parts.len() > 1;
+            for (k, part) in parts.iter().enumerate() {
+                let bytes = if ext == "png" { export::encode_png(part) } else { export::encode_webp(part) }.map_err(encode_error)?;
+                let stem = if many { format!("translated-{stem}-{}-{}", i + 1, k + 1) } else { format!("translated-{stem}-{}", i + 1) };
+                let path = export::free_path(&dir, &stem, ext);
+                std::fs::write(&path, bytes).map_err(storage_error)?;
+                files.push(path.to_string_lossy().to_string());
+            }
         }
         Ok(ExportOut { count: files.len() as u32, files })
     }
@@ -742,8 +759,14 @@ fn storage_error(e: std::io::Error) -> ApiError {
     eprintln!("storage error: {e}");
     match e.kind() {
         std::io::ErrorKind::PermissionDenied => ApiError("storage_denied"),
+        std::io::ErrorKind::InvalidData => ApiError("strip_unreadable"),
         _ => ApiError("storage_full"),
     }
+}
+
+fn encode_error(e: String) -> ApiError {
+    eprintln!("cannot encode a picture: {e}");
+    ApiError("encode_failed")
 }
 
 /// Store a placement of `ko` over the text area `rect` (picture coordinates).
@@ -771,9 +794,15 @@ fn finish_jobs(state: &Mutex<State>, platform: &dyn Platform, gen: u64, model: &
     let st = &mut *guard;
     // A result for a session that has stopped is dropped without touching state.
     let Some(s) = st.session.as_mut().filter(|s| s.gen == gen) else { return };
-    s.pending.retain(|p| !jobs.iter().any(|j| j.fp == p.fp && j.aspect == p.aspect));
+    // Every place each balloon was seen while it was being asked.
+    let mut targets: Vec<Vec<(i64, Rect)>> = vec![];
+    for j in &jobs {
+        let i = s.pending.iter().position(|p| p.fp == j.fp && p.aspect == j.aspect);
+        targets.push(i.map(|i| s.pending.remove(i).targets).unwrap_or_default());
+    }
     let now = now_ms();
     let rows: Vec<(Translation, &Job)> = match outcome {
+        Err(GeminiError::Cancelled) => return,
         Err(GeminiError::KeyInvalid) => {
             st.notice = Some("key_invalid");
             return;
@@ -807,28 +836,35 @@ fn finish_jobs(state: &Mutex<State>, platform: &dyn Platform, gen: u64, model: &
         st.notice = None;
     }
     let mut changed = false;
-    for (t, job) in rows {
-        if let Err(e) = store::put_translation(&st.db, &t, model, now) {
-            eprintln!("cannot store translation: {e}");
-            continue;
-        }
-        st.known.retain(|k| k.hex != t.fingerprint);
-        st.known.push(Known { fp: job.fp, hex: t.fingerprint.clone(), aspect: t.aspect, status: t.status.clone(), ko: t.translation_ko.clone() });
-        if t.status != "ready" {
-            continue;
-        }
-        let s = st.session.as_mut().unwrap();
-        let Some(pic) = s.pics.get(&job.picture_id) else { continue };
-        if pic.placements.iter().any(|p| overlap(job.rect, (p.x, p.y, p.w, p.h)) > 0.5) {
-            continue;
-        }
-        match place(&st.db, job.picture_id, &t.fingerprint, job.rect, t.translation_ko.as_deref().unwrap_or_default()) {
-            Ok(row) => {
-                let s = st.session.as_mut().unwrap();
-                s.pics.get_mut(&job.picture_id).unwrap().placements.push(row);
-                changed = true;
+    for ((t, job), targets) in rows.into_iter().zip(targets) {
+        let ko = match store::put_translation(&st.db, &t, model, now) {
+            Ok(true) => {
+                st.known.retain(|k| k.hex != t.fingerprint);
+                st.known.push(Known { fp: job.fp, hex: t.fingerprint.clone(), aspect: t.aspect, status: t.status.clone(), ko: t.translation_ko.clone() });
+                (t.status == "ready").then(|| t.translation_ko.clone().unwrap_or_default())
             }
-            Err(e) => eprintln!("cannot place translation: {e}"),
+            // A ready translation under this key is never overwritten: show that one.
+            Ok(false) => st.known.iter().find(|k| k.hex == t.fingerprint && k.status == "ready").and_then(|k| k.ko.clone()),
+            Err(e) => {
+                eprintln!("cannot store translation: {e}");
+                None
+            }
+        };
+        let Some(ko) = ko else { continue };
+        for (picture_id, rect) in targets {
+            let s = st.session.as_mut().unwrap();
+            let Some(pic) = s.pics.get(&picture_id) else { continue };
+            if pic.placements.iter().any(|p| overlap(rect, (p.x, p.y, p.w, p.h)) > 0.5) {
+                continue;
+            }
+            match place(&st.db, picture_id, &t.fingerprint, rect, &ko) {
+                Ok(row) => {
+                    let s = st.session.as_mut().unwrap();
+                    s.pics.get_mut(&picture_id).unwrap().placements.push(row);
+                    changed = true;
+                }
+                Err(e) => eprintln!("cannot place translation: {e}"),
+            }
         }
     }
     let s = st.session.as_mut().unwrap();
@@ -841,7 +877,7 @@ fn finish_jobs(state: &Mutex<State>, platform: &dyn Platform, gen: u64, model: &
 
 fn translation(j: &Job, ja: Option<String>, ko: Option<String>, status: &str) -> Translation {
     Translation {
-        fingerprint: fingerprint::to_hex(j.fp),
+        fingerprint: fingerprint::key(j.fp, j.aspect),
         aspect: j.aspect,
         source_ja: ja,
         translation_ko: ko,

@@ -28,6 +28,8 @@ pub enum GeminiError {
     Unreachable,
     /// An answer came back that does not continue the prefill as JSON.
     Unreadable,
+    /// Translation was switched off before the request could go out.
+    Cancelled,
 }
 
 pub fn agent() -> ureq::Agent {
@@ -52,7 +54,7 @@ fn safety(threshold: &str) -> Value {
 
 impl Client<'_> {
     /// Japanese text of each crop (PNG files), in order. Empty = no dialogue.
-    pub fn read(&self, crops: &[Vec<u8>], sent: &dyn Fn()) -> Result<Vec<String>, GeminiError> {
+    pub fn read(&self, crops: &[Vec<u8>], may_send: &dyn Fn() -> bool) -> Result<Vec<String>, GeminiError> {
         let mut parts = vec![json!({"text": format!(
             "These {} images are cropped from Japanese manga speech balloons, in order. \
              Transcribe the Japanese text of each one exactly, reading vertical text top to bottom \
@@ -64,11 +66,11 @@ impl Client<'_> {
             let data = base64::engine::general_purpose::STANDARD.encode(c);
             parts.push(json!({"inline_data": {"mime_type": "image/png", "data": data}}));
         }
-        self.generate(parts, READ_PREFILL, "ja", crops.len(), sent)
+        self.generate(parts, READ_PREFILL, "ja", crops.len(), may_send)
     }
 
     /// Korean translation of each Japanese line, in order.
-    pub fn translate(&self, lines: &[String], sent: &dyn Fn()) -> Result<Vec<String>, GeminiError> {
+    pub fn translate(&self, lines: &[String], may_send: &dyn Fn() -> bool) -> Result<Vec<String>, GeminiError> {
         let text = format!(
             "Translate these Japanese manga lines into natural, casual Korean that fits a speech \
              balloon. Keep the tone, rough language included. Answer only with JSON \
@@ -76,10 +78,10 @@ impl Client<'_> {
             lines.len(),
             serde_json::to_string(lines).unwrap_or_default()
         );
-        self.generate(vec![json!({"text": text})], TRANSLATE_PREFILL, "ko", lines.len(), sent)
+        self.generate(vec![json!({"text": text})], TRANSLATE_PREFILL, "ko", lines.len(), may_send)
     }
 
-    fn generate(&self, parts: Vec<Value>, prefill: &str, key: &str, n: usize, sent: &dyn Fn()) -> Result<Vec<String>, GeminiError> {
+    fn generate(&self, parts: Vec<Value>, prefill: &str, key: &str, n: usize, may_send: &dyn Fn() -> bool) -> Result<Vec<String>, GeminiError> {
         let url = format!("{}/v1beta/models/{}:generateContent", self.base.trim_end_matches('/'), self.model);
         let mut threshold = "OFF";
         loop {
@@ -91,7 +93,10 @@ impl Client<'_> {
                 "safetySettings": safety(threshold),
                 "generationConfig": {"temperature": 0.2, "maxOutputTokens": 4096}
             });
-            sent();
+            // Nothing goes out once the session that asked has stopped.
+            if !may_send() {
+                return Err(GeminiError::Cancelled);
+            }
             let resp = self
                 .agent
                 .post(&url)

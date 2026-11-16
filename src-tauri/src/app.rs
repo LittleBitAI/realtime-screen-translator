@@ -72,12 +72,14 @@ impl Platform for AppPlatform {
         self.app.path().download_dir().unwrap_or_else(|_| self.data_dir.join("export"))
     }
 
+    // DPAPI on Windows. Anywhere else (Android until the Kotlin plugin's
+    // Keystore binding exists) sealing is refused and P2 stores nothing.
     fn seal(&self, data: &[u8]) -> Option<Vec<u8>> {
-        vault::seal(data, &self.data_dir)
+        vault::seal(data)
     }
 
     fn unseal(&self, data: &[u8]) -> Option<Vec<u8>> {
-        vault::unseal(data, &self.data_dir)
+        vault::unseal(data)
     }
 }
 
