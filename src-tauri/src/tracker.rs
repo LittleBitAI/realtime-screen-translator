@@ -137,7 +137,10 @@ fn search(prev: &[u8], cur: &[u8], mask: Mask, rows: usize, top: usize, bottom: 
         (sum >= MIN_DETAIL).then(|| sum as f32 / ((to - from) * THUMB_W) as f32)
     };
     let span = end - top;
-    let max_shift = (span - (span * 3 / 10).max(4)) as i32;
+    // A fast fling moves most of a screen between frames: shifts that leave a
+    // tenth of it in common are still tried (the detail check above keeps a
+    // thin overlap from matching on a flat margin).
+    let max_shift = (span - (span / 10).max(8).min(span)) as i32;
     let mut best: Option<(i32, f32)> = None;
     for s in -max_shift..=max_shift {
         if s == 0 && !zero {

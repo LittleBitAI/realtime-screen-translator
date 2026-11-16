@@ -13,9 +13,13 @@ import android.provider.Settings
 import android.util.Base64
 import android.widget.Toast
 import androidx.activity.result.ActivityResult
+import android.Manifest
+import app.tauri.PermissionState
 import app.tauri.annotation.ActivityCallback
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
+import app.tauri.annotation.Permission
+import app.tauri.annotation.PermissionCallback
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSArray
@@ -74,7 +78,8 @@ class BytesArgs {
  * ONNX model (`detect`, R25), clean screen rows (`strip`), the overlay
  * (`draw`, R28, R31) and the Keystore that seals the Gemini key (`seal`).
  */
-@TauriPlugin
+// Android 8 and 9 (API 26-28) write to the shared gallery only with this permission.
+@TauriPlugin(permissions = [Permission(strings = [Manifest.permission.WRITE_EXTERNAL_STORAGE], alias = "storage")])
 class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
     // Model runs and PNG encoding stay off the UI thread.
     private val worker = Executors.newSingleThreadExecutor()
@@ -190,6 +195,20 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
      */
     @Command
     fun publish(invoke: Invoke) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && getPermissionState("storage") != PermissionState.GRANTED) {
+            // Asked when the first export is saved, answered in storageAnswered.
+            requestPermissionForAlias("storage", invoke, "storageAnswered")
+            return
+        }
+        save(invoke)
+    }
+
+    @PermissionCallback
+    private fun storageAnswered(invoke: Invoke) {
+        if (getPermissionState("storage") == PermissionState.GRANTED) save(invoke) else invoke.reject("storage permission denied")
+    }
+
+    private fun save(invoke: Invoke) {
         val args = invoke.parseArgs(PublishArgs::class.java)
         worker.execute {
             val file = File(args.path)
