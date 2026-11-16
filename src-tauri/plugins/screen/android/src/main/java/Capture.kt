@@ -49,6 +49,26 @@ object Capture {
         }
     }
 
+    /** The last frame once more, under a new number: the screen has not changed. */
+    fun repeatLast() {
+        if (paused) return
+        synchronized(lock) {
+            val last = frames.keys.lastOrNull() ?: return
+            val bmp = frames[last] ?: return
+            val thumb = thumbs[last] ?: return
+            seq += 1
+            frames[seq] = bmp
+            thumbs[seq] = thumb
+            while (frames.size > KEEP) {
+                val old = frames.keys.first()
+                frames.remove(old)
+                thumbs.remove(old)
+            }
+            fresh = seq
+            deliver()
+        }
+    }
+
     fun toggle() {
         synchronized(lock) {
             taps += 1

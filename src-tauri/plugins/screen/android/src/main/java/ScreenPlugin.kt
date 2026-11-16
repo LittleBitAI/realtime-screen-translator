@@ -116,9 +116,11 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
         val data = result.data
         if (result.resultCode == Activity.RESULT_OK && data != null) {
             // The service starts now, while the app is in front, and stays
-            // paused until translation is switched on.
+            // paused until translation is switched on. The answer waits for
+            // it, so P3 reports the capture as allowed once it really is.
             Capture.grant = Capture.Grant(result.resultCode, data)
-            CaptureService.start(activity)
+            CaptureService.start(activity) { askOverlay(invoke) }
+            return
         }
         askOverlay(invoke)
     }

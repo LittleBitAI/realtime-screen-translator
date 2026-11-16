@@ -99,12 +99,43 @@ fn shifted_diff(prev: &[u8], cur: &[u8], mask: Mask, top: usize, end: usize, s: 
     Some(sum as f32 / n as f32)
 }
 
+/// Detail (summed steps between neighbouring pixels) an overlap needs before
+/// it can tell one shift from another: flat rows (a white gutter, a black
+/// band) match at any distance. As much as 48 steps of 16.
+const MIN_DETAIL: u64 = 16 * THUMB_W as u64 / 2;
+
+/// Per row of `t`, as running sums: the steps to the right neighbour (`h`)
+/// and to the row above (`v`), leaving out masked pixels.
+fn detail_sums(t: &[u8], mask: Mask, rows: usize) -> (Vec<u64>, Vec<u64>) {
+    let free = |i: usize| mask.is_empty() || !mask[i];
+    let (mut h, mut v) = (vec![0u64; rows + 1], vec![0u64; rows + 1]);
+    for r in 0..rows {
+        let i = r * THUMB_W;
+        let hr: u64 = (i..i + THUMB_W - 1).filter(|&k| free(k) && free(k + 1)).map(|k| t[k].abs_diff(t[k + 1]) as u64).sum();
+        let vr: u64 = if r == 0 { 0 } else { (i..i + THUMB_W).filter(|&k| free(k) && free(k - THUMB_W)).map(|k| t[k].abs_diff(t[k - THUMB_W]) as u64).sum() };
+        h[r + 1] = h[r] + hr;
+        v[r + 1] = v[r] + vr;
+    }
+    (h, v)
+}
+
 /// The best whole-row shift and its difference; `zero` lets "not moved" win.
+/// A shift counts only if the rows it lays over each other carry detail and
+/// the match is closer than that detail: a flat margin that agrees cannot
+/// outweigh the drawing that does not (a page turn is not a scroll).
 fn search(prev: &[u8], cur: &[u8], mask: Mask, rows: usize, top: usize, bottom: usize, zero: bool) -> Option<(i32, f32)> {
     let end = rows.saturating_sub(bottom);
     if end <= top + 4 {
         return None;
     }
+    let (h, v) = detail_sums(cur, mask, rows);
+    // Mean detail per pixel of the overlap at shift `s`, if there is enough.
+    let detail = |s: i32| {
+        let from = (top as i32 + (-s).max(0)) as usize;
+        let to = (end as i32 - s.max(0)) as usize;
+        let sum = (h[to] - h[from]) + (v[to] - v[from + 1]);
+        (sum >= MIN_DETAIL).then(|| sum as f32 / ((to - from) * THUMB_W) as f32)
+    };
     let span = end - top;
     let max_shift = (span - (span * 3 / 10).max(4)) as i32;
     let mut best: Option<(i32, f32)> = None;
@@ -112,8 +143,12 @@ fn search(prev: &[u8], cur: &[u8], mask: Mask, rows: usize, top: usize, bottom: 
         if s == 0 && !zero {
             continue;
         }
-        let limit = best.map(|b| b.1).unwrap_or(MATCH);
-        if let Some(d) = shifted_diff(prev, cur, mask, top, end, s, limit) {
+        let mut limit = best.map(|b| b.1).unwrap_or(MATCH);
+        if s != 0 {
+            let Some(g) = detail(s) else { continue };
+            limit = limit.min(g);
+        }
+        if let Some(d) = shifted_diff(prev, cur, mask, top, end, s, limit).filter(|&d| d <= limit) {
             if best.is_none_or(|b| d < b.1) {
                 best = Some((s, d));
             }

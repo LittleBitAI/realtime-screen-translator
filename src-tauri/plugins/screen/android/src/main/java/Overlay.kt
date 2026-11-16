@@ -50,9 +50,14 @@ object Overlay {
             setOnClickListener { Capture.toggle() }
         }
         val wrap = WindowManager.LayoutParams.WRAP_CONTENT
+        // P4: near the bottom edge, where a thumb reaches, just above the navigation bar.
+        val res = ctx.resources
+        val navId = res.getIdentifier("navigation_bar_height", "dimen", "android")
+        val nav = if (navId > 0) res.getDimensionPixelSize(navId) else 0
         val lp = params(wrap, wrap, touchable = true).apply {
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            gravity = Gravity.END or Gravity.BOTTOM
             x = 16
+            y = nav + (24 * res.displayMetrics.density).toInt()
         }
         ctx.getSystemService(WindowManager::class.java).addView(b, lp)
         button = b
