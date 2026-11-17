@@ -161,3 +161,48 @@ fn where_the_overlay_is_not_captured_the_whole_text_area_is_read_at_once() {
     }
     std::mem::forget(dirs);
 }
+
+#[test]
+fn a_translated_page_scrolled_where_the_overlay_is_not_captured_is_a_scroll() {
+    // The twenty-ninth review: other drawing moving under the balloons'
+    // places is the page scrolling, not another page.
+    for step in [10, 120] {
+        let dirs = Dirs::new();
+        let gemini = Gemini::start();
+        let device = Device { export: dirs.export.clone(), overlay_in_capture: false };
+        let backend = Backend::open(dirs.data.clone(), Some(gemini.url.clone()), Arc::new(device)).unwrap();
+        backend.put_key(KeyIn { key: TEST_KEY.into() }).unwrap();
+        backend.start().unwrap();
+        let scene = Scene::new(2201);
+        let mut seq = 0u64;
+        let mut send = |offset: i64| {
+            seq += 1;
+            let thumb = scene.thumb(offset, SCREEN_W, SCREEN_H);
+            backend.frame(FrameIn { seq, width: SCREEN_W, height: SCREEN_H, thumb, captured_at: seq as i64 * 100 }).unwrap()
+        };
+        send(0);
+        let f = send(0);
+        let text = Balloon::new(300, 900, 120, 200, 2201);
+        gemini.read_as(text.size(), "うん");
+        gemini.translate_as("うん", "응");
+        let crop = CropIn { x: 300, y: 900, w: 120, h: 200, kind: "dialogue".into(), score: 0.9, image: text.png(0, 0) };
+        backend.crops(CropsIn { picture_id: f.picture_id, frame_seq: 2, crops: vec![crop] }).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(20);
+        let y0 = loop {
+            if let Some(p) = backend.placements(Default::default()).unwrap().placements.first() {
+                break p.y;
+            }
+            assert!(Instant::now() < deadline, "no translation came");
+            std::thread::sleep(Duration::from_millis(20));
+        };
+        send(0);
+        let moved = send(step);
+        assert_eq!(moved.motion, "scroll", "a {step} px scroll of a translated page");
+        assert!(!moved.clear, "a {step} px scroll cleared the translations");
+        assert_eq!(moved.picture_id, f.picture_id, "a {step} px scroll closed the picture");
+        let rest = send(step);
+        assert_eq!(rest.placements.len(), 1, "the translation did not follow the {step} px scroll");
+        assert_eq!(rest.placements[0].y, y0 - step as i32);
+        std::mem::forget(dirs);
+    }
+}

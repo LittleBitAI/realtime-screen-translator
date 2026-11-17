@@ -639,10 +639,16 @@ impl Backend {
                     && diff <= tracker::STILL
                     && tracker::fine_shift(&prev, &thumb, &mask, rows, top, bottom, true).is_some_and(|m| m.abs() >= 0.5);
                 // A page alike but for the words in its balloons: a page turn.
+                // Only a screen that has not moved is told by its words: the
+                // places compared are where the balloons were, and a scroll
+                // moves other drawing into them.
+                let still = diff <= tracker::STILL && !crept;
                 let shown = s.current.and_then(|id| s.pics.get(&id));
-                let other = (s.scroll_y == 0 && shown.is_some_and(|p| s.other_words(p, &thumb)))
-                    || (same_overlay && shown.is_some_and(|p| words_differ(p, s.scroll_y, &prev, &thumb)));
-                if diff <= tracker::STILL && !crept && !other {
+                let other = still
+                    && ((s.scroll_y == 0 && shown.is_some_and(|p| s.other_words(p, &thumb)))
+                        || (same_overlay && shown.is_some_and(|p| words_differ(p, s.scroll_y, &prev, &thumb))))
+                    && tracker::fine_shift(&prev, &thumb, &mask, rows, top, bottom, true).is_none_or(|m| m.abs() < 0.1);
+                if still && !other {
                     settled = true;
                 } else {
                     let (ft, fb) = tracker::fixed_rows(&prev, &thumb, &mask, rows);
