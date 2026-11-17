@@ -73,6 +73,45 @@ pub fn fixed_rows(prev: &[u8], cur: &[u8], mask: Mask, rows: usize) -> (usize, u
     (if top <= cap { top } else { 0 }, if bottom <= cap { bottom } else { 0 })
 }
 
+/// Columns at the left and the right that did not change while the rest
+/// did: a fixed side panel, or on a PC another window beside the one that
+/// scrolls. Every row of them counts, but for pixels under the mask, which
+/// may be at most half of a column. Sides that leave less than a quarter of
+/// the width are not taken as fixed.
+pub fn fixed_cols(prev: &[u8], cur: &[u8], mask: Mask, rows: usize) -> (usize, usize) {
+    let same = |c: usize| {
+        let (mut sum, mut n) = (0u64, 0usize);
+        for r in 0..rows {
+            let i = r * THUMB_W + c;
+            if mask.is_empty() || !mask[i] {
+                sum += prev[i].abs_diff(cur[i]) as u64;
+                n += 1;
+            }
+        }
+        n * 2 >= rows && n > 0 && sum as f32 <= STILL * n as f32
+    };
+    let left = (0..THUMB_W).take_while(|&c| same(c)).count();
+    let right = (left..THUMB_W).rev().take_while(|&c| same(c)).count();
+    if left + right > THUMB_W * 3 / 4 {
+        return (0, 0);
+    }
+    (left, right)
+}
+
+/// The mask of the side columns `side` (left, right) of a thumbnail of
+/// `rows` rows; empty when there are none.
+pub fn col_mask(side: (usize, usize), rows: usize) -> Vec<bool> {
+    if side == (0, 0) {
+        return vec![];
+    }
+    let mut m = vec![false; rows * THUMB_W];
+    for r in 0..rows {
+        m[r * THUMB_W..r * THUMB_W + side.0].fill(true);
+        m[(r + 1) * THUMB_W - side.1..(r + 1) * THUMB_W].fill(true);
+    }
+    m
+}
+
 /// Mean difference of `cur` against `prev` moved up by `s` rows, within
 /// rows `top..end`; `None` once it is over `limit`, or when the mask leaves
 /// too little to judge by.

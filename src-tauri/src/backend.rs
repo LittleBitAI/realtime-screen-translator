@@ -110,6 +110,9 @@ struct Session {
     /// Thumbnail rows of a frame of this screen.
     rows: usize,
     fixed: (usize, usize),
+    /// Thumbnail columns at the left and right that stay put while the rest
+    /// scrolls (`tracker::fixed_cols`): left out of the comparisons.
+    side: (usize, usize),
     /// Picture y of the screen's top row: `scroll_f` rounded. The scroll is
     /// summed with sub-pixel precision so frame-by-frame rounding does not add up.
     scroll_y: i64,
@@ -509,6 +512,7 @@ impl Backend {
             screen: (0, 0),
             rows: 0,
             fixed: (0, 0),
+            side: (0, 0),
             scroll_y: 0,
             scroll_f: 0.0,
             anchor: None,
@@ -602,6 +606,7 @@ impl Backend {
             s.prev = None;
             s.hidden_prev = vec![];
             s.fixed = (0, 0);
+            s.side = (0, 0);
             s.anchor = None;
         }
         let scale = s.scale();
@@ -643,7 +648,7 @@ impl Backend {
         // the previous frame for the frame before: both are left out.
         let entry_scroll = s.scroll_y;
         let shapes = s.overlay_mask(&[entry_scroll, s.drawn_before]);
-        let mask = joined(shapes.clone(), &hide);
+        let mask = joined(joined(shapes.clone(), &hide), &tracker::col_mask(s.side, rows));
         s.drawn_before = entry_scroll;
         // Nothing placed, taken away or moved since the frame before last:
         // this frame and the last hold the same overlay, so a change under
@@ -691,6 +696,11 @@ impl Backend {
                     settled = true;
                 } else {
                     let (ft, fb) = tracker::fixed_rows(&prev, &thumb, &shapes, rows);
+                    // Side columns that stayed put (a panel, another window
+                    // beside the one that scrolls) would keep every shift
+                    // from matching: they are left out of the search.
+                    let side = tracker::fixed_cols(&prev, &thumb, &shapes, rows);
+                    let mask = joined(mask.clone(), &tracker::col_mask(side, rows));
                     let shift = if other {
                         None
                     } else {
@@ -701,6 +711,7 @@ impl Backend {
                     match shift {
                         Some((rows_moved, fixed)) => {
                             s.fixed = fixed;
+                            s.side = side;
                             if s.turning {
                                 self.finish_turn(db, s, &prev)?;
                             }
@@ -747,6 +758,7 @@ impl Backend {
                             // The band belonged to the screen before: a new page is
                             // taken whole until a scroll shows a band again.
                             s.fixed = (0, 0);
+                            s.side = (0, 0);
                         }
                     }
                 }
@@ -762,7 +774,7 @@ impl Backend {
             // Measured again from the last resting screen in one step.
             let mut kept = None;
             if let Some((a, f, at)) = s.anchor.take() {
-                let mask = joined(s.overlay_mask(&[f.round() as i64, s.scroll_y, s.drawn_before]), &hide);
+                let mask = joined(joined(s.overlay_mask(&[f.round() as i64, s.scroll_y, s.drawn_before]), &hide), &tracker::col_mask(s.side, rows));
                 match tracker::fine_shift(&a, &thumb, &mask, rows, s.fixed.0, s.fixed.1, true) {
                     // Not a tenth of a row from it: still that screen. It is
                     // kept, so a scroll too slow to tell frame by frame adds
