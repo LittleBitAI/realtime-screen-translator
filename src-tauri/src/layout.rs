@@ -70,6 +70,17 @@ pub fn fit(x: i64, y: i64, w: u32, h: u32, ko: &str) -> Shape {
     }
 }
 
+/// [`fit`], kept on `area` (x0, y0, x1, y1): the screen the text area was
+/// seen on. A shape grown for a long translation, or padded past the edge,
+/// is moved back onto it whole, so no line of the Korean starts off screen
+/// or off the saved picture.
+pub fn fit_within(x: i64, y: i64, w: u32, h: u32, ko: &str, area: (i64, i64, i64, i64)) -> Shape {
+    let mut s = fit(x, y, w, h, ko);
+    s.y = s.y.min(area.3 - s.h as i64).max(area.1);
+    s.x = s.x.min(area.2 - s.w as i64).max(area.0);
+    s
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

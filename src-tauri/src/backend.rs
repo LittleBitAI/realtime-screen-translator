@@ -82,11 +82,13 @@ impl Pic {
 struct Pending {
     fp: u64,
     aspect: f32,
-    /// (picture id, text area in picture coordinates)
-    targets: Vec<(i64, Rect)>,
+    targets: Vec<Target>,
 }
 
 type Rect = (i64, i64, u32, u32);
+/// Picture id, text area and the screen it was seen on (x0, y0, x1, y1), in
+/// picture coordinates: the shape stays on that screen (`layout::fit_within`).
+type Target = (i64, Rect, (i64, i64, i64, i64));
 
 struct Session {
     gen: u64,
@@ -1208,6 +1210,7 @@ fn take_crop(st: &mut State, picture_id: i64, c: CropIn, (seq, offset): (u64, i6
     let fp = fingerprint::dhash(&img.gray(), img.w as usize, img.h as usize);
     let aspect = c.w.max(1) as f32 / c.h.max(1) as f32;
     let rect = (c.x as i64, c.y as i64 + offset, c.w, c.h);
+    let area = (0, offset, screen.0 as i64, offset + screen.1 as i64);
     // A text area at the screen's top or bottom edge may be cut by it, or be
     // whole there (a page that does not scroll): it is read as it is, and
     // remembered. Seen larger later, once a scroll shows more of it, it was
@@ -1244,7 +1247,7 @@ fn take_crop(st: &mut State, picture_id: i64, c: CropIn, (seq, offset): (u64, i6
         if k.status == "ready" {
             let ko = k.ko.unwrap_or_default();
             let placed = &st.session.as_ref().unwrap().pics[&picture_id].placements;
-            let Some(row) = place(&st.db, picture_id, &k.hex, rect, &ko, placed)? else {
+            let Some(row) = place(&st.db, picture_id, &k.hex, rect, area, &ko, placed)? else {
                 result.discarded += 1;
                 return Ok(());
             };
@@ -1259,16 +1262,16 @@ fn take_crop(st: &mut State, picture_id: i64, c: CropIn, (seq, offset): (u64, i6
     result.pending += 1;
     // Already asked (earlier or in this batch): this place gets the same answer.
     if let Some(p) = s.pending.iter_mut().find(|p| fingerprint::same_balloon(fp, aspect, p.fp, p.aspect)) {
-        p.targets.push((picture_id, rect));
+        p.targets.push((picture_id, rect, area));
         return Ok(());
     }
-    s.pending.push(Pending { fp, aspect, targets: vec![(picture_id, rect)] });
+    s.pending.push(Pending { fp, aspect, targets: vec![(picture_id, rect, area)] });
     jobs.push(Job { fp, aspect, png: c.image });
     Ok(())
 }
 
-fn place(db: &Db, picture_id: i64, fingerprint: &str, rect: (i64, i64, u32, u32), ko: &str, placed: &[PlacementRow]) -> ApiResult<Option<PlacementRow>> {
-    let shape = layout::fit(rect.0, rect.1, rect.2, rect.3, ko);
+fn place(db: &Db, picture_id: i64, fingerprint: &str, rect: Rect, area: (i64, i64, i64, i64), ko: &str, placed: &[PlacementRow]) -> ApiResult<Option<PlacementRow>> {
+    let shape = layout::fit_within(rect.0, rect.1, rect.2, rect.3, ko, area);
     if placed.iter().any(|p| overlap((shape.x, shape.y, shape.w, shape.h), (p.x, p.y, p.w, p.h)) > 0.5) {
         return Ok(None);
     }
@@ -1295,14 +1298,14 @@ fn finish_jobs(state: &Mutex<State>, platform: &dyn Platform, gen: u64, model: &
     // A result for a session that has stopped is dropped without touching state.
     let Some(s) = st.session.as_mut().filter(|s| s.gen == gen) else { return };
     // Every place each balloon was seen while it was being asked.
-    let mut targets: Vec<Vec<(i64, Rect)>> = vec![];
+    let mut targets: Vec<Vec<Target>> = vec![];
     for j in &jobs {
         let i = s.pending.iter().position(|p| p.fp == j.fp && p.aspect == j.aspect);
         targets.push(i.map(|i| s.pending.remove(i).targets).unwrap_or_default());
     }
     let now = now_ms();
-    let retry = |s: &mut Session, targets: &[(i64, Rect)]| {
-        for &(picture_id, r) in targets {
+    let retry = |s: &mut Session, targets: &[Target]| {
+        for &(picture_id, r, _) in targets {
             if let Some(pic) = s.pics.get_mut(&picture_id) {
                 pic.failed((r.1, r.1 + r.3 as i64), now);
             }
@@ -1360,13 +1363,13 @@ fn finish_jobs(state: &Mutex<State>, platform: &dyn Platform, gen: u64, model: &
             }
             continue;
         };
-        for (picture_id, rect) in targets {
+        for (picture_id, rect, area) in targets {
             let s = st.session.as_mut().unwrap();
             let Some(pic) = s.pics.get(&picture_id) else { continue };
             if pic.placements.iter().any(|p| overlap(rect, (p.x, p.y, p.w, p.h)) > 0.5) {
                 continue;
             }
-            match place(&st.db, picture_id, &t.fingerprint, rect, &ko, &pic.placements) {
+            match place(&st.db, picture_id, &t.fingerprint, rect, area, &ko, &pic.placements) {
                 Ok(None) => {}
                 Ok(Some(row)) => {
                     let s = st.session.as_mut().unwrap();
