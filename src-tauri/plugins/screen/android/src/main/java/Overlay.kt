@@ -16,6 +16,7 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
@@ -56,6 +57,12 @@ object Overlay {
                 setColor(0xCC222222.toInt())
             }
             setOnClickListener { Capture.toggle() }
+            // A touch anywhere else reaches the reader's app; the button is
+            // only told that one came (FLAG_WATCH_OUTSIDE_TOUCH below).
+            setOnTouchListener { _, e ->
+                if (e.actionMasked == MotionEvent.ACTION_OUTSIDE) Capture.touched()
+                false
+            }
         }
         val wrap = WindowManager.LayoutParams.WRAP_CONTENT
         // P4: near the bottom edge, where a thumb reaches, just above the navigation bar.
@@ -63,6 +70,7 @@ object Overlay {
         val navId = res.getIdentifier("navigation_bar_height", "dimen", "android")
         val nav = if (navId > 0) res.getDimensionPixelSize(navId) else 0
         val lp = params(wrap, wrap, touchable = true).apply {
+            flags = flags or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
             gravity = Gravity.END or Gravity.BOTTOM
             x = 16
             y = nav + (24 * res.displayMetrics.density).toInt()
@@ -138,6 +146,33 @@ object Overlay {
 
     fun restoreButton() = main.post { button?.visibility = View.VISIBLE }
 
+    /** While [Capture.peekFrame] looks under them: shapes, new ones too, stay hidden. */
+    private var shapesHidden = false
+
+    /**
+     * Hides the shapes from the screen and the capture, from a worker thread:
+     * answered with the uptime they were gone at, or null if none shows.
+     */
+    fun hideShapesNow(): Long? {
+        val done = java.util.concurrent.CountDownLatch(1)
+        var at: Long? = null
+        main.post {
+            if (shapes.isNotEmpty() && !shapesHidden) {
+                shapesHidden = true
+                shapes.forEach { it.visibility = View.INVISIBLE }
+                at = android.os.SystemClock.uptimeMillis()
+            }
+            done.countDown()
+        }
+        done.await(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+        return at
+    }
+
+    fun restoreShapes() = main.post {
+        shapesHidden = false
+        shapes.forEach { it.visibility = View.VISIBLE }
+    }
+
     private fun measureButton(v: View) {
         val at = IntArray(2)
         v.getLocationOnScreen(at)
@@ -199,7 +234,10 @@ object Overlay {
                 shapes[i].show(s)
                 wm.updateViewLayout(shapes[i], lp)
             } else {
-                val v = ShapeView(host).also { it.show(s) }
+                val v = ShapeView(host).also {
+                    it.show(s)
+                    if (shapesHidden) it.visibility = View.INVISIBLE
+                }
                 wm.addView(v, lp)
                 shapes.add(v)
             }

@@ -73,12 +73,26 @@ pub fn fit(x: i64, y: i64, w: u32, h: u32, ko: &str) -> Shape {
 /// [`fit`], kept on `area` (x0, y0, x1, y1): the screen the text area was
 /// seen on. A shape grown for a long translation, or padded past the edge,
 /// is moved back onto it whole, so no line of the Korean starts off screen
-/// or off the saved picture.
+/// or off the saved picture. Moved, it may keep less than [`PAD`] on a side
+/// (none at the screen's edge): its corners are rounded only as far as they
+/// still cover the text area's corners.
 pub fn fit_within(x: i64, y: i64, w: u32, h: u32, ko: &str, area: (i64, i64, i64, i64)) -> Shape {
     let mut s = fit(x, y, w, h, ko);
     s.y = s.y.min(area.3 - s.h as i64).max(area.1);
     s.x = s.x.min(area.2 - s.w as i64).max(area.0);
+    // What the shape keeps beyond the text area on each side.
+    let (left, top) = (x - s.x, y - s.y);
+    let (right, bottom) = (s.x + s.w as i64 - (x + w as i64), s.y + s.h as i64 - (y + h as i64));
+    while s.radius > 0 && ![(left, top), (right, top), (left, bottom), (right, bottom)].into_iter().all(|(a, b)| corner_covers(s.radius as i64, a, b)) {
+        s.radius -= 1;
+    }
     s
+}
+
+/// Whether a corner rounded by `r` covers the pixel `a` in from its side and
+/// `b` in from its top or bottom (as `export::inside_rounded` draws it).
+fn corner_covers(r: i64, a: i64, b: i64) -> bool {
+    a >= r || b >= r || (r - a).pow(2) + (r - b).pow(2) <= r * r
 }
 
 #[cfg(test)]

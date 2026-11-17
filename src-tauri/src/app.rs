@@ -40,10 +40,31 @@ pub(crate) fn draw_overlay(app: &AppHandle, placements: &serde_json::Value) {
     let script = crate::overlay::script(placements);
     *last_drawn() = script.clone();
     if let Some(w) = app.get_webview_window(OVERLAY) {
+        // The monitor may have changed resolution or turned since (the
+        // capture follows it, `wgc::Wgc::grab`): the overlay follows too.
+        if let Err(e) = fit_overlay(&w) {
+            eprintln!("overlay: {e}");
+        }
         if let Err(e) = w.eval(script) {
             eprintln!("overlay: {e}");
         }
     }
+}
+
+/// Lays the overlay window over the whole primary monitor, the one
+/// captured, unless it is there already: a placement's screen pixels are
+/// the window's own (the page divides them by the scale factor). Not
+/// maximized, which would leave out the taskbar and move the origin with it.
+#[cfg(desktop)]
+fn fit_overlay(w: &tauri::WebviewWindow) -> Result<(), String> {
+    let Some(m) = w.primary_monitor().map_err(|e| e.to_string())? else { return Ok(()) };
+    if w.outer_position().ok() != Some(*m.position()) {
+        w.set_position(*m.position()).map_err(|e| e.to_string())?;
+    }
+    if w.outer_size().ok() != Some(*m.size()) {
+        w.set_size(*m.size()).map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 /// Windows (P4, R29): the on/off button over other apps, a small
@@ -150,6 +171,9 @@ mod android {
         /// The floating button's [x, y, w, h] in the frame (the capture holds it).
         #[serde(default)]
         button: Option<[u32; 4]>,
+        /// The reader touched the screen a while before this frame (`Capture.touched`).
+        #[serde(default)]
+        touched: bool,
         /// The status bar and the navigation bar as [x, y, w, h], while they show.
         #[serde(default)]
         bars: Vec<[u32; 4]>,
@@ -191,7 +215,7 @@ mod android {
 
     /// The Kotlin plugin as the capture loop's screen side; `.1` is where
     /// [`crate::models`] keeps the balloon model.
-    pub struct AndroidScreen(pub AppHandle, pub String);
+    pub struct AndroidScreen(pub AppHandle, pub String, pub std::sync::atomic::AtomicBool);
 
     impl pipeline::Screen for AndroidScreen {
         fn next(&self) -> Option<pipeline::Event> {
@@ -200,6 +224,9 @@ mod android {
                     Ok(n) if n.kind == "toggle" => return Some(pipeline::Event::Toggle),
                     Ok(n) if n.kind == "lost" => return Some(pipeline::Event::Lost),
                     Ok(n) => {
+                        if n.touched {
+                            self.2.store(true, std::sync::atomic::Ordering::Relaxed);
+                        }
                         return Some(pipeline::Event::Frame(pipeline::Captured {
                             seq: n.seq,
                             width: n.width,
@@ -245,18 +272,31 @@ mod android {
             }
         }
 
-        fn clean_frame(&self) -> Option<pipeline::Captured> {
-            let n = call::<Next>(&self.0, "cleanFrame", json!({})).map_err(|e| eprintln!("{e}")).ok()?;
-            (n.kind == "frame").then(|| pipeline::Captured {
-                seq: n.seq,
-                width: n.width,
-                height: n.height,
-                thumb: b64(&n.thumb),
-                captured_at: n.captured_at,
-                button: n.button.map(|b| (b[0], b[1], b[2], b[3])),
-                bars: rects(&n.bars),
-            })
+        fn touched(&self) -> bool {
+            self.2.swap(false, std::sync::atomic::Ordering::Relaxed)
         }
+
+        fn peek(&self) -> Option<pipeline::Captured> {
+            taken(call::<Next>(&self.0, "peekFrame", json!({})))
+        }
+
+        fn clean_frame(&self) -> Option<pipeline::Captured> {
+            taken(call::<Next>(&self.0, "cleanFrame", json!({})))
+        }
+    }
+
+    /// The frame a screen command took for the loop, or none.
+    fn taken(n: Result<Next, String>) -> Option<pipeline::Captured> {
+        let n = n.map_err(|e| eprintln!("{e}")).ok()?;
+        (n.kind == "frame").then(|| pipeline::Captured {
+            seq: n.seq,
+            width: n.width,
+            height: n.height,
+            thumb: b64(&n.thumb),
+            captured_at: n.captured_at,
+            button: n.button.map(|b| (b[0], b[1], b[2], b[3])),
+            bars: rects(&n.bars),
+        })
     }
 }
 
@@ -320,14 +360,7 @@ impl Platform for AppPlatform {
                     .build()
                     .map_err(|e| e.to_string())?;
                 w.set_ignore_cursor_events(true).map_err(|e| e.to_string())?;
-                // Over the whole primary monitor, the one captured: a
-                // placement's screen pixels are the window's own (the page
-                // divides them by the scale factor). Not maximized, which
-                // would leave out the taskbar and move the origin with it.
-                if let Ok(Some(m)) = w.primary_monitor() {
-                    w.set_position(*m.position()).map_err(|e| e.to_string())?;
-                    w.set_size(*m.size()).map_err(|e| e.to_string())?;
-                }
+                fit_overlay(&w)?;
                 #[cfg(windows)]
                 if let Ok(hwnd) = w.hwnd() {
                     use windows_sys::Win32::UI::WindowsAndMessaging::{SetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE};
@@ -503,7 +536,7 @@ pub fn run() {
                 #[cfg(windows)]
                 pipeline::run(&backend, &*screen);
                 #[cfg(target_os = "android")]
-                pipeline::run(&backend, &android::AndroidScreen(handle.clone(), model.to_string_lossy().into_owned()));
+                pipeline::run(&backend, &android::AndroidScreen(handle.clone(), model.to_string_lossy().into_owned(), Default::default()));
             });
             Ok(())
         })

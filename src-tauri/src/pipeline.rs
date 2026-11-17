@@ -55,6 +55,17 @@ pub trait Screen: Send + Sync {
     fn clean_frame(&self) -> Option<Captured> {
         None
     }
+    /// Whether the reader touched the screen (outside this app's button)
+    /// since this was last asked, a moment ago at least, so what the touch
+    /// did shows by now. Where the capture holds the overlay (Android).
+    fn touched(&self) -> bool {
+        false
+    }
+    /// A new frame with the translation shapes hidden for it, shown again
+    /// at once; its rows come from [`Screen::strip`].
+    fn peek(&self) -> Option<Captured> {
+        None
+    }
 }
 
 /// The floating on/off button was pressed: P4 if translation is off, else P5.
@@ -133,6 +144,12 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
             None => eprintln!("frame {seq} is gone before its strip was taken"),
         }
     }
+    // A tap that left the screen still may have turned to a page drawn the
+    // same but for the words the shapes cover (the capture holds them): a
+    // look under the shapes tells (`Backend::text_areas`).
+    if screen.touched() && out.motion == "still" {
+        look_under(backend, screen, out.picture_id);
+    }
     if let Some(r) = out.detect {
         let shown = clean.as_ref().map_or(seq, |c| c.seq);
         let crops = match screen.detect(shown, r.top, r.bottom) {
@@ -178,6 +195,18 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
                 Err(e) => eprintln!("crops of frame {seq}: {e}"),
             }
         }
+    }
+}
+
+fn look_under(backend: &Backend, screen: &dyn Screen, picture_id: i64) {
+    let areas = backend.text_areas(picture_id);
+    if areas.is_empty() {
+        return;
+    }
+    let Some(c) = screen.peek() else { return };
+    let seen: Vec<_> = areas.iter().filter_map(|&(id, (_, y, _, h))| screen.strip(c.seq, y, y + h).map(|png| (id, png))).collect();
+    if let Err(e) = backend.words_under(picture_id, &seen) {
+        eprintln!("words under the shapes: {e}");
     }
 }
 

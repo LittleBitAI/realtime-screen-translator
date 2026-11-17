@@ -324,6 +324,14 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
         }
     }
 
+    /** A new frame with the translation shapes hidden for it (`Capture.peekFrame`), or kind "none". */
+    @Command
+    fun peekFrame(invoke: Invoke) {
+        worker.execute {
+            invoke.resolve(Capture.peekFrame() ?: JSObject().apply { put("kind", "none") })
+        }
+    }
+
     @Command
     fun draw(invoke: Invoke) {
         val args = invoke.parseArgs(DrawArgs::class.java)

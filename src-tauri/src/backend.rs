@@ -42,6 +42,9 @@ struct Pic {
     /// Ranges already sent to the local model for detection (sorted, disjoint).
     detected: Vec<(i64, i64)>,
     placements: Vec<PlacementRow>,
+    /// The text area (picture coordinates) each placement of this session
+    /// was made for, by placement id: what its fingerprint was taken of.
+    texts: Vec<(i64, Rect)>,
     /// Settled thumbnail of a page, to recognise it when the reader comes back.
     page_thumb: Option<Vec<u8>>,
     /// Rows whose detection or translation failed. They are detected again
@@ -121,6 +124,11 @@ struct Session {
     /// first: the overlay each of them holds was drawn from about these.
     entries: [Option<(u64, i64)>; 2],
     turning: bool,
+    /// A look under the shapes found other words there (`words_under`): the
+    /// next frame of that picture turns the page, and the turn does not come
+    /// back to it.
+    words_changed: Option<i64>,
+    left_for_words: Option<i64>,
     mode: Option<&'static str>,
     last_seq: Option<u64>,
     /// Recent frames: seq -> (picture id, scroll_y), to place crops of older frames.
@@ -507,6 +515,8 @@ impl Backend {
             drawn_before: 0,
             entries: [None; 2],
             turning: false,
+            words_changed: None,
+            left_for_words: None,
             mode: None,
             last_seq: None,
             frames: VecDeque::new(),
@@ -667,10 +677,16 @@ impl Backend {
                 // moves other drawing into them.
                 let still = diff <= tracker::STILL && !crept;
                 let shown = s.current.and_then(|id| s.pics.get(&id));
+                // Or the words under the shapes were looked at and are others.
+                let looked = s.words_changed.take().is_some_and(|id| s.current == Some(id));
                 let other = still
-                    && ((s.scroll_y == 0 && shown.is_some_and(|p| s.other_words(p, &thumb)))
-                        || (same_overlay && shown.is_some_and(|p| words_differ(p, s.scroll_y, &prev, &thumb))))
-                    && tracker::fine_shift(&prev, &thumb, &mask, rows, top, bottom, true).is_none_or(|m| m.abs() < 0.1);
+                    && (looked
+                        || (((s.scroll_y == 0 && shown.is_some_and(|p| s.other_words(p, &thumb)))
+                            || (same_overlay && shown.is_some_and(|p| words_differ(p, s.scroll_y, &prev, &thumb))))
+                            && tracker::fine_shift(&prev, &thumb, &mask, rows, top, bottom, true).is_none_or(|m| m.abs() < 0.1)));
+                if looked && other {
+                    s.left_for_words = s.current;
+                }
                 if still && !other {
                     settled = true;
                 } else {
@@ -809,6 +825,62 @@ impl Backend {
     }
 
     /// The page change settled on `thumb`: back on a page seen before, or a new page.
+    /// The text areas (screen pixels, by placement id) of picture
+    /// `picture_id` wholly on the screen now, where the capture holds the
+    /// overlay (A6): there the shapes hide the words under them, and a page
+    /// turned without any slide, its drawing the same, changes nothing the
+    /// capture sees. The capture loop looks under the shapes after a tap that
+    /// left the screen still (`pipeline::step`) and sends what it saw to
+    /// [`Backend::words_under`]. Empty where nothing needs looking at.
+    pub fn text_areas(&self, picture_id: i64) -> Vec<(i64, (u32, u32, u32, u32))> {
+        let st = self.lock();
+        let Some(s) = st.session.as_ref().filter(|s| s.overlay_in_capture && !s.turning && s.current == Some(picture_id)) else { return vec![] };
+        let Some(pic) = s.pics.get(&picture_id) else { return vec![] };
+        pic.texts
+            .iter()
+            .filter(|(id, _)| pic.placements.iter().any(|p| p.id == *id))
+            .filter_map(|&(id, (x, y, w, h))| {
+                let y = y - s.scroll_y;
+                let fits = x >= 0 && y >= 0 && x + w as i64 <= s.screen.0 as i64 && y + h as i64 <= s.screen.1 as i64;
+                fits.then_some((id, (x as u32, y as u32, w, h)))
+            })
+            .collect()
+    }
+
+    /// What is under the shapes now: for each placement id from
+    /// [`Backend::text_areas`], a PNG of the screen rows of its text area,
+    /// from a frame taken with the shapes hidden. If most of them no longer
+    /// hold what their translation was made for (the fingerprint, as R23),
+    /// another page is showing: the next frame turns to it. Answered with
+    /// whether it does.
+    pub fn words_under(&self, picture_id: i64, seen: &[(i64, Vec<u8>)]) -> ApiResult<bool> {
+        let mut st = self.lock();
+        let s = st.session.as_mut().ok_or(ApiError("not_on"))?;
+        if s.current != Some(picture_id) || s.turning {
+            return Ok(false);
+        }
+        let Some(pic) = s.pics.get(&picture_id) else { return Ok(false) };
+        let (mut looked, mut other) = (0, 0);
+        for (id, png) in seen {
+            let (Some(&(_, (x, _, w, h))), Some(p)) = (pic.texts.iter().find(|t| t.0 == *id), pic.placements.iter().find(|p| p.id == *id)) else { continue };
+            let Some(img) = export::decode_png(png).filter(|i| i.h == h && x >= 0 && x as u32 + w <= i.w) else { continue };
+            let gray = img.gray();
+            let x = x as usize;
+            let area: Vec<u8> = gray.chunks(img.w as usize).flat_map(|row| row[x..x + w as usize].iter().copied()).collect();
+            let fp = fingerprint::dhash(&area, w as usize, h as usize);
+            let same = fingerprint::from_hex(&p.fingerprint).is_some_and(|f| (f ^ fp).count_ones() <= fingerprint::MAX_BITS);
+            looked += 1;
+            if !same {
+                other += 1;
+            }
+        }
+        let turned = looked > 0 && other * 2 > looked;
+        if turned {
+            s.words_changed = Some(picture_id);
+        }
+        Ok(turned)
+    }
+
     fn finish_turn(&self, db: &Db, s: &mut Session, thumb: &[u8]) -> ApiResult<()> {
         s.turning = false;
         s.set_scroll(0.0);
@@ -818,8 +890,12 @@ impl Backend {
         // screen of another resolution would put its placements and strips
         // in the wrong pixels.
         let screen = s.screen;
+        // A page left because its words were seen to change is not this one,
+        // however alike the drawing (`words_under`).
+        let left = s.left_for_words.take();
         let seen = s.pics.values().find(|p| {
-            p.screen == screen
+            Some(p.id) != left
+                && p.screen == screen
                 && p.page_thumb.as_ref().is_some_and(|t| t.len() == thumb.len() && tracker::still_diff(t, thumb, &[], 0, rows) <= tracker::MATCH)
                 // The overlay was cleared for the turn (A6): this frame shows
                 // the page's own words wherever its translations were.
@@ -1130,7 +1206,7 @@ fn joined(mut m: Vec<bool>, extra: &[bool]) -> Vec<bool> {
 }
 
 fn new_pic(id: i64, screen: (u32, u32)) -> Pic {
-    Pic { id, kind: "page", screen, covered: vec![], detected: vec![], placements: vec![], page_thumb: None, retry: vec![], retry_at: 0, unbanded: None, edge_rects: vec![], erased: vec![] }
+    Pic { id, kind: "page", screen, covered: vec![], detected: vec![], placements: vec![], texts: vec![], page_thumb: None, retry: vec![], retry_at: 0, unbanded: None, edge_rects: vec![], erased: vec![] }
 }
 
 fn storage_error(e: std::io::Error) -> ApiError {
@@ -1291,7 +1367,9 @@ fn take_crop(st: &mut State, picture_id: i64, c: CropIn, (seq, offset): (u64, i6
             };
             let s = st.session.as_mut().unwrap();
             result.placed.push(out(&row, s.scroll_y));
-            s.pics.get_mut(&picture_id).unwrap().placements.push(row);
+            let pic = s.pics.get_mut(&picture_id).unwrap();
+            pic.texts.push((row.id, rect));
+            pic.placements.push(row);
             s.revision += 1;
         }
         return Ok(());
@@ -1411,7 +1489,9 @@ fn finish_jobs(state: &Mutex<State>, platform: &dyn Platform, gen: u64, model: &
                 Ok(None) => {}
                 Ok(Some(row)) => {
                     let s = st.session.as_mut().unwrap();
-                    s.pics.get_mut(&picture_id).unwrap().placements.push(row);
+                    let pic = s.pics.get_mut(&picture_id).unwrap();
+                    pic.texts.push((row.id, rect));
+                    pic.placements.push(row);
                     changed = true;
                 }
                 Err(e) => eprintln!("cannot place translation: {e}"),

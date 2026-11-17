@@ -29,6 +29,8 @@ object Capture {
     private val lock = Object()
     private var waiting: Invoke? = null
     private var taps = 0
+    /** When the reader last touched the screen outside the button (uptime ms), or 0. */
+    @Volatile private var touchedAt = 0L
     private var lostPending = false
     private var seq = 0L
     private var fresh = 0L
@@ -45,6 +47,14 @@ object Capture {
     private val pinned = HashSet<Long>()
     /** The frame `next` last handed over: the one a clean frame is taken for. */
     private var delivered = 0L
+
+    /** By this long after a touch, what it did (a page turned) is on screen. */
+    private const val TOUCH_SETTLE_MS = 400L
+
+    /** A touch landed in the reader's app ([Overlay] watches for it). */
+    fun touched() {
+        touchedAt = SystemClock.uptimeMillis()
+    }
 
     /** How long [cleanFrame] waits for an image with the button gone, at most. */
     private const val CLEAN_WAIT_MS = 700L
@@ -100,14 +110,33 @@ object Capture {
     }
 
     /**
-     * The newest frame whose image came at [after] or later and no longer
-     * shows the button, waiting for one.
+     * A new frame of the screen with the translation shapes hidden for it, or
+     * null: what the reader's app shows under them now. The capture holds
+     * them (A6), so a page turned without a slide, drawn the same but for
+     * its words, shows only here (`pipeline::step` asks after a tap that
+     * left the screen still). The shapes are gone for about one frame.
      */
-    private fun newestSince(after: Long): JSObject? {
+    fun peekFrame(): JSObject? {
+        if (paused) return null
+        val hiddenAt = Overlay.hideShapesNow() ?: return null
+        try {
+            SystemClock.sleep(maxOf(0L, hiddenAt + SETTLE_MS - SystemClock.uptimeMillis()))
+            CaptureService.flush()
+            return newestSince(hiddenAt) { true }
+        } finally {
+            Overlay.restoreShapes()
+        }
+    }
+
+    /**
+     * The newest frame whose image came at [after] or later and passes [ok]
+     * (by default: no longer shows the button), waiting for one.
+     */
+    private fun newestSince(after: Long, ok: (Long) -> Boolean = { buttonGone(delivered, it) }): JSObject? {
         val deadline = SystemClock.uptimeMillis() + CLEAN_WAIT_MS
         synchronized(lock) {
             while (true) {
-                frames.keys.lastOrNull { (arrived[it] ?: 0) >= after }?.takeIf { buttonGone(delivered, it) }?.let {
+                frames.keys.lastOrNull { (arrived[it] ?: 0) >= after }?.takeIf(ok)?.let {
                     pinned.add(it)
                     return frameJson(it)
                 }
@@ -210,6 +239,11 @@ object Capture {
         }
         val s = fresh
         val json = frameJson(s) ?: return
+        // Told once, with the first frame a while after the touch.
+        val t = touchedAt
+        val settled = t != 0L && SystemClock.uptimeMillis() - t >= TOUCH_SETTLE_MS
+        if (settled) touchedAt = 0L
+        json.put("touched", settled)
         fresh = 0
         // Rust is done with the frames before: only this one is worked on now.
         pinned.clear()
