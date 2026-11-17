@@ -503,6 +503,22 @@ fn post_books_export(b: B<'_>, book_id: i64, format: Option<String>) -> ApiResul
     b.export(ExportIn { book_id, format: format.unwrap_or_else(|| "png".into()) })
 }
 
+/// A book's preview (`preview_path` of P10, a strip in the app's own
+/// folder) as a data URL for the library screen: the web host serves the
+/// same file at `/files/<preview_path>`.
+#[tauri::command(async, rename_all = "snake_case")]
+fn get_preview(app: AppHandle, path: String) -> ApiResult<String> {
+    use base64::Engine;
+    let rel = std::path::Path::new(&path);
+    let plain = rel.components().all(|c| matches!(c, std::path::Component::Normal(_)));
+    if !plain || !rel.starts_with("strips") {
+        return Err(ApiError("not_found"));
+    }
+    let dir = app.path().app_data_dir().map_err(|_| ApiError("internal"))?;
+    let bytes = std::fs::read(dir.join(rel)).map_err(|_| ApiError("not_found"))?;
+    Ok(format!("data:image/webp;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -551,7 +567,8 @@ pub fn run() {
             get_placements,
             post_strips,
             get_books,
-            post_books_export
+            post_books_export,
+            get_preview
         ])
         .run(tauri::generate_context!())
         .expect("the Tauri app failed to run");

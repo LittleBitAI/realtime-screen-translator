@@ -79,43 +79,10 @@ impl Platform for FakePlatform {
     }
 }
 
-/// Test-only stand-in for a device keystore where DPAPI is missing (CI on
-/// Linux): ChaCha20-Poly1305 under a random key in the fake device folder.
+/// Where DPAPI is missing (CI on Linux), the keystore is a file in the
+/// fake device folder ([`realtime_screen_translator::file_vault`]).
 #[cfg(not(windows))]
-mod fake_keystore {
-    use chacha20poly1305::aead::{Aead, KeyInit};
-    use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
-    use std::path::Path;
-
-    fn device_key(dir: &Path) -> Option<[u8; 32]> {
-        let path = dir.join("fake-keystore.key");
-        if let Ok(b) = std::fs::read(&path) {
-            return b.try_into().ok();
-        }
-        let mut k = [0u8; 32];
-        getrandom::getrandom(&mut k).ok()?;
-        std::fs::create_dir_all(dir).ok()?;
-        std::fs::write(&path, k).ok()?;
-        Some(k)
-    }
-
-    pub fn seal(data: &[u8], dir: &Path) -> Option<Vec<u8>> {
-        let cipher = ChaCha20Poly1305::new(Key::from_slice(&device_key(dir)?));
-        let mut nonce = [0u8; 12];
-        getrandom::getrandom(&mut nonce).ok()?;
-        let mut out = nonce.to_vec();
-        out.extend(cipher.encrypt(Nonce::from_slice(&nonce), data).ok()?);
-        Some(out)
-    }
-
-    pub fn unseal(data: &[u8], dir: &Path) -> Option<Vec<u8>> {
-        if data.len() < 12 {
-            return None;
-        }
-        let cipher = ChaCha20Poly1305::new(Key::from_slice(&device_key(dir)?));
-        cipher.decrypt(Nonce::from_slice(&data[..12]), &data[12..]).ok()
-    }
-}
+use realtime_screen_translator::file_vault as fake_keystore;
 
 #[cfg(windows)]
 mod fake_keystore {

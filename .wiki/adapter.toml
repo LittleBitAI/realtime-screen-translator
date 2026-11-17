@@ -1,8 +1,8 @@
 agents = ["claude", "codex"]
 
 [slots]
-gate_cmd = "cargo run -q -p xtask -- artifacts/junit.xml"
+gate_cmd = "cargo run -q -p xtask -- artifacts/junit.xml && corepack pnpm install --frozen-lockfile && corepack pnpm test && corepack pnpm build"
 review_dir = "artifacts/review"
 scratch_dirs = "artifacts/"
-live_cmd = ""
+live_cmd = "node scripts/live.mjs"
 server_stop = ""

@@ -12,6 +12,8 @@ pub mod app;
 pub mod backend;
 pub mod detect;
 pub mod export;
+#[cfg(not(windows))]
+pub mod file_vault;
 pub mod fingerprint;
 pub mod gemini;
 pub mod layout;

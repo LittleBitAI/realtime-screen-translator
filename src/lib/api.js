@@ -1,0 +1,69 @@
+// The backend of docs/design/api.yaml. Inside the Tauri app (phone and PC)
+// every call is a Tauri command under its A1 name; in a browser it is the
+// HTTP API the web host serves on the same port as these screens.
+import { invoke } from '@tauri-apps/api/core';
+
+/** An answer that is not a success: `code` is the design's error code. */
+export class ApiError extends Error {
+  constructor(code, status) {
+    super(code);
+    this.code = code;
+    this.status = status;
+  }
+}
+
+const inTauri = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+export async function http(method, path, body) {
+  let res;
+  try {
+    res = await fetch(path, {
+      method,
+      headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError('unreachable', 0);
+  }
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+  if (!res.ok) throw new ApiError(data?.error ?? 'internal', res.status);
+  return data;
+}
+
+async function call(cmd, args, method, path, body) {
+  if (!inTauri()) return http(method, path, body);
+  try {
+    return await invoke(cmd, args);
+  } catch (e) {
+    throw new ApiError(typeof e === 'string' ? e : 'internal', 500);
+  }
+}
+
+export const api = {
+  status: () => call('get_status', {}, 'GET', '/status'),
+  putKey: (key) => call('put_settings_gemini_key', { key }, 'PUT', '/settings/gemini-key', { key }),
+  requestPermissions: () => call('post_permissions_request', {}, 'POST', '/permissions/request'),
+  start: () => call('post_translation_start', {}, 'POST', '/translation/start'),
+  stop: () => call('post_translation_stop', {}, 'POST', '/translation/stop'),
+  books: (before = null) =>
+    call('get_books', { limit: 20, before }, 'GET', before == null ? '/books?limit=20' : `/books?limit=20&before=${before}`),
+  exportBook: (bookId, format) =>
+    call('post_books_export', { book_id: bookId, format }, 'POST', `/books/${bookId}/export`, { format }),
+  /** Where a book's preview (`preview_path`, a file in the app's data folder) can be shown from. */
+  previewSrc: (path) => {
+    const rel = stripsPart(path);
+    return inTauri() ? call('get_preview', { path: rel }) : Promise.resolve(`/files/${rel}`);
+  },
+};
+
+/** The part of a strip's path from its `strips/` folder on, which both hosts serve. */
+export function stripsPart(path) {
+  const p = path.replace(/\\/g, '/');
+  const at = p.lastIndexOf('/strips/');
+  return at >= 0 ? p.slice(at + 1) : p;
+}
