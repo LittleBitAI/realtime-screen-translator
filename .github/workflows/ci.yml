@@ -1,0 +1,32 @@
+name: ci
+
+on: [push, pull_request]
+
+jobs:
+  gate:
+    runs-on: windows-latest
+    env:
+      # Corepack fetches the pnpm pinned in package.json without asking.
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # The test reports go here; the folder is ignored by Git, so a fresh
+      # checkout does not have it and xtask does not make it.
+      - name: Make the report folder
+        run: mkdir artifacts
+      - name: Gate
+        shell: pwsh
+        run: cargo run -q -p xtask -- artifacts/junit.xml && corepack pnpm install --frozen-lockfile && corepack pnpm test && corepack pnpm build
+      - name: Keep the test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: artifacts/

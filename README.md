@@ -1,6 +1,97 @@
 # realtime-screen-translator
 
-화면을 실시간으로 인식해 번역하는 프로그램을 모바일과 PC 둘 다에서 쓸 수 있게 웹 브라우저에서 돌아가는 형태로 만듭니다. 가장 많이 쓰는 쪽은 모바일이라 갤럭시 S21을 기준 기기로 삼아 모바일 최적화를 가장 우선합니다. 대표 용도는 일본 만화를 한국어로 실시간 번역하는 일이며, 위아래 스크롤과 앞뒤 슬라이딩으로 이전/다음 페이지를 넘기는 방식을 구분해 트래킹하고, 이미 했던 번역과 효과음은 번역하지 않습니다. 번역 모델은 Gemini 3.1 Flash Lite이고, 기본 안전 가드레일은 끄고 프리필까지 넣습니다.
+휴대폰과 PC 화면에 뜬 일본 만화를 실시간으로 읽어, 말풍선 위에 한국어 번역을 얹어 주는 프로그램입니다. 가장 많이 쓰는 휴대폰(갤럭시 S21 기준)에 먼저 맞췄고, 위아래 스크롤과 앞뒤 슬라이딩을 구분해 화면을 따라가며, 이미 번역한 말풍선과 효과음은 다시 번역하지 않습니다. 번역은 사용자가 넣은 Gemini API 키로 Gemini 3.1 Flash Lite가 맡고, 읽은 화면은 기기 안의 번역본에 쌓여 그림 파일로 내보낼 수 있습니다.
+
+화면은 세 개입니다 (`docs/design/frontend.md`).
+
+- `/` — 번역을 켜고 끄며, 키·권한·캡처에 문제가 없는지 한눈에 봅니다. 권한도 여기서 허용합니다.
+- `/library` — 저장된 번역본을 새것부터 훑어보고 PNG나 WebP 그림으로 내보냅니다.
+- `/options` — 자기 Gemini API 키를 넣거나 바꾸거나 지웁니다.
+
+백엔드 설계는 `docs/design/backend.md`, API는 `docs/design/api.yaml`에 있습니다.
+
+## 준비
+
+필요한 것은 Git, Rust(stable)와 C/C++ 빌드 도구, Node.js와 Corepack, cargo-nextest입니다. 화면 쪽 패키지는 Corepack이 `package.json`에 적힌 pnpm 12.21.0으로 설치하므로 pnpm을 따로 깔지 않습니다.
+
+### Windows (PowerShell 7)
+
+명령은 PowerShell 7(`pwsh`)에서 실행합니다. 기본으로 깔린 Windows PowerShell 5.1은 테스트 명령의 `&&`를 알아듣지 못합니다.
+
+```powershell
+winget install --id Microsoft.PowerShell
+winget install --id Git.Git
+winget install --id Rustlang.Rustup
+winget install --id Microsoft.VisualStudio.2022.BuildTools --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+winget install --id OpenJS.NodeJS.LTS
+```
+
+설치가 끝나면 새 `pwsh` 창을 열고:
+
+```powershell
+npm install --global corepack@latest
+cargo install cargo-nextest --locked
+git clone https://github.com/LittleBitAI/realtime-screen-translator.git
+cd realtime-screen-translator
+corepack pnpm install --frozen-lockfile
+mkdir artifacts
+```
+
+### macOS (터미널)
+
+[Homebrew](https://brew.sh)가 깔려 있다고 봅니다.
+
+```sh
+xcode-select --install
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+. "$HOME/.cargo/env"
+brew install git node
+npm install --global corepack@latest
+cargo install cargo-nextest --locked
+git clone https://github.com/LittleBitAI/realtime-screen-translator.git
+cd realtime-screen-translator
+corepack pnpm install --frozen-lockfile
+mkdir -p artifacts
+```
+
+`artifacts/`는 테스트 보고서가 놓이는 폴더라 Git이 추적하지 않습니다. 새로 받은 저장소에서는 위처럼 한 번 만들어 두어야 테스트가 보고서를 쓸 수 있습니다. Corepack이 처음 pnpm을 내려받을 때 계속할지 물으면 `Y`로 답합니다.
+
+## 실행
+
+```sh
+node scripts/live.mjs
+```
+
+패키지가 없으면 설치하고, 화면을 `dist/`로 빌드한 뒤 Rust 웹 호스트(`src-tauri/src/bin/web-host.rs`)를 빌드해 띄웁니다. 처음에는 Rust 빌드에 몇 분 걸립니다. `listening on http://localhost:8080`이 나오면 브라우저에서 <http://localhost:8080>을 엽니다. 화면과 API가 같은 포트에 있고, `/library`와 `/options`도 주소로 바로 열립니다. 끌 때는 `Ctrl+C`를 누릅니다.
+
+포트와 데이터 폴더는 환경 변수 `PORT`와 `APP_DATA_DIR`로 바꿉니다. 기본값은 포트 8080, 데이터는 시스템 임시 폴더 안의 `rst-web`입니다.
+
+```powershell
+# Windows (pwsh)
+$env:PORT = "3000"; $env:APP_DATA_DIR = "$env:LOCALAPPDATA\rst-web"; node scripts/live.mjs
+```
+
+```sh
+# macOS
+PORT=3000 APP_DATA_DIR="$HOME/rst-web" node scripts/live.mjs
+```
+
+브라우저판은 화면을 캡처하거나 다른 앱 위에 그리지 않습니다. 권한은 물으면 허용된 것으로 치고, 내보낸 그림은 `APP_DATA_DIR/export`에 놓입니다. 실제로 보던 앱 위에 번역을 띄우는 일은 같은 화면과 백엔드를 쓰는 Tauri 앱(Windows, Android)이 합니다. 그 구성은 아래 [구조](#구조)에 있습니다.
+
+## 테스트
+
+```sh
+cargo run -q -p xtask -- artifacts/junit.xml && corepack pnpm install --frozen-lockfile && corepack pnpm test && corepack pnpm build
+```
+
+저장소의 게이트이며 CI(`.github/workflows/ci.yml`)도 push와 pull request마다 Windows에서 같은 명령을 돌립니다. 앞에서부터 차례로:
+
+1. `xtask`가 `cargo nextest run --workspace --exclude xtask --profile ci`로 Rust 테스트를 모두 돌리고, JUnit 보고서를 `artifacts/junit.xml`에 씁니다. 백엔드 계약 테스트(`src-tauri/tests/contract.rs`)는 `contract-host` 바이너리를 따로 띄워 API를 바깥에서 부르고, 나머지 `src-tauri/tests/*.rs`는 트래킹, 이미 한 번역 건너뛰기, 효과음 거르기, 저장과 내보내기 같은 경계 상황을 봅니다. Gemini는 테스트 안의 가짜 서버가 대신합니다.
+2. `corepack pnpm install --frozen-lockfile`이 커밋된 `pnpm-lock.yaml` 그대로 패키지를 맞춥니다.
+3. `corepack pnpm test`가 Vitest로 API 호출과 오류 코드(`src/lib/api.test.js`), 안내 문구(`src/lib/text.test.js`), 세 화면의 빈·불러오는 중·오류·채워진 상태와 주요 흐름(`src/screens/screens.test.js`)을 확인하고 `artifacts/vitest-junit.xml`을 씁니다.
+4. `corepack pnpm build`가 Vite로 화면을 `dist/`에 빌드해 Svelte·Tailwind 오류를 잡습니다.
+
+## 처음 요청
 
 > 나는 다음을 만들고 싶어.
 - 실시간 화면 인식 번역 프로그램.
@@ -17,13 +108,12 @@
 - 화면 위 아래 스크롤 방식에서, 어떻게 트래킹 할것인가?
 - 번역하는 화면에서, 어떻게 "이미 했던 번역"임은 어떻게 알것인가?
 
-## Development
+## 구조
 
-- Backend: `src-tauri/` (Rust). The commands of `docs/design/api.yaml` live in `src/backend.rs`; the Tauri shell is `src/app.rs` behind the `app` feature (`cargo tauri dev --features app`).
-- Capture loop: `src/pipeline.rs` drives P6, P7 and P9 from captured frames. On Windows `src/wgc.rs` captures with Windows Graphics Capture and runs the balloon model with ONNX Runtime (`ort`); on Android the Kotlin plugin in `src-tauri/plugins/screen/android/` captures with MediaProjection, runs the model with ONNX Runtime, draws the overlay and the floating on/off button, saves exports to the gallery (MediaStore, `Pictures/RealtimeTranslator`) and seals the Gemini key with the Android Keystore.
-- Balloon model: the app ships with a pinned download of the Apache-2.0 [comic-text-and-bubble-detector](https://huggingface.co/ogkalu/comic-text-and-bubble-detector) (RT-DETR-v2, int8, 11 MB; URL, revision and SHA-256 in `src/models.rs`). On first start it is fetched in the background into the app data folder under `models/balloons.onnx` and kept only if its checksum matches; P1 shows `detector_missing` until it is in place. `RST_DETECTOR_MODEL` points the app at another copy of the same file. `tests/fixtures/one-balloon.onnx` is only a contract stand-in for the tests.
-- Android overlay: each translated balloon is its own small window that never takes a touch, so every touch reaches the reader's app (P4). From Android 12 a touch passing through another app's window is held back unless that window is at most 80% opaque or an accessibility overlay. So on Android 12+ the overlay permission of R29 has two parts: drawing over other apps, then the app's "번역 오버레이" accessibility service, which reads no screen content and only lends the shapes the accessibility overlay type, so the white shapes are fully opaque, hide the Japanese completely and still let every touch through. The permission prompt opens the accessibility settings until it is on, and translation does not start without it (`ScreenPlugin.kt`, `Overlay.kt`, `OverlayService.kt`). The capture holds this overlay, so P6 leaves the pixels under placements out when it compares frames. The floating on/off button sits near the bottom edge and is in the capture too: every frame carries its rectangle. When rows to be saved lie behind it, the button is hidden for about one frame and those rows are saved from a new frame without it, if that frame shows the same screen (`Capture.cleanFrame`, `pipeline::same_screen`); otherwise only the rows around it are saved and the rest are asked for again (`pipeline::clear_of`). When the phone turns, the mirror is resized to the screen's new size (`VirtualDisplay.resize` with a new ImageReader), so frames, placements and the button stay in screen coordinates and P6 starts a picture in the turned size. While translation is off the MediaProjection mirror has no surface, so nothing is captured; the consent is kept so R29 asks only once (`CaptureService.kt`).
-- Windows overlay: the overlay is one click-through window and the on/off button a small always-on-top window at the bottom right of the work area, both left out of capture (`WDA_EXCLUDEFROMCAPTURE`). The button's page is inline, so it needs no frontend; a click switches translation (`app.rs`, `pipeline::toggle`). Windows Graphics Capture sends a frame only when the screen changes, so `wgc.rs` sends a still screen again, like the Android capture does.
-- Windows-only checks that need the `app` feature and a desktop session: `cargo test -p realtime-screen-translator --features app --lib -- detect wgc`. The real model on a drawn manga page (downloads it once): `cargo test --release -p realtime-screen-translator --features app --test real_model -- --ignored`.
-- Screens: `src/` (Svelte 5, Vite, Tailwind CSS), S1 `/`, S2 `/library`, S3 `/options` of `docs/design/frontend.md`. Inside the Tauri app every API call is a Tauri command; in a browser it is HTTP to `src-tauri/src/bin/web-host.rs`, which serves the built screens and the API on one port. `node scripts/live.mjs` installs the packages if needed, builds the screens and starts it (`PORT`, default 8080; data under `APP_DATA_DIR`). The web host has no capture or overlay: its permissions are granted when asked for and exports go to `APP_DATA_DIR/export`. `e2e/seed.json` (written by `python -I e2e/make_seed.py`) fills an empty data folder with two books and leaves translation on. Frontend tests: `corepack pnpm test` (Vitest, JUnit report in `artifacts/vitest-junit.xml`).
-- Tests: install [cargo-nextest](https://nexte.st), then `cargo run -q -p xtask -- artifacts/junit.xml` runs every test and writes a JUnit report. The contract tests drive the backend through the `contract-host` binary.
+- 백엔드: `src-tauri/`(Rust). `docs/design/api.yaml`의 명령은 `src/backend.rs`에 있고, Tauri 앱 셸은 `app` 기능 뒤의 `src/app.rs`입니다. 계약 테스트는 같은 백엔드를 `contract-host`로, 브라우저판은 `web-host`로 띄웁니다.
+- 화면: `src/`(Svelte 5, Vite, Tailwind CSS). Tauri 앱 안에서는 API 호출이 모두 Tauri 명령이 되고, 브라우저에서는 `web-host`로 가는 HTTP가 됩니다(`src/lib/api.js`). `e2e/seed.json`은 빈 데이터 폴더를 번역본 두 개가 있고 번역이 켜진 상태로 채우는 API 호출 목록이며, `python -I e2e/make_seed.py`가 만듭니다.
+- 캡처 흐름: `src/pipeline.rs`가 캡처한 프레임으로 P6, P7, P9를 돌립니다. Windows에서는 `src/wgc.rs`가 Windows Graphics Capture로 캡처하고 ONNX Runtime(`ort`)으로 말풍선 모델을 돌립니다. Android에서는 `src-tauri/plugins/screen/android/`의 Kotlin 플러그인이 MediaProjection으로 캡처하고, ONNX Runtime으로 모델을 돌리고, 오버레이와 떠 있는 켜고 끄기 버튼을 그리고, 내보낸 그림을 갤러리(MediaStore, `Pictures/RealtimeTranslator`)에 저장하고, Gemini 키를 Android Keystore로 봉합니다.
+- 말풍선 모델: 앱은 Apache-2.0 [comic-text-and-bubble-detector](https://huggingface.co/ogkalu/comic-text-and-bubble-detector)(RT-DETR-v2, int8, 11 MB)를 고정된 주소에서 받습니다. 주소, 리비전, SHA-256은 `src/models.rs`에 있습니다. 처음 켤 때 앱 데이터 폴더의 `models/balloons.onnx`로 뒤에서 받아 체크섬이 맞을 때만 남기고, 그때까지 P1은 `detector_missing`을 알립니다. `RST_DETECTOR_MODEL`로 같은 파일의 다른 사본을 가리킬 수 있습니다. `tests/fixtures/one-balloon.onnx`는 테스트용 대역일 뿐입니다.
+- Android 오버레이: 번역된 말풍선마다 터치를 받지 않는 작은 창이라 모든 터치가 보던 앱으로 갑니다(P4). Android 12부터는 다른 앱의 창을 지나는 터치가, 그 창이 80% 이하로 불투명하거나 접근성 오버레이가 아니면 막힙니다. 그래서 Android 12 이상에서 R29의 오버레이 권한은 두 단계입니다. 다른 앱 위에 표시, 그리고 앱의 "번역 오버레이" 접근성 서비스입니다. 이 서비스는 화면 내용을 읽지 않고 흰 shape에 접근성 오버레이 종류만 빌려 주므로, shape이 완전히 불투명해 일본어를 다 가리면서도 터치는 모두 통과합니다. 권한을 물을 때 이 서비스가 켜질 때까지 접근성 설정을 열고, 켜지지 않으면 번역을 시작하지 않습니다(`ScreenPlugin.kt`, `Overlay.kt`, `OverlayService.kt`). 캡처에는 이 오버레이가 담기므로 P6은 프레임을 견줄 때 placement 아래 픽셀을 뺍니다. 켜고 끄기 버튼은 아래쪽 가장자리 근처에 떠 있고 역시 캡처에 담기므로 프레임마다 그 사각형이 같이 옵니다. 저장할 줄이 버튼 뒤에 있으면 버튼을 한 프레임쯤 숨기고, 새 프레임이 같은 화면이면 그 줄을 버튼 없는 새 프레임에서 저장합니다(`Capture.cleanFrame`, `pipeline::same_screen`). 아니면 버튼 주변 줄만 저장하고 나머지는 다시 요청합니다(`pipeline::clear_of`). 휴대폰을 돌리면 미러를 새 화면 크기로 바꾸므로(`VirtualDisplay.resize`와 새 ImageReader) 프레임, placement, 버튼이 화면 좌표를 지키고 P6은 돌린 크기로 새 그림을 시작합니다. 번역이 꺼져 있는 동안 MediaProjection 미러에는 surface가 없어 아무것도 캡처하지 않고, 동의는 남겨 두어 R29는 한 번만 묻습니다(`CaptureService.kt`).
+- Windows 오버레이: 오버레이는 클릭이 통과하는 창 하나이고, 켜고 끄기 버튼은 작업 영역 오른쪽 아래의 늘 위에 있는 작은 창입니다. 둘 다 캡처에서 빠집니다(`WDA_EXCLUDEFROMCAPTURE`). 버튼 페이지는 안에 들어 있어 화면 빌드가 필요 없고, 누르면 번역이 켜지고 꺼집니다(`app.rs`, `pipeline::toggle`). Windows Graphics Capture는 화면이 바뀔 때만 프레임을 보내므로, `wgc.rs`가 Android 캡처처럼 가만있는 화면을 다시 보냅니다.
+- `app` 기능과 데스크톱 세션이 있어야 하는 Windows 전용 검사: `cargo test -p realtime-screen-translator --features app --lib -- detect wgc`. 그린 만화 페이지에 실제 모델을 돌리는 검사(모델을 한 번 받음): `cargo test --release -p realtime-screen-translator --features app --test real_model -- --ignored`.
