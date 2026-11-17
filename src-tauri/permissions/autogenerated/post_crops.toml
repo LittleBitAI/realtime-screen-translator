@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-post-crops"
+description = "Enables the post_crops command without any pre-configured scope."
+commands.allow = ["post_crops"]
+
+[[permission]]
+identifier = "deny-post-crops"
+description = "Denies the post_crops command without any pre-configured scope."
+commands.deny = ["post_crops"]

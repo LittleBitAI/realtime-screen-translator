@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-post-translation-start"
+description = "Enables the post_translation_start command without any pre-configured scope."
+commands.allow = ["post_translation_start"]
+
+[[permission]]
+identifier = "deny-post-translation-start"
+description = "Denies the post_translation_start command without any pre-configured scope."
+commands.deny = ["post_translation_start"]

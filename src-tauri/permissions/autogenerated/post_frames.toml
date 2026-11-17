@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-post-frames"
+description = "Enables the post_frames command without any pre-configured scope."
+commands.allow = ["post_frames"]
+
+[[permission]]
+identifier = "deny-post-frames"
+description = "Denies the post_frames command without any pre-configured scope."
+commands.deny = ["post_frames"]

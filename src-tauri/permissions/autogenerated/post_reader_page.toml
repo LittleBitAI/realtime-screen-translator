@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-post-reader-page"
+description = "Enables the post_reader_page command without any pre-configured scope."
+commands.allow = ["post_reader_page"]
+
+[[permission]]
+identifier = "deny-post-reader-page"
+description = "Denies the post_reader_page command without any pre-configured scope."
+commands.deny = ["post_reader_page"]
