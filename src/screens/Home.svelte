@@ -93,26 +93,43 @@
   >
     {#if busy === 'on'}켜는 중{:else if busy === 'off'}끄는 중{:else if status?.on}번역 끄기{:else}번역 켜기{/if}
   </button>
-  <p class="m-0 mt-2 text-center text-sm text-gray-500">켜면 보던 앱 위에 오버레이와 켜고 끄는 버튼이 뜹니다</p>
 {/snippet}
 
+<!-- A value not read yet: a grey bar while loading, a dash once the read failed. -->
 {#snippet blank(width)}
-  <span class={['inline-block h-4 rounded bg-gray-300', width]} aria-hidden="true"></span>
+  {#if failed}<span class="text-gray-500">—</span>{:else}<span class={['inline-block h-4 rounded bg-gray-300', width]} aria-hidden="true"></span>{/if}
 {/snippet}
 
 <Shell title="실시간 화면 인식 번역" note="일본 만화 → 한국어" current="/" {bar}>
-  <div class="flex flex-wrap content-start gap-4">
+  <div class="flex flex-wrap content-start items-start gap-4">
     <section
       data-feature="translation-status"
       aria-busy={!status && !failed}
       class="box-border min-w-0 flex-[1_1_300px] rounded-xl border border-gray-300 bg-white p-4"
     >
       <div class="flex items-center gap-2">
-        <span class={['inline-block size-4 rounded-full', status?.on ? 'bg-accent' : 'bg-gray-400']} aria-hidden="true"></span>
-        <span class="text-title font-bold">{status?.on ? '번역 켜짐' : '번역 꺼짐'}</span>
+        <span
+          class={[
+            'inline-block size-4 shrink-0 rounded-full',
+            status ? (status.on ? 'bg-accent' : 'bg-gray-400') : 'border-2 border-gray-400',
+            !status && !failed && 'animate-pulse',
+          ]}
+          aria-hidden="true"
+        ></span>
+        <span class="text-title font-bold">
+          {#if status}{status.on ? '번역 켜짐' : '번역 꺼짐'}{:else if failed}상태를 알 수 없음{:else}상태 확인 중{/if}
+        </span>
       </div>
       <p class="m-0 mt-1 text-sm text-gray-500">
-        {status?.on ? '보던 앱으로 돌아가 만화를 읽으면 말풍선 위에 번역이 뜹니다' : '번역 켜기를 누르면 보던 앱 위에 번역이 뜹니다'}
+        {#if status?.on}
+          보던 앱으로 돌아가 만화를 읽으면 말풍선 위에 번역이 뜹니다. 끄면 오버레이가 사라집니다.
+        {:else if status}
+          번역 켜기를 누르면 보던 앱 위에 번역과 켜고 끄는 버튼이 뜹니다.
+        {:else if failed}
+          앱과 다시 이어지면 지금 상태를 보여 드립니다.
+        {:else}
+          켜져 있는지 읽어 오는 중입니다.
+        {/if}
       </p>
 
       <div role="status" class="mt-4 rounded-lg px-4 py-2 text-sm" class:bg-red-50={failed || problem || notice} class:bg-gray-200={!(failed || problem || notice)}>
@@ -146,8 +163,8 @@
           <dd class="m-0 text-right">{#if status}{permissionText(status)}{:else}{@render blank('w-18')}{/if}</dd>
         </div>
         <div class="flex items-center justify-between gap-2">
-          <dt>지금 방식 (스크롤 / 슬라이딩)</dt>
-          <dd class="m-0 text-right">{#if status}{modeText(status)}{:else}{@render blank('w-18')}{/if}</dd>
+          <dt>지금 방식</dt>
+          <dd class="m-0 text-right whitespace-nowrap">{#if status}{modeText(status)}{:else}{@render blank('w-18')}{/if}</dd>
         </div>
         <div class="flex items-center justify-between gap-2">
           <dt>켠 뒤 Gemini 요청</dt>
@@ -156,10 +173,18 @@
       </dl>
     </section>
 
-    <section data-feature="request-permissions" class="box-border min-w-0 flex-[1_1_300px] rounded-xl border border-gray-300 bg-white p-4">
+    <!-- Missing permissions come first, so 권한 허용하기 shows on a phone without scrolling. -->
+    <section
+      data-feature="request-permissions"
+      class={[
+        'box-border min-w-0 flex-[1_1_300px] rounded-xl border border-gray-300 bg-white',
+        status?.on && granted ? 'px-4 py-2' : 'p-4',
+        status && !granted && 'order-first',
+      ]}
+    >
       {#if status?.on && granted}
         <details>
-          <summary class="min-h-12 cursor-pointer content-center text-xl font-bold">권한 모두 허용됨</summary>
+          <summary class="min-h-12 cursor-pointer content-center text-base font-bold">권한 모두 허용됨</summary>
           <p class="m-0 mt-2">화면 캡처와 다른 앱 위에 표시가 모두 허용되어 있습니다.</p>
         </details>
       {:else}

@@ -67,14 +67,12 @@ export function permissionText(status) {
 
 export const allowed = (yes) => (yes ? '허용됨' : '없음');
 
-export const kindText = (kind) => (kind === 'stitched' ? '이어 붙인 한 장' : '페이지');
+export const kindText = (kind) => (kind === 'stitched' ? '이어 붙인 한 장' : '페이지별 그림');
 
 const when = new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
 
 /** A book's name, from when translation was turned on for it. */
 export const bookName = (startedAt) => `${when.format(new Date(startedAt))}에 켠 번역본`;
-
-export const startedText = (startedAt) => when.format(new Date(startedAt));
 
 /** Where an export went: the folder (or gallery place) of its first file. */
 export function exportDone(out) {

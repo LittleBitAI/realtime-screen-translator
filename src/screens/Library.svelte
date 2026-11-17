@@ -3,7 +3,10 @@
   import Shell from '../lib/Shell.svelte';
   import { api } from '../lib/api.js';
   import { link } from '../lib/router.svelte.js';
-  import { bookName, exportDone, exportError, kindText, reachError, startedText } from '../lib/text.js';
+  import { bookName, exportDone, exportError, kindText, reachError } from '../lib/text.js';
+
+  // The books and the boxes standing in for them while loading share one grid.
+  const grid = 'mt-4 grid grid-cols-1 items-start gap-4 sm:grid-cols-2';
 
   // S2: the books on this device, newest first, each exported on its own.
   let books = $state(null);
@@ -73,9 +76,9 @@
       <button type="button" data-feature="list-books" onclick={load} class="mt-2 min-h-12 rounded-lg border border-gray-500 bg-white px-4">다시 읽기</button>
     </div>
   {:else if !books}
-    <div data-feature="list-books" aria-busy="true" class="mt-4 flex flex-wrap gap-4">
+    <div data-feature="list-books" aria-busy="true" class={grid}>
       {#each [1, 2, 3] as n (n)}
-        <div class="box-border h-[360px] min-w-0 flex-[1_1_280px] rounded-xl border border-gray-300 bg-gray-200" aria-hidden="true"></div>
+        <div class="box-border h-[452px] min-w-0 rounded-xl border border-gray-300 bg-gray-200" aria-hidden="true"></div>
       {/each}
       <span class="sr-only">번역본 목록을 읽는 중입니다.</span>
     </div>
@@ -86,10 +89,10 @@
       <a href="/" onclick={link} class="mt-4 inline-flex min-h-12 items-center rounded-lg bg-primary px-4 font-semibold text-white no-underline">첫 화면으로 가기</a>
     </div>
   {:else}
-    <div data-feature="list-books" class="mt-4 flex flex-wrap gap-4">
+    <div data-feature="list-books" class={grid}>
       {#each books as book (book.id)}
         {@const j = jobs[book.id] ?? { format: 'png', busy: false, error: '', done: '' }}
-        <article class="box-border min-w-0 flex-[1_1_280px] rounded-xl border border-gray-300 bg-white p-4">
+        <article class="box-border min-w-0 rounded-xl border border-gray-300 bg-white p-4">
           <div class="flex h-40 items-center justify-center overflow-hidden rounded-lg bg-gray-300 text-sm text-gray-500">
             {#if preview(book)}
               {#await api.previewSrc(preview(book))}
@@ -106,10 +109,6 @@
           <h2 class="m-0 mt-4 text-base font-bold break-keep">{bookName(book.started_at)}</h2>
           <dl class="m-0 mt-2 flex flex-col gap-2">
             <div class="flex items-center justify-between gap-2">
-              <dt>번역을 켠 시각</dt>
-              <dd class="m-0 text-right">{startedText(book.started_at)}</dd>
-            </div>
-            <div class="flex items-center justify-between gap-2">
               <dt>그림 수</dt>
               <dd class="m-0">{book.pictures.length}장</dd>
             </div>
@@ -121,10 +120,15 @@
           {#if book.pictures.length === 0}
             <p class="m-0 mt-4 text-sm text-gray-500">아직 담긴 그림이 없어 내보낼 것이 없습니다.</p>
           {:else}
-            <fieldset class="m-0 mt-4 flex items-center gap-2 border-0 p-0">
-              <legend class="float-left mr-2 text-sm text-gray-500">파일 형식</legend>
+            <fieldset class="m-0 mt-4 grid grid-cols-2 gap-2 border-0 p-0">
+              <legend class="mb-2 p-0 text-sm text-gray-500">파일 형식</legend>
               {#each [['png', 'PNG'], ['webp', 'WebP']] as [value, label] (value)}
-                <label class={['cursor-pointer rounded border px-2 py-1 text-sm', j.format === value ? 'border-primary text-ink' : 'border-gray-300 text-gray-500']}>
+                <label
+                  class={[
+                    'flex min-h-11 cursor-pointer items-center justify-center rounded-lg border has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent',
+                    j.format === value ? 'border-2 border-primary font-semibold text-ink' : 'border-gray-300 text-gray-500',
+                  ]}
+                >
                   <input
                     type="radio"
                     name="format-{book.id}"

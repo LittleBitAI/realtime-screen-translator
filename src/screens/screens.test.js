@@ -47,6 +47,9 @@ describe('S1 Home', () => {
     render(Home);
     expect(feature('toggle-translation')[0].disabled).toBe(true);
     expect(screen.getByText('상태를 읽는 중입니다.')).toBeTruthy();
+    // Not yet known, so neither 켜짐 nor 꺼짐.
+    expect(screen.getByText('상태 확인 중')).toBeTruthy();
+    expect(screen.queryByText('번역 꺼짐')).toBeNull();
   });
 
   it('empty: no key, no permissions, asks for the key first', async () => {
@@ -65,6 +68,10 @@ describe('S1 Home', () => {
     render(Home);
     await screen.findByText(/상태를 읽지 못했습니다/);
     expect(screen.getByRole('button', { name: '다시 읽기' })).toBeTruthy();
+    expect(screen.getByText('상태를 알 수 없음')).toBeTruthy();
+    expect(screen.queryByText('번역 꺼짐')).toBeNull();
+    // Every unread value is a dash, not a loading bar.
+    expect(screen.getAllByText('—').length).toBe(6);
   });
 
   it('error: a notice gives the reason and what to do', async () => {
@@ -179,6 +186,28 @@ describe('S3 Options', () => {
     api.status.mockImplementation(failing);
     render(Options);
     await screen.findByText(/저장된 키를 읽지 못했습니다/);
+    expect(screen.getByText('알 수 없음')).toBeTruthy();
+    expect(screen.queryByText('없음')).toBeNull();
+    // A new key can still be put in.
+    expect(screen.getByRole('textbox').disabled).toBe(false);
+  });
+
+  it('loading: the input is locked while reading and while saving', async () => {
+    api.status.mockResolvedValue(off);
+    let done;
+    api.putKey.mockImplementation(() => new Promise((r) => (done = r)));
+    render(Options);
+    const input = screen.getByRole('textbox');
+    expect(input.disabled).toBe(true);
+    await screen.findByText(/저장된 키가 없습니다/);
+    expect(input.disabled).toBe(false);
+    await fireEvent.input(input, { target: { value: 'AIzaSyExampleKey_1234wxyz' } });
+    await fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await screen.findByRole('button', { name: '저장하는 중' });
+    expect(input.disabled).toBe(true);
+    done({ key_set: true, key_tail: 'wxyz' });
+    await screen.findByText('••••wxyz');
+    expect(input.disabled).toBe(false);
   });
 
   it('a bad key is explained under the input and the text kept', async () => {
