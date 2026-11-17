@@ -155,7 +155,21 @@ Every fix changed either the reporting (docs, dispositions, honest refusal) or t
 
 ## Result
 
-pending — the fix records what it observed here, with the tests and the commit.
+Draft, not verified. The experiment has not been run, and no browser capture path was added.
+
+When asked in round 5, the person did not choose the desktop browser capture path. They asked for an installable Android build so the app's own translation can be run and watched on their phone. While preparing that, I found the Android app had never been built. The machine had no Android SDK, and there was no Gradle app project.
+
+Commit 6f877a6 ("Generate the Android project so the app builds as an APK") commits `src-tauri/gen/android` from `cargo tauri android init`. It also raises the app's minSdk to 26, the screen plugin's level, which the manifest merge required. Observed builds:
+- The Rust library for aarch64-linux-android built (release, 15.8 MB).
+- `gradlew assembleUniversalDebug` built the Kotlin plugin and app with one deprecation warning.
+- The APK was 41.6 MB, sha256 e632fa2e87c4ccfb5d6352cad9d10013c3eec7eb5a65fe89c8b086f01dd45e01.
+- aapt reports package ai.littlebit.realtime_screen_translator, sdkVersion 26 and targetSdkVersion 37.
+- It requests SYSTEM_ALERT_WINDOW, FOREGROUND_SERVICE_MEDIA_PROJECTION and POST_NOTIFICATIONS.
+- Its native code is arm64-v8a, with libonnxruntime.so and librealtime_screen_translator.so.
+
+It is published as the GitHub pre-release `android-test-6f877a6`.
+
+Steps 1-3 of the experiment were not run. Step 3, and an on-device run of capture, detection, translation and the overlay, wait for the person to install the build and connect the phone. Revision 1 is still the supplied contract.
 
 ## Unresolved limits
 
