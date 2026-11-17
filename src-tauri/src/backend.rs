@@ -861,10 +861,12 @@ impl Backend {
 
     /// What is under the shapes now: for each placement id from
     /// [`Backend::text_areas`], a PNG of the screen rows of its text area,
-    /// from a frame taken with the shapes hidden. If most of them no longer
-    /// hold what their translation was made for (the fingerprint, as R23),
-    /// another page is showing: the next frame turns to it. Answered with
-    /// whether it does.
+    /// from a frame taken with the shapes hidden. If any of them no longer
+    /// holds what its translation was made for (the fingerprint, as R23),
+    /// another page is showing (one drawn the same, its words changed in one
+    /// balloon or all): the next frame turns to it, and on the new page the
+    /// balloons whose words stayed get their stored translations back
+    /// without asking Gemini. Answered with whether it turns.
     pub fn words_under(&self, picture_id: i64, seen: &[(i64, Vec<u8>)]) -> ApiResult<bool> {
         let mut st = self.lock();
         let s = st.session.as_mut().ok_or(ApiError("not_on"))?;
@@ -872,7 +874,7 @@ impl Backend {
             return Ok(false);
         }
         let Some(pic) = s.pics.get(&picture_id) else { return Ok(false) };
-        let (mut looked, mut other) = (0, 0);
+        let mut other = 0;
         for (id, png) in seen {
             let (Some(&(_, (x, _, w, h))), Some(p)) = (pic.texts.iter().find(|t| t.0 == *id), pic.placements.iter().find(|p| p.id == *id)) else { continue };
             let Some(img) = export::decode_png(png).filter(|i| i.h == h && x >= 0 && x as u32 + w <= i.w) else { continue };
@@ -881,12 +883,11 @@ impl Backend {
             let area: Vec<u8> = gray.chunks(img.w as usize).flat_map(|row| row[x..x + w as usize].iter().copied()).collect();
             let fp = fingerprint::dhash(&area, w as usize, h as usize);
             let same = fingerprint::from_hex(&p.fingerprint).is_some_and(|f| (f ^ fp).count_ones() <= fingerprint::MAX_BITS);
-            looked += 1;
             if !same {
                 other += 1;
             }
         }
-        let turned = looked > 0 && other * 2 > looked;
+        let turned = other > 0;
         if turned {
             s.words_changed = Some(picture_id);
         }
