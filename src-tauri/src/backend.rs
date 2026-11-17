@@ -1494,7 +1494,13 @@ fn finish_jobs(state: &Mutex<State>, platform: &dyn Platform, gen: u64, model: &
                     pic.placements.push(row);
                     changed = true;
                 }
-                Err(e) => eprintln!("cannot place translation: {e}"),
+                // The translation is stored; its place is not. The rows are
+                // detected again (on a scroll, a return, or after RETRY_MS),
+                // and the crop then finds the stored translation.
+                Err(e) => {
+                    eprintln!("cannot place translation: {e}");
+                    retry(st.session.as_mut().unwrap(), &[(picture_id, rect, area)]);
+                }
             }
         }
     }
