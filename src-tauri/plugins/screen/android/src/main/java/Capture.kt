@@ -45,6 +45,17 @@ object Capture {
      * detection find them however many frames come meanwhile.
      */
     private val pinned = HashSet<Long>()
+    /**
+     * Frames whose image came while [peekFrame] had the shapes hidden, or
+     * before they showed again: kept for the look under them only, never
+     * handed to `next` or repeated as the screen. Without the overlay it
+     * holds everywhere else, such a frame would look like the page changing
+     * under the shapes.
+     */
+    private val aside = HashSet<Long>()
+    /** Images that came in [asideFrom, asideUntil) (uptime ms) are [aside]. */
+    @Volatile private var asideFrom = Long.MAX_VALUE
+    @Volatile private var asideUntil = Long.MAX_VALUE
     /** The frame `next` last handed over: the one a clean frame is taken for. */
     private var delivered = 0L
 
@@ -76,12 +87,19 @@ object Capture {
         frames[seq] = bmp
         thumbs[seq] = thumb
         arrived[seq] = at
+        val apart = at >= asideFrom && at < asideUntil
+        if (apart) aside.add(seq)
+        // Never the frame just stored: with the delivered frame, its clean
+        // frame and a peek all pinned, older pinned ones stay over [KEEP]
+        // (four at most) until the next delivery lets them go.
         while (frames.size > KEEP) {
-            val old = frames.keys.first { it !in pinned }
+            val old = frames.keys.firstOrNull { it !in pinned && it != seq } ?: break
             frames.remove(old)
             thumbs.remove(old)
             arrived.remove(old)
+            aside.remove(old)
         }
+        if (apart) return
         fresh = seq
         deliver()
     }
@@ -118,13 +136,20 @@ object Capture {
      */
     fun peekFrame(): JSObject? {
         if (paused) return null
-        val hiddenAt = Overlay.hideShapesNow() ?: return null
+        // From before the hiding until the shapes show again and the mirror
+        // has had time to send them: those images are set [aside].
+        asideFrom = SystemClock.uptimeMillis()
+        asideUntil = Long.MAX_VALUE
+        val hiddenAt = Overlay.hideShapesNow()
         try {
+            if (hiddenAt == null) return null
             SystemClock.sleep(maxOf(0L, hiddenAt + SETTLE_MS - SystemClock.uptimeMillis()))
             CaptureService.flush()
-            return newestSince(hiddenAt) { true }
+            return newestSince(hiddenAt) { it in aside }
         } finally {
-            Overlay.restoreShapes()
+            // However late the main thread shows them again, the window
+            // closes only after it did.
+            if (hiddenAt == null) asideUntil = SystemClock.uptimeMillis() else Overlay.restoreShapes { shownAt -> asideUntil = shownAt + SETTLE_MS }
         }
     }
 
@@ -180,7 +205,7 @@ object Capture {
     fun repeatLast() {
         if (paused) return
         synchronized(lock) {
-            val last = frames.keys.lastOrNull() ?: return
+            val last = frames.keys.lastOrNull { it !in aside } ?: return
             val bmp = frames[last] ?: return
             val thumb = thumbs[last] ?: return
             store(bmp, thumb, arrived[last] ?: 0)
@@ -218,6 +243,7 @@ object Capture {
             thumbs.clear()
             arrived.clear()
             pinned.clear()
+            aside.clear()
             delivered = 0
             fresh = 0
         }

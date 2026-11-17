@@ -168,9 +168,11 @@ object Overlay {
         return at
     }
 
-    fun restoreShapes() = main.post {
+    /** Shows the shapes again; [then] is told the uptime they were back at, on the main thread. */
+    fun restoreShapes(then: (Long) -> Unit) = main.post {
         shapesHidden = false
         shapes.forEach { it.visibility = View.VISIBLE }
+        then(android.os.SystemClock.uptimeMillis())
     }
 
     private fun measureButton(v: View) {
