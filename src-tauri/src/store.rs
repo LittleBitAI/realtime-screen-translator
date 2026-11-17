@@ -10,6 +10,11 @@ pub type Res<T> = rusqlite::Result<T>;
 
 const SCHEMA: &str = r#"
 PRAGMA journal_mode = WAL;
+-- Flushed to disk at checkpoints, not at every commit: a frame's writes do
+-- not wait on the disk (R7). WAL keeps the file whole either way, and what
+-- was committed survives the app closing or crashing; only a power cut may
+-- take back the last commits.
+PRAGMA synchronous = NORMAL;
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS Setting (
     name TEXT PRIMARY KEY,
