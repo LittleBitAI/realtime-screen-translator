@@ -124,6 +124,10 @@ struct Session {
     anchor: Option<(Vec<u8>, f64, u64)>,
     /// `scroll_y` the overlay was drawn at before the last frame.
     drawn_before: i64,
+    /// A part of the still screen changed much (`tracker::changed_block`):
+    /// the screen is looked at again, at `relook_at` at the earliest.
+    relook_due: bool,
+    relook_at: i64,
     /// (`revision`, `scroll_y`) as the last two frames came in, the newer
     /// first: the overlay each of them holds was drawn from about these.
     entries: [Option<(u64, i64)>; 2],
@@ -518,6 +522,8 @@ impl Backend {
             scroll_f: 0.0,
             anchor: None,
             drawn_before: 0,
+            relook_due: false,
+            relook_at: 0,
             entries: [None; 2],
             turning: false,
             words_changed: None,
@@ -698,6 +704,12 @@ impl Backend {
                 }
                 if still && !other {
                     settled = true;
+                    // Words that came up late, or a page drawn the same but
+                    // for a small balloon where nothing is placed: too small
+                    // to move the mean, but a part of the screen changed.
+                    if tracker::changed_block(&prev, &thumb, &mask, rows) {
+                        s.relook_due = true;
+                    }
                 } else {
                     let (ft, fb) = tracker::fixed_rows(&prev, &thumb, &shapes, rows);
                     // Side columns that stayed put (a panel, another window
@@ -818,6 +830,13 @@ impl Backend {
             let (h, ft, fb) = (req.height as i64, (s.fixed.0 as f64 * scale) as i64, (s.fixed.1 as f64 * scale) as i64);
             let scroll_y = s.scroll_y;
             let no_band = s.fixed == (0, 0);
+            // At most once a second, so a moving picture on the page (an
+            // animation, a video) does not keep the detector running.
+            let relook = s.relook_due && now >= s.relook_at;
+            if relook {
+                s.relook_due = false;
+                s.relook_at = now + 1000;
+            }
             if let Some(pic) = s.pic() {
                 let vis = (scroll_y + ft, scroll_y + h - fb);
                 if no_band && pic.unbanded.is_none() {
@@ -825,6 +844,11 @@ impl Backend {
                 }
                 if now >= pic.retry_at {
                     pic.reopen();
+                }
+                // The whole screen is detected again: what is placed keeps its
+                // translation (its crops are taken as the placements they meet).
+                if relook {
+                    subtract(&mut pic.detected, vis);
                 }
                 if let Some(d) = new_part(vis, &pic.detected) {
                     add(&mut pic.detected, d);

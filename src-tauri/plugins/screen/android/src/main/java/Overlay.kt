@@ -130,19 +130,37 @@ object Overlay {
      * Hides the button from the screen and the capture, from a worker thread:
      * answered with the uptime it was gone at, or null if there is none.
      */
-    fun hideButtonNow(): Long? {
+    fun hideButtonNow(): Long? = hideOnMain {
+        button?.takeIf { it.visibility == View.VISIBLE }?.let {
+            it.visibility = View.INVISIBLE
+            android.os.SystemClock.uptimeMillis()
+        }
+    }
+
+    /**
+     * Runs [hide] on the main thread for a worker thread, waiting up to half
+     * a second: what it answered, or null if it had not started by then. It
+     * is called off then, so a main thread that comes to it later hides
+     * nothing that nobody would show again.
+     */
+    private fun hideOnMain(hide: () -> Long?): Long? {
+        val state = java.util.concurrent.atomic.AtomicInteger(WAITING)
         val done = java.util.concurrent.CountDownLatch(1)
         var at: Long? = null
         main.post {
-            button?.takeIf { it.visibility == View.VISIBLE }?.let {
-                it.visibility = View.INVISIBLE
-                at = android.os.SystemClock.uptimeMillis()
-            }
+            if (state.compareAndSet(WAITING, RUNNING)) at = hide()
             done.countDown()
         }
-        done.await(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+        if (done.await(500, java.util.concurrent.TimeUnit.MILLISECONDS)) return at
+        if (state.compareAndSet(WAITING, CALLED_OFF)) return null
+        // It started just now: it ends at once, and what it hid is shown again.
+        done.await()
         return at
     }
+
+    private const val WAITING = 0
+    private const val RUNNING = 1
+    private const val CALLED_OFF = 2
 
     fun restoreButton() = main.post { button?.visibility = View.VISIBLE }
 
@@ -153,19 +171,14 @@ object Overlay {
      * Hides the shapes from the screen and the capture, from a worker thread:
      * answered with the uptime they were gone at, or null if none shows.
      */
-    fun hideShapesNow(): Long? {
-        val done = java.util.concurrent.CountDownLatch(1)
-        var at: Long? = null
-        main.post {
-            if (shapes.isNotEmpty() && !shapesHidden) {
-                shapesHidden = true
-                shapes.forEach { it.visibility = View.INVISIBLE }
-                at = android.os.SystemClock.uptimeMillis()
-            }
-            done.countDown()
+    fun hideShapesNow(): Long? = hideOnMain {
+        if (shapes.isNotEmpty() && !shapesHidden) {
+            shapesHidden = true
+            shapes.forEach { it.visibility = View.INVISIBLE }
+            android.os.SystemClock.uptimeMillis()
+        } else {
+            null
         }
-        done.await(500, java.util.concurrent.TimeUnit.MILLISECONDS)
-        return at
     }
 
     /** Shows the shapes again; [then] is told the uptime they were back at, on the main thread. */

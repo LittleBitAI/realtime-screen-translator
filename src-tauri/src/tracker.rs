@@ -51,6 +51,32 @@ fn row_cmp(prev: &[u8], cur: &[u8], mask: Mask, rp: usize, rc: usize, step: usiz
     (sum, n)
 }
 
+/// Mean difference per pixel above which a block of a still screen changed.
+pub const LOCAL: f32 = 24.0;
+
+/// Whether some block of 8 x 8 thumbnail pixels changed much between two
+/// frames of a still screen (more than [`LOCAL`]): too small a part to move
+/// the mean, like words that came up late. Blocks more than half under the
+/// mask are left out.
+pub fn changed_block(prev: &[u8], cur: &[u8], mask: Mask, rows: usize) -> bool {
+    const B: usize = 8;
+    (0..rows).step_by(B).any(|r0| {
+        (0..THUMB_W).step_by(B).any(|c0| {
+            let (mut sum, mut n, mut all) = (0u64, 0u64, 0u64);
+            for r in r0..(r0 + B).min(rows) {
+                for i in r * THUMB_W + c0..r * THUMB_W + c0 + B {
+                    all += 1;
+                    if mask.is_empty() || !mask[i] {
+                        sum += prev[i].abs_diff(cur[i]) as u64;
+                        n += 1;
+                    }
+                }
+            }
+            n * 2 >= all && n > 0 && sum as f32 > LOCAL * n as f32
+        })
+    })
+}
+
 /// Mean difference of the two frames at the same position, rows `from..to`.
 pub fn still_diff(prev: &[u8], cur: &[u8], mask: Mask, from: usize, to: usize) -> f32 {
     let (sum, n) = (from..to).map(|r| row_cmp(prev, cur, mask, r, r, 1)).fold((0, 0), |a, b| (a.0 + b.0, a.1 + b.1));
