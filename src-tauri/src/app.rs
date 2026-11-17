@@ -178,6 +178,7 @@ mod android {
             loop {
                 match call::<Next>(&self.0, "next", json!({})) {
                     Ok(n) if n.kind == "toggle" => return Some(pipeline::Event::Toggle),
+                    Ok(n) if n.kind == "lost" => return Some(pipeline::Event::Lost),
                     Ok(n) => {
                         return Some(pipeline::Event::Frame(pipeline::Captured {
                             seq: n.seq,

@@ -34,6 +34,9 @@ pub enum Event {
     Frame(Captured),
     /// The floating on/off button over other apps was tapped (R29).
     Toggle,
+    /// Capture was stopped from outside the app (Android's system UI): the
+    /// session ends as if switched off (P5).
+    Lost,
 }
 
 pub trait Screen: Send + Sync {
@@ -66,6 +69,14 @@ pub fn toggle(backend: &Backend) {
 pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
     let f = match event {
         Event::Toggle => return toggle(backend),
+        Event::Lost => {
+            if let Err(e) = backend.stop() {
+                if e.0 != "not_on" {
+                    eprintln!("capture lost: {e}");
+                }
+            }
+            return;
+        }
         Event::Frame(f) => f,
     };
     let (seq, button, size, thumb) = (f.seq, f.button, (f.width, f.height), f.thumb.clone());

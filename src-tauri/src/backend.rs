@@ -52,10 +52,12 @@ struct Pic {
     /// (the first resting screen). A status bar or toolbar there was taken as
     /// content; once a scroll shows the band, those rows are handled again.
     unbanded: Option<i64>,
-    /// Text areas taken at the screen's top or bottom edge (picture
-    /// coordinates), which the edge may have cut: one seen larger later
-    /// replaces what was placed for it (`take_crop`).
-    edge_rects: Vec<(i64, i64, u32, u32)>,
+    /// Text areas read (picture coordinates), with the screen each was seen
+    /// on (x0, y0, x1, y1). One at that screen's top or bottom edge, or at a
+    /// fixed band's edge (known then or found by a later scroll), may have
+    /// been cut there: one seen larger later replaces what was placed for it
+    /// (`replace_cut`).
+    edge_rects: Vec<(Rect, (i64, i64, i64, i64))>,
     /// Placements taken away while the capture holds the overlay (A6), with
     /// the first frame seq taken after the overlay stopped drawing them: the
     /// white shape stays in the frames before, over the Japanese.
@@ -1129,21 +1131,27 @@ fn grows(small: (i64, i64, u32, u32), big: (i64, i64, u32, u32)) -> bool {
     holds && big.3 as i64 >= small.3 as i64 + e
 }
 
-/// A text area taken at the screen's edge that `rect` shows larger was cut
-/// there: its placements and the answer still awaited for it go. Where the
+/// A text area taken at the screen's edge or a fixed band's that `rect`
+/// shows larger was cut there: its placements and the answer still awaited for it go. Where the
 /// capture holds the overlay their shapes are remembered as erased.
 fn replace_cut(st: &mut State, picture_id: i64, rect: (i64, i64, u32, u32)) -> ApiResult<()> {
     let s = st.session.as_mut().unwrap();
+    // A status bar, navigation bar or toolbar that stays put cuts the
+    // content at its edge as the screen's edge does.
+    let scale = s.scale();
+    let (bt, bb) = ((s.fixed.0 as f64 * scale) as i64, (s.fixed.1 as f64 * scale) as i64);
+    let e = detect::EDGE as i64;
+    let at_edge = |r: Rect, a: (i64, i64, i64, i64)| r.1 <= a.1 + bt + e || r.1 + r.3 as i64 >= a.3 - bb - e;
     // This frame and the next still show the overlay as it was drawn before
     // (`Backend::frame`): the frame after them is the first without the shape.
     let clean_from = s.last_seq.unwrap_or(0) + 2;
     let in_capture = s.overlay_in_capture;
     let pic = s.pics.get_mut(&picture_id).unwrap();
-    let cut: Vec<_> = pic.edge_rects.iter().copied().filter(|&e| grows(e, rect)).collect();
+    let cut: Vec<_> = pic.edge_rects.iter().filter(|&&(r, a)| at_edge(r, a) && grows(r, rect)).map(|&(r, _)| r).collect();
     if cut.is_empty() {
         return Ok(());
     }
-    pic.edge_rects.retain(|e| !cut.contains(e));
+    pic.edge_rects.retain(|(r, _)| !cut.contains(r));
     let (gone, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut pic.placements).into_iter().partition(|p| cut.iter().any(|&e| overlap(e, (p.x, p.y, p.w, p.h)) > 0.5));
     pic.placements = kept;
     if in_capture {
@@ -1211,11 +1219,11 @@ fn take_crop(st: &mut State, picture_id: i64, c: CropIn, (seq, offset): (u64, i6
     let aspect = c.w.max(1) as f32 / c.h.max(1) as f32;
     let rect = (c.x as i64, c.y as i64 + offset, c.w, c.h);
     let area = (0, offset, screen.0 as i64, offset + screen.1 as i64);
-    // A text area at the screen's top or bottom edge may be cut by it, or be
-    // whole there (a page that does not scroll): it is read as it is, and
-    // remembered. Seen larger later, once a scroll shows more of it, it was
-    // cut: what was placed or asked for it gives way to the whole one.
-    let at_edge = c.y as f32 <= detect::EDGE || (c.y + c.h) as f32 >= screen.1 as f32 - detect::EDGE;
+    // A text area at the screen's top or bottom edge, or at a fixed band's,
+    // may be cut by it, or be whole there (a page that does not scroll): it
+    // is read as it is, and remembered. Seen larger later, once a scroll
+    // shows more of it, it was cut: what was placed or asked for it gives
+    // way to the whole one.
     replace_cut(st, picture_id, rect)?;
     // A frame that may still show an erased shape over this text area shows
     // our white, not the Japanese under it: its rows are looked at again in
@@ -1226,9 +1234,9 @@ fn take_crop(st: &mut State, picture_id: i64, c: CropIn, (seq, offset): (u64, i6
         result.pending += 1;
         return Ok(());
     }
-    if at_edge {
-        st.session.as_mut().unwrap().pics.get_mut(&picture_id).unwrap().edge_rects.push(rect);
-    }
+    // Every one is remembered: the band that cut it may be found only by a
+    // later scroll.
+    st.session.as_mut().unwrap().pics.get_mut(&picture_id).unwrap().edge_rects.push((rect, area));
     let s = st.session.as_mut().unwrap();
     let pic = s.pics.get_mut(&picture_id).unwrap();
     // Our own overlay is in the capture: a crop over a placement is either

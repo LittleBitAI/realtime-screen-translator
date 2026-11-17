@@ -93,7 +93,14 @@ class CaptureService : Service() {
         p.registerCallback(object : MediaProjection.Callback() {
             override fun onStop() {
                 // Revoked from the system UI: capture is no longer allowed.
+                // Translation ends with it: the shapes no longer follow the
+                // screen, so they come down now, and Rust is told to stop
+                // the session (P5), so allowing capture again lets P4 start.
                 Capture.alive = false
+                Capture.paused = true
+                Overlay.hideLayer()
+                Overlay.setOn(false)
+                Capture.lost()
                 stopSelf()
             }
         }, handler)

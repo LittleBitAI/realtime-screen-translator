@@ -29,6 +29,7 @@ object Capture {
     private val lock = Object()
     private var waiting: Invoke? = null
     private var taps = 0
+    private var lostPending = false
     private var seq = 0L
     private var fresh = 0L
     private val frames = LinkedHashMap<Long, Bitmap>()
@@ -164,6 +165,14 @@ object Capture {
         }
     }
 
+    /** The projection was stopped from the system UI: `next` answers "lost" once. */
+    fun lost() {
+        synchronized(lock) {
+            lostPending = true
+            deliver()
+        }
+    }
+
     fun next(invoke: Invoke) {
         synchronized(lock) {
             waiting?.reject("superseded")
@@ -187,6 +196,12 @@ object Capture {
 
     private fun deliver() {
         val invoke = waiting ?: return
+        if (lostPending) {
+            lostPending = false
+            waiting = null
+            invoke.resolve(JSObject().apply { put("kind", "lost") })
+            return
+        }
         if (taps > 0) {
             taps -= 1
             waiting = null
