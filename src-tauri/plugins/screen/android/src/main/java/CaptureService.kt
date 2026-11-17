@@ -146,9 +146,22 @@ class CaptureService : Service() {
             val img = ir.acquireLatestImage() ?: return@setOnImageAvailableListener
             held?.close()
             held = img
-            heldAt = SystemClock.uptimeMillis()
+            heldAt = composedAt(img)
         }, handler)
         return r
+    }
+
+    /**
+     * The uptime the mirror composed [img] at: its timestamp, on the
+     * monotonic clock uptime counts by. Not when it came: one composed before
+     * the button or the shapes were hidden may come after, and would pass
+     * for one without them ([Capture.peekFrame], [Capture.cleanFrame]). Now,
+     * if the timestamp is none or of another clock.
+     */
+    private fun composedAt(img: Image): Long {
+        val now = SystemClock.uptimeMillis()
+        val t = img.timestamp / 1_000_000
+        return if (t in now - 5_000..now) t else now
     }
 
     /** On the capture thread: the screen turned or changed size. */

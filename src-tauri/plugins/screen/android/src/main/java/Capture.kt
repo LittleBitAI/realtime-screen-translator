@@ -36,7 +36,7 @@ object Capture {
     private var fresh = 0L
     private val frames = LinkedHashMap<Long, Bitmap>()
     private val thumbs = HashMap<Long, ByteArray>()
-    /** When the image of each frame came from the mirror (uptime ms). */
+    /** When the mirror composed the image of each frame (uptime ms, [CaptureService]). */
     private val arrived = HashMap<Long, Long>()
 
     /**
@@ -72,7 +72,7 @@ object Capture {
     /** By this long after the button was hidden, the mirror has sent the screen without it. */
     private const val SETTLE_MS = 50L
 
-    /** A new image from the mirror, which came at uptime [at]. */
+    /** A new image from the mirror, which it composed at uptime [at]. */
     fun onFrame(bmp: Bitmap, at: Long) {
         if (paused) return
         val thumb = thumbnail(bmp)
@@ -145,7 +145,10 @@ object Capture {
             if (hiddenAt == null) return null
             SystemClock.sleep(maxOf(0L, hiddenAt + SETTLE_MS - SystemClock.uptimeMillis()))
             CaptureService.flush()
-            return newestSince(hiddenAt) { it in aside }
+            // Composed after the hiding, and showing the shapes gone: one the
+            // mirror composed while the hiding was still on its way to the
+            // screen holds them, and would be saved as the page.
+            return newestSince(hiddenAt) { it in aside && frames[it]?.let(Overlay::shapesGone) == true }
         } finally {
             // However late the main thread shows them again, the window
             // closes only after it did.
@@ -154,7 +157,7 @@ object Capture {
     }
 
     /**
-     * The newest frame whose image came at [after] or later and passes [ok]
+     * The newest frame whose image was composed at [after] or later and passes [ok]
      * (by default: no longer shows the button), waiting for one.
      */
     private fun newestSince(after: Long, ok: (Long) -> Boolean = { buttonGone(delivered, it) }): JSObject? {

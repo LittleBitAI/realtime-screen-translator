@@ -39,7 +39,7 @@ fn frames_without_the_shapes_are_not_handed_on_as_the_screen() {
     let peek = body(&src, "peekFrame");
     let (from, hide) = (peek.find("asideFrom = SystemClock.uptimeMillis()").expect("no window opened"), peek.find("Overlay.hideShapesNow()").unwrap());
     assert!(from < hide, "the window opens after the shapes are hidden");
-    assert!(peek.contains("newestSince(hiddenAt) { it in aside }"), "the look takes a frame that may show the shapes");
+    assert!(peek.contains("newestSince(hiddenAt) { it in aside && frames[it]?.let(Overlay::shapesGone) == true }"), "the look takes a frame that may show the shapes");
     assert!(peek.contains("Overlay.restoreShapes { shownAt -> asideUntil = shownAt + SETTLE_MS }"), "the window closes before the shapes are back");
     assert!(body(&src, "repeatLast").contains("frames.keys.lastOrNull { it !in aside }"), "a frame without the shapes is repeated as the screen");
     assert!(body(&src, "clear").contains("aside.clear()"));

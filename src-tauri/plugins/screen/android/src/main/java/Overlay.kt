@@ -1,6 +1,7 @@
 package ai.littlebit.rst.screen
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -174,12 +175,73 @@ object Overlay {
     fun hideShapesNow(): Long? = hideOnMain {
         if (shapes.isNotEmpty() && !shapesHidden) {
             shapesHidden = true
+            seen = pointsOf(shapes)
             shapes.forEach { it.visibility = View.INVISIBLE }
             android.os.SystemClock.uptimeMillis()
         } else {
             null
         }
     }
+
+    /**
+     * Screen points (x, y pairs) of the shapes as they showed when they were
+     * hidden ([hideShapesNow]): their Korean (ink) and their white (fill).
+     * An image composed before the hiding reached the screen still shows
+     * them, however late it came ([shapesGone]).
+     */
+    @Volatile private var seen = Pair(IntArray(0), IntArray(0))
+
+    /** On the main thread: the ink and fill points of [views], a few dozen a side each. */
+    private fun pointsOf(views: List<ShapeView>): Pair<IntArray, IntArray> {
+        val ink = ArrayList<Int>()
+        val fill = ArrayList<Int>()
+        for (v in views) {
+            val s = v.shape ?: continue
+            if (s.w <= 0 || s.h <= 0) continue
+            val b = Bitmap.createBitmap(s.w, s.h, Bitmap.Config.ARGB_8888)
+            v.draw(Canvas(b))
+            val step = maxOf(1, maxOf(s.w, s.h) / 48)
+            for (y in 0 until s.h step step) for (x in 0 until s.w step step) {
+                val c = b.getPixel(x, y)
+                // Only what the shape covers wholly: not its rounded corners
+                // nor the soft edges of its letters.
+                if (Color.alpha(c) != 255) continue
+                val l = luma(c)
+                val to = if (l < 64) ink else if (l > 230) fill else continue
+                to.add(s.x + x)
+                to.add(s.y + y)
+            }
+            b.recycle()
+        }
+        return Pair(ink.toIntArray(), fill.toIntArray())
+    }
+
+    /**
+     * Whether [frame] no longer shows the shapes hidden last: it does while
+     * most of their Korean is dark there and most of their white is light
+     * (as opaque as they are drawn, or 80%). Under them the page is the
+     * Japanese, much less ink at those points, or a darker picture. With no
+     * Korean to tell by, the timing alone ([Capture.peekFrame]) decides.
+     */
+    fun shapesGone(frame: Bitmap): Boolean {
+        val (ink, fill) = seen
+        if (ink.isEmpty()) return true
+        fun share(points: IntArray, hit: (Int) -> Boolean): Double {
+            var n = 0
+            var yes = 0
+            for (i in points.indices step 2) {
+                val (x, y) = points[i] to points[i + 1]
+                if (x !in 0 until frame.width || y !in 0 until frame.height) continue
+                n += 1
+                if (hit(luma(frame.getPixel(x, y)))) yes += 1
+            }
+            return if (n == 0) 1.0 else yes.toDouble() / n
+        }
+        val shows = share(ink) { it < 128 } >= 2.0 / 3 && share(fill) { it > 180 } >= 2.0 / 3
+        return !shows
+    }
+
+    private fun luma(c: Int) = (Color.red(c) * 299 + Color.green(c) * 587 + Color.blue(c) * 114) / 1000
 
     /** Shows the shapes again; [then] is told the uptime they were back at, on the main thread. */
     fun restoreShapes(then: (Long) -> Unit) = main.post {
@@ -285,7 +347,8 @@ object Overlay {
 
     /** One placement: the white shape filling the window and the Korean centred in it. */
     private class ShapeView(ctx: Context) : View(ctx) {
-        private var shape: Shape? = null
+        var shape: Shape? = null
+            private set
         private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
         private val text = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
 

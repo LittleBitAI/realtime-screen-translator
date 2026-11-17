@@ -229,7 +229,7 @@ fn android_tells_of_a_tap_and_hides_the_shapes_for_a_look() {
     let capture = read("Capture.kt");
     let peek = &capture[capture.find("fun peekFrame()").expect("no peekFrame")..];
     let peek = &peek[..peek.find("\n    }\n").unwrap()];
-    for needle in ["Overlay.hideShapesNow()", "newestSince(hiddenAt) { it in aside }", "Overlay.restoreShapes {"] {
+    for needle in ["Overlay.hideShapesNow()", "newestSince(hiddenAt) { it in aside && frames[it]?.let(Overlay::shapesGone) == true }", "Overlay.restoreShapes {"] {
         assert!(peek.contains(needle), "peekFrame has no `{needle}`");
     }
     assert!(capture.contains("json.put(\"touched\", settled)"), "frames do not carry the touch");
