@@ -836,11 +836,23 @@ impl Backend {
         let mut result = CropsOut { placed: vec![], pending: 0, skipped_effects: 0, discarded: 0 };
         let mut jobs: Vec<Job> = vec![];
         let now = now_ms();
+        // A crop that fails does not hold up the rest: what was queued before
+        // it is asked for all the same (it is pending, and the same crop sent
+        // again only waits for that answer), and its own rows are looked at
+        // again later (on a scroll, the page's return, or after a while).
+        let mut failed = None;
         for c in req.crops {
-            take_crop(st, req.picture_id, c, (req.frame_seq, offset), now, &mut result, &mut jobs)?;
+            let rows = (c.y as i64 + offset, c.y as i64 + c.h as i64 + offset);
+            if let Err(e) = take_crop(st, req.picture_id, c, (req.frame_seq, offset), now, &mut result, &mut jobs) {
+                eprintln!("crop of picture {} at rows {rows:?}: {e}", req.picture_id);
+                if let Some(pic) = st.session.as_mut().and_then(|s| s.pics.get_mut(&req.picture_id)) {
+                    pic.failed(rows, now);
+                }
+                failed.get_or_insert(e);
+            }
         }
         self.send_jobs(guard, key, jobs);
-        Ok(result)
+        failed.map_or(Ok(result), Err)
     }
 
     fn send_jobs(&self, guard: MutexGuard<'_, State>, key: String, jobs: Vec<Job>) {
