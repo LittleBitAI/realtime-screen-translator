@@ -4,7 +4,7 @@
 
 ## 첫 화면 S1 `/`
 
-실시간 화면 인식 번역을 켜고 끄며, 지금 켜져 있는지와 키·권한·캡처에 문제가 없는지 한눈에 보는 첫 화면입니다. 권한이 없으면 여기서 바로 허용합니다.
+Since 2026-11-17 (the in-app reader, see `backend.md`), S1 opens a manga page by its address in the app's reader. The Korean is attached to the page pictures there, so S1 has no on/off switch and no permissions to ask. S1 shows the address field with recent addresses, plus a status card: key, source language with a link to S3, Gemini requests since the app opened, and any notice. The browser build says that only the installed app can open sites. The screenshots below are from before this change.
 
 ![S1 desktop](shots/S1-desktop.png)
 ![S1 phone](shots/S1-phone.png)
@@ -13,10 +13,11 @@
 
 | 기능 | 주인이 고른 칸 | 놓인 화면 |
 | --- | --- | --- |
-| 실시간 화면 인식 번역 켜고 끄기 (`toggle-translation`) | 늘 쓴다 | S1 |
+| Open a manga page in the reader (`open-site`) | 늘 쓴다 | S1 |
 | 번역 상태와 안내 보기 (`translation-status`) | 늘 쓴다 | S1 |
-| 화면 캡처와 다른 앱 위에 표시 허용하기 (`request-permissions`) | 가끔 쓴다 | S1 |
+| Translation on/off, back to the app (`번역 켜짐/꺼짐`, `앱`) | 늘 쓴다 | reader toolbar, bottom left of the opened page |
 | Gemini API 키 넣기 (`set-gemini-key`) | 드물게 쓴다 | S3 |
+| Source language, Japanese or English (`set-source-lang`) | 드물게 쓴다 | S3 |
 | 스크롤과 슬라이딩 트래킹 (`track-screen`) | 화면에 없다 | 없음 |
 | 말풍선 위에 번역 띄우기 (`translate-balloons`) | 화면에 없다 | 없음 |
 | 읽은 화면을 번역본에 담기 (`save-strips`) | 화면에 없다 | 없음 |
@@ -31,6 +32,8 @@
 ![S2 phone](shots/S2-phone.png)
 
 ### S3 `/options` — 자기 Gemini API 키를 넣거나 바꾸거나 지우는 설정 화면입니다.
+
+S3 also holds the reader's source language (일본어 / 영어). A change that fails to save goes back to the previous choice.
 
 ![S3 desktop](shots/S3-desktop.png)
 ![S3 phone](shots/S3-phone.png)

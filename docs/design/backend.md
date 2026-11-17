@@ -120,6 +120,23 @@ erDiagram
 | P9 | POST | `/strips` | P6이 저장하라고 알려 준 범위의 깨끗한 화면 그림을 받아 앱 전용 폴더에 띠 파일로 저장하고, 번역본 그림에 이어 붙일 자리를 기록한다. 이미 저장한 범위와 스크롤해도 움직이지 않는 부분은 받지 않는다. |
 | P10 | GET | `/books` | 기기에 저장된 번역본을 새것부터 늘어놓고, 번역본마다 그림 수와 그림별 종류, 크기, 미리보기 경로를 돌려준다. |
 | P11 | POST | `/books/{book_id}/export` | 번역본의 그림마다 띠를 차례로 이어 붙이고 번역 자리에 흰 shape과 한국어를 그려 넣은 그림 파일을 지어, Android에서는 갤러리에, Windows에서는 내려받기 폴더에 저장한다. |
+| P12 | POST | `/reader/page` | Tauri command `post_reader_page`, called only by the reader's page script: translates one page picture of the opened site once per source language and keeps it in a book (see "In-app reader"). |
+| P13 | PUT | `/settings/source-lang` | Stores the reader's source language, `ja` or `en`; anything else is `bad_lang`. |
+
+## In-app reader (replaces screen capture in the app's screens)
+
+Chosen by the person on 2026-11-17, after screen capture kept cancelling translations on a real site (mangafire). The idea follows video-translate-overlay: translate the content itself and attach the result to it, instead of reading pixels off the screen and chasing them.
+
+- **Opening a site.** S1 takes an address. On Android the main window navigates to it; on the PC it opens in a second window, `site`. Both run `src-tauri/src/reader.js` on every page; the app's own pages carry `<meta name="rst-app">` and are skipped. Only `http`, `https` and the app's own schemes may load, `window.open` returns nothing, and links to other hosts with a `target` are ignored, so an ad's pop-under cannot replace the manga page.
+- **Remote IPC.** `capabilities/reader.json` lets remote pages call only `post_reader_page` and `post_reader_close`. Every other command (the key, export, settings) stays reachable only from the app's own pages (`capabilities/default.json`). `build.rs` lists the commands so Tauri generates their `allow-*` permissions.
+- **Finding pages.** The script takes every loaded `<img>` at least 300 px in its own pixels and 120 px on screen, nearest the view first, up to 1.5 screens ahead, two at a time. It sends the bytes when the page can read them (CORS), or else only the address; the app then fetches the address itself, with the site's origin as Referer, http(s) only and at most 20 MB.
+- **One request per page.** The backend sends the whole page to Gemini 3.1 Flash Lite once (safety settings `OFF`, prefill `{"items":[`). It asks for each balloon's text box, balloon box, source text and Korean, in reading order (right to left for Japanese, left to right for English). Sound effects, signs and on-screen text are left out. A garbled answer or a dropped connection is retried once by the script.
+- **Never twice.** A page is keyed by `sha256(bytes):lang` in the `ReaderPage` table. A known key answers from the library with no Gemini request, so going back, reopening the chapter or a site recreating its `<img>` costs nothing.
+- **Shapes.** The cover starts at Gemini's text box, pushed out 6% (at least 4 px) because those boxes run short of the letters. It grows toward the balloon's inner 60% rectangle, but by no more than 35% of the text's size so a balloon box drawn too large does not cover the art, and it stays inside balloon ∪ text. `layout::fit_within` then sizes the Korean.
+- **Drawing.** The script puts a layer as a sibling of each `<img>`, sized to its box, with the shapes in percentages. Shapes therefore scroll, slide and zoom with the picture; scroll and slide need no separate tracking in the reader. The browser's line breaks differ from `layout`, so the font steps down until the text fits (never below 7 px; at 7 px the shape grows down instead). The 번역 켜짐/꺼짐 button hides every layer, a tap on a shape shows the original under it, and 앱 returns to S1.
+- **Library.** Each site page is one book named after the page title, each picture one `Picture` with its file, strip, translations and placements, so S2 lists and exports reader books like any other.
+- **Kept, not reachable.** The capture pipeline (P1–P11, the Kotlin plugin, the Windows overlay) stays in the backend under its contract tests. The app's screens no longer start it.
+- **Known limits.** If Gemini leaves a whole line out of a text box, that line's source shows below the shape (seen once on chapter 54, page 22). Pages drawn on a `<canvas>` instead of an `<img>` are not found.
 
 ## 시나리오와 확인할 테스트
 
@@ -150,9 +167,9 @@ erDiagram
 - **R32** 스크롤로 읽다가 번역을 끄거나 화면이 통째로 다른 그림으로 바뀌면 이어 붙이던 한 장이 거기서 끝나고, 다시 스크롤하면 새 그림이 시작된다. → `test_stop_and_start_opens_new_picture`, `test_fixed_band_is_not_repeated`, `test_page_change_closes_stitched_picture`
 - **R6** 대표 용도는 일본 만화를 한국어로 실시간 번역하는 일이다. (지켜야 할 조건, 시나리오 아님)
 - **R8** 번역 모델은 Gemini 3.1 Flash Lite를 쓰고, 크롭에서 일본어 원문을 읽는 일도 같은 모델이 맡는다. (지켜야 할 조건, 시나리오 아님)
-- **R14** 앱 안 뷰어와 웹 브라우저에서 여는 형태는 만들지 않는다. 만화는 원래 보던 앱이나 인터넷 사이트에서 그대로 읽는다. (지켜야 할 조건, 시나리오 아님)
-- **R16** 일본어에서 한국어로 옮기는 것 말고 다른 언어 쌍 번역은 첫 버전에서 만들지 않는다. (지켜야 할 조건, 시나리오 아님)
-- **R17** 인터넷 사이트 만화를 주소로 가져오거나 북마클릿으로 번역을 얹는 길은 만들지 않는다. (지켜야 할 조건, 시나리오 아님)
+- **R14** ~~앱 안 뷰어와 웹 브라우저에서 여는 형태는 만들지 않는다.~~ Replaced on 2026-11-17 by the person's choice of the in-app reader (see "In-app reader"): screen capture kept cancelling translations on a real site.
+- **R16** ~~일본어에서 한국어로 옮기는 것 말고 다른 언어 쌍 번역은 첫 버전에서 만들지 않는다.~~ English → Korean was added on 2026-11-17 at the person's request (the test chapter is the English edition); the source language is picked in S3 (P13).
+- **R17** ~~인터넷 사이트 만화를 주소로 가져오는 길은 만들지 않는다.~~ Replaced on 2026-11-17: the reader opens a site by its address. Bookmarklets are still not made.
 - **R18** 기기에 있는 만화 그림 파일이나 ZIP 묶음을 앱에서 여는 기능은 만들지 않는다. (지켜야 할 조건, 시나리오 아님)
 - **R21** 기기 간 번역 기록 동기화는 첫 버전에서 만들지 않는다. (지켜야 할 조건, 시나리오 아님)
 

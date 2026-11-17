@@ -41,6 +41,9 @@
                     "gemini_requests": {
                       "description": "u32"
                     },
+                    "source_lang": {
+                      "description": "ja | en (the language the reader translates from, P13)"
+                    },
                     "notice": {
                       "description": "key_invalid | capture_blocked | gemini_unreachable | detector_missing | null"
                     }
@@ -83,6 +86,101 @@
                     },
                     "key_tail": {
                       "description": "string | null"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/source-lang": {
+      "put": {
+        "operationId": "P13",
+        "summary": "리더가 옮길 원문 언어(일본어 ja 또는 영어 en)를 이 기기에 저장한다. 다른 값은 bad_lang으로 거절한다. 같은 그림이라도 언어마다 따로 번역해 둔다.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "lang": {
+                    "description": "ja | en"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "lang": {
+                      "description": "ja | en"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reader/page": {
+      "post": {
+        "operationId": "P12",
+        "summary": "앱 안 리더가 연 만화 사이트의 페이지 그림 한 장을 번역한다(Tauri 명령 post_reader_page, 리더 스크립트만 부른다). 그림 바이트가 없으면 앱이 src를 그 사이트를 Referer로 받아 온다. 그림의 sha256과 원문 언어가 같은 페이지는 Gemini에 다시 보내지 않고 번역본에서 돌려준다. 처음 보는 페이지는 Gemini 3.1 Flash Lite에 한 번 보내(안전 설정 OFF, 프리필) 말풍선마다 글자 자리, 말풍선 자리, 원문, 한국어를 받고, 효과음·간판·화면 글자는 빼며, 사이트 페이지 하나를 번역본 하나로 저장한다. 오류: key_missing, key_invalid, gemini_unreachable, gemini_unreadable, image_unreachable, bad_image.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "src": {
+                    "description": "string (the picture's address)"
+                  },
+                  "image": {
+                    "description": "base64 string | null (the picture's bytes, when the page could read them)"
+                  },
+                  "page_url": {
+                    "description": "string (the site page: one book per page)"
+                  },
+                  "title": {
+                    "description": "string (the book's name)"
+                  },
+                  "index": {
+                    "description": "u32 (the picture's place on the site page)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "width": {
+                      "description": "u32 (the picture's own pixels)"
+                    },
+                    "height": {
+                      "description": "u32"
+                    },
+                    "saved": {
+                      "description": "bool (true: from the library, no Gemini request)"
+                    },
+                    "boxes": {
+                      "description": "[{x, y, w, h, radius, font_px, ko}] in the picture's own pixels: white shapes over each balloon's text, kept inside the balloon"
                     }
                   }
                 }
