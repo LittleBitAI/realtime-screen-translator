@@ -61,6 +61,9 @@ impl Backend {
         drop(img);
         let hash: String = Sha256::digest(&bytes).iter().map(|b| format!("{b:02x}")).collect();
         let page_key = format!("{hash}:{lang}");
+        // Two copies of one picture read at once: the second waits here for
+        // the first's answer instead of sending the page again.
+        let _turn = self.pages.turn(&page_key);
         // Bound first: an `if let` would hold the lock through `saved_page`.
         let known = store::reader_page(&self.lock().db, &page_key)?;
         if let Some(id) = known {
@@ -68,41 +71,15 @@ impl Backend {
         }
 
         let model = self.lock().model.clone();
-        let agent = gemini::agent();
-        let client = gemini::Client { agent: &agent, base: &self.gemini_base, model: &model, key: &key };
-        let may_send = || {
-            self.lock().gemini_requests += 1;
-            true
-        };
-        let items = match client.read_page(&bytes, mime, &lang, &may_send) {
-            Ok(items) => {
-                let mut st = self.lock();
-                if matches!(st.notice, Some("key_invalid" | "gemini_unreachable")) {
-                    st.notice = None;
-                }
-                items
-            }
-            Err(e) => {
-                let code = match e {
-                    GeminiError::KeyInvalid => "key_invalid",
-                    GeminiError::Unreadable => "gemini_unreadable",
-                    GeminiError::Unreachable | GeminiError::Cancelled => "gemini_unreachable",
-                };
-                if code != "gemini_unreadable" {
-                    self.lock().notice = Some(code);
-                }
-                return Err(ApiError(code));
-            }
+        let items = match self.pages.unsaved(&page_key) {
+            // Read before, but not kept: only the saving is tried again.
+            Some(items) => items,
+            None => self.ask_page(&bytes, mime, &lang, &model, &key)?,
         };
         let boxes: Vec<PageBox> = items.iter().map(|it| shape(it, w, h)).collect();
 
         let mut guard = self.lock();
         let st = &mut *guard;
-        // Read twice at once (two copies of one picture on the page): the first kept wins.
-        if let Some(id) = store::reader_page(&st.db, &page_key)? {
-            drop(guard);
-            return self.saved_page(id, w, h);
-        }
         let now = now_ms();
         let ext = mime.trim_start_matches("image/");
         let mut written = None;
@@ -136,20 +113,116 @@ impl Backend {
             tx.commit()?;
             Ok(())
         })();
-        if let Err(e) = saved {
-            // Shown anyway: only keeping it for next time failed.
-            if let Some(p) = written {
-                let _ = std::fs::remove_file(p);
+        drop(guard);
+        let save_error = match saved {
+            Ok(()) => {
+                self.pages.forget(&page_key);
+                None
             }
-            eprintln!("reader: page not saved: {e}");
+            Err(e) => {
+                // Shown anyway, and told: the answer waits in memory for the
+                // same call to save it again.
+                if let Some(p) = written {
+                    let _ = std::fs::remove_file(p);
+                }
+                eprintln!("reader: page not saved: {}", e.0);
+                self.pages.keep(&page_key, items);
+                Some(e.0)
+            }
+        };
+        Ok(PageOut { width: w, height: h, saved: false, boxes, save_error })
+    }
+
+    /// One Gemini request for the whole page (R9, R10 in `gemini::read_page`).
+    fn ask_page(&self, bytes: &[u8], mime: &str, lang: &str, model: &str, key: &str) -> ApiResult<Vec<PageItem>> {
+        let agent = gemini::agent();
+        let client = gemini::Client { agent: &agent, base: &self.gemini_base, model, key };
+        let may_send = || {
+            self.lock().gemini_requests += 1;
+            true
+        };
+        match client.read_page(bytes, mime, lang, &may_send) {
+            Ok(items) => {
+                let mut st = self.lock();
+                if matches!(st.notice, Some("key_invalid" | "gemini_unreachable")) {
+                    st.notice = None;
+                }
+                Ok(items)
+            }
+            Err(e) => {
+                let code = match e {
+                    GeminiError::KeyInvalid => "key_invalid",
+                    GeminiError::Unreadable => "gemini_unreadable",
+                    GeminiError::Unreachable | GeminiError::Cancelled => "gemini_unreachable",
+                };
+                if code != "gemini_unreadable" {
+                    self.lock().notice = Some(code);
+                }
+                Err(ApiError(code))
+            }
         }
-        Ok(PageOut { width: w, height: h, saved: false, boxes })
     }
 
     fn saved_page(&self, picture_id: i64, width: u32, height: u32) -> ApiResult<PageOut> {
         let rows = store::placements(&self.lock().db, picture_id)?;
         let boxes = rows.into_iter().map(|p| PageBox { x: p.x, y: p.y, w: p.w, h: p.h, radius: p.radius, font_px: p.font_px, ko: p.ko }).collect();
-        Ok(PageOut { width, height, saved: true, boxes })
+        Ok(PageOut { width, height, saved: true, boxes, save_error: None })
+    }
+}
+
+/// P12's pages in flight: one read per page key at a time, and the answers
+/// whose saving failed, kept until saving them works.
+#[derive(Default)]
+pub(crate) struct Pages {
+    state: Mutex<PagesState>,
+    done: std::sync::Condvar,
+}
+
+#[derive(Default)]
+struct PagesState {
+    busy: std::collections::HashSet<String>,
+    // ponytail: unbounded, but only pages whose saving failed (a full or
+    // locked disk) land here, each a few hundred bytes of text.
+    unsaved: HashMap<String, Vec<PageItem>>,
+}
+
+/// The right to read one page key; giving it up wakes the copies waiting.
+pub(crate) struct Turn<'a> {
+    pages: &'a Pages,
+    key: String,
+}
+
+impl Pages {
+    fn lock(&self) -> MutexGuard<'_, PagesState> {
+        self.state.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    fn turn(&self, key: &str) -> Turn<'_> {
+        let mut st = self.lock();
+        while st.busy.contains(key) {
+            st = self.done.wait(st).unwrap_or_else(|e| e.into_inner());
+        }
+        st.busy.insert(key.to_string());
+        Turn { pages: self, key: key.to_string() }
+    }
+
+    fn unsaved(&self, key: &str) -> Option<Vec<PageItem>> {
+        self.lock().unsaved.get(key).cloned()
+    }
+
+    fn keep(&self, key: &str, items: Vec<PageItem>) {
+        self.lock().unsaved.insert(key.to_string(), items);
+    }
+
+    fn forget(&self, key: &str) {
+        self.lock().unsaved.remove(key);
+    }
+}
+
+impl Drop for Turn<'_> {
+    fn drop(&mut self) {
+        self.pages.lock().busy.remove(&self.key);
+        self.pages.done.notify_all();
     }
 }
 

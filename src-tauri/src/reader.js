@@ -37,6 +37,9 @@
     gemini_unreadable: 'Gemini 답을 읽지 못했습니다. 그림을 눌러 다시 번역합니다.',
     image_unreachable: '이 사이트가 그림을 내주지 않습니다.',
     bad_image: '읽을 수 없는 그림입니다.',
+    storage_full: '기기 저장 공간이 모자라 번역본에 담지 못했습니다. 공간을 비우고 그림 위 버튼을 눌러 주세요.',
+    storage_denied: '앱이 저장 폴더에 쓰지 못해 번역본에 담지 못했습니다.',
+    internal: '번역본에 담지 못했습니다. 그림 위 버튼을 눌러 다시 저장합니다.',
   };
 
   function start() {
@@ -194,10 +197,20 @@
     try {
       const image = await bytes(p.src);
       const answer = await invoke('post_reader_page', { src: p.src, image, page_url: location.href, title: document.title, index: order(img) });
-      done.set(p.src, answer);
       p.state = 'done';
-      problem = null;
-      if (pics.get(img) === p) draw(img, p, answer);
+      problem = answer.save_error ? messages[answer.save_error] ?? messages.storage_full : null;
+      // Not kept in the library: drawn, but asked again so the app saves it.
+      if (!answer.save_error) done.set(p.src, answer);
+      if (pics.get(img) === p) {
+        draw(img, p, answer);
+        if (answer.save_error) {
+          chip(img, p, '번역본에 저장 못 함 · 눌러서 다시 저장', () => {
+            p.state = 'new';
+            queue.add(img);
+            pump();
+          });
+        }
+      }
     } catch (e) {
       const code = typeof e === 'string' ? e : 'gemini_unreachable';
       // A garbled answer or a dropped connection usually passes the second time.

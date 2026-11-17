@@ -293,6 +293,8 @@ pub struct Backend {
     platform: Arc<dyn Platform>,
     data_dir: PathBuf,
     gemini_base: String,
+    // P12: the page keys being read now, and answers not yet kept.
+    pages: reader::Pages,
 }
 
 /// The parts of `r` outside `have` (sorted, disjoint), top to bottom.
@@ -424,6 +426,7 @@ impl Backend {
             platform,
             data_dir,
             gemini_base: gemini_base.unwrap_or_else(|| gemini::DEFAULT_BASE.to_string()),
+            pages: reader::Pages::default(),
         })
     }
 

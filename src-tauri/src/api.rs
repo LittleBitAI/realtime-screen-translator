@@ -268,4 +268,8 @@ pub struct PageOut {
     /// Answered from the saved translation, with no Gemini request.
     pub saved: bool,
     pub boxes: Vec<PageBox>,
+    /// Why the translation is not in the library (`storage_full`,
+    /// `storage_denied`, `internal`), or none once it is. The answer is kept
+    /// in memory, so the same call again saves it with no Gemini request.
+    pub save_error: Option<&'static str>,
 }

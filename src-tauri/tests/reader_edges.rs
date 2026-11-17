@@ -46,6 +46,10 @@ struct PageGemini {
 
 impl PageGemini {
     fn start() -> PageGemini {
+        PageGemini::answering_after(std::time::Duration::ZERO)
+    }
+    /// Each answer held back for `delay`, so readers sent at once overlap.
+    fn answering_after(delay: std::time::Duration) -> PageGemini {
         let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
         let url = format!("http://{}", server.server_addr().to_ip().unwrap());
         let bodies = Arc::new(Mutex::new(vec![]));
@@ -55,6 +59,7 @@ impl PageGemini {
                 let mut body = String::new();
                 let _ = req.as_reader().read_to_string(&mut body);
                 seen.lock().unwrap().push(serde_json::from_str(&body).unwrap_or(Value::Null));
+                std::thread::sleep(delay);
                 // The page's text at 20 %..30 % across, 15 %..25 % down, in a balloon around it.
                 let text = r#"{"box_2d":[150,200,250,300],"balloon_2d":[50,100,350,500],"src":"HELLO","ko":"안녕"}]}"#;
                 let answer = json!({"candidates": [{"content": {"role": "model", "parts": [{"text": text}]}}]});
@@ -135,4 +140,60 @@ fn a_page_is_translated_once_per_language_and_kept_as_a_book() {
 
     assert_eq!(read(&b, b"not a picture".to_vec()).err().as_deref(), Some("bad_image"));
     assert_eq!(gemini.count(), 2);
+}
+
+fn keyed(gemini: &PageGemini, dirs: &Dirs) -> Arc<Backend> {
+    let b = Backend::open(dirs.data.clone(), Some(gemini.url.clone()), Arc::new(Device(dirs.export.clone()))).unwrap();
+    b.put_key(realtime_screen_translator::api::KeyIn { key: TEST_KEY.into() }).unwrap();
+    Arc::new(b)
+}
+
+#[test]
+fn copies_of_one_page_read_at_once_send_it_to_gemini_once() {
+    // Each answer takes long enough that every copy is asked for while the
+    // first is still with Gemini.
+    let dirs = Dirs::new();
+    let gemini = PageGemini::answering_after(std::time::Duration::from_millis(400));
+    let b = keyed(&gemini, &dirs);
+    let copies: Vec<_> = (0..4)
+        .map(|_| {
+            let b = b.clone();
+            std::thread::spawn(move || read(&b, page()).unwrap())
+        })
+        .collect();
+    let answers: Vec<_> = copies.into_iter().map(|t| t.join().unwrap()).collect();
+    assert_eq!(gemini.count(), 1, "one page, one request");
+    assert_eq!(b.status().gemini_requests, 1);
+    assert!(answers.iter().all(|a| a.boxes == answers[0].boxes && a.save_error.is_none()));
+    assert_eq!(answers.iter().filter(|a| !a.saved).count(), 1, "the others came from the library");
+    let books = b.books(BooksIn { limit: 20, before: None }).unwrap().books;
+    assert_eq!(books[0].pictures.len(), 1, "kept once");
+}
+
+#[test]
+fn a_page_whose_saving_fails_says_so_and_is_saved_by_the_next_call_without_gemini() {
+    let dirs = Dirs::new();
+    let gemini = PageGemini::start();
+    let b = keyed(&gemini, &dirs);
+    // A file where the page folders go: the page cannot be kept.
+    let blocker = dirs.data.join("strips");
+    std::fs::write(&blocker, b"startup.rc").unwrap();
+
+    let failed = read(&b, page()).unwrap();
+    assert_eq!(failed.boxes.len(), 1, "the translation is still shown");
+    assert!(matches!(failed.save_error, Some("storage_full" | "storage_denied" | "internal")), "{:?}", failed.save_error);
+    assert!(b.books(BooksIn { limit: 20, before: None }).unwrap().books.is_empty(), "nothing half kept");
+
+    // Still blocked: told again, still no second request.
+    assert!(read(&b, page()).unwrap().save_error.is_some());
+    assert_eq!(gemini.count(), 1);
+
+    std::fs::remove_file(&blocker).unwrap();
+    let kept = read(&b, page()).unwrap();
+    assert_eq!((kept.save_error, &kept.boxes), (None, &failed.boxes));
+    assert_eq!(gemini.count(), 1, "saving again asks Gemini nothing");
+    let books = b.books(BooksIn { limit: 20, before: None }).unwrap().books;
+    assert_eq!(books.len(), 1);
+    assert_eq!(books[0].pictures.len(), 1);
+    assert!(read(&b, page()).unwrap().saved, "from the library from now on");
 }

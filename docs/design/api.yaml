@@ -181,6 +181,9 @@
                     },
                     "boxes": {
                       "description": "[{x, y, w, h, radius, font_px, ko}] in the picture's own pixels: white shapes over each balloon's text, kept inside the balloon"
+                    },
+                    "save_error": {
+                      "description": "storage_full | storage_denied | internal | null (why the translated page is not in the library; the answer stays in memory and the same call saves it again with no Gemini request)"
                     }
                   }
                 }
