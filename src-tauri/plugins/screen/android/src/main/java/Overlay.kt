@@ -78,6 +78,7 @@ object Overlay {
         }
         // Its window moves when the screen turns: measured again after every layout pass.
         b.viewTreeObserver.addOnGlobalLayoutListener { measureButton(b) }
+        if (inFront) b.visibility = View.GONE
         ctx.getSystemService(WindowManager::class.java).addView(b, lp)
         button = b
         showProbe(ctx)
@@ -163,7 +164,21 @@ object Overlay {
     private const val RUNNING = 1
     private const val CALLED_OFF = 2
 
-    fun restoreButton() = main.post { button?.visibility = View.VISIBLE }
+    fun restoreButton() = main.post { if (!inFront) button?.visibility = View.VISIBLE }
+
+    /**
+     * This app's own screens are in front ([ScreenPlugin.onResume]): they have
+     * their own on/off button, and the shapes belong to the reader's page,
+     * so neither shows over them until the reader goes back.
+     */
+    private var inFront = false
+
+    fun appInFront(front: Boolean) = main.post {
+        inFront = front
+        button?.visibility = if (front) View.GONE else View.VISIBLE
+        val shown = !front && !shapesHidden
+        shapes.forEach { it.visibility = if (shown) View.VISIBLE else View.INVISIBLE }
+    }
 
     /** While [Capture.peekFrame] looks under them: shapes, new ones too, stay hidden. */
     private var shapesHidden = false
@@ -246,7 +261,7 @@ object Overlay {
     /** Shows the shapes again; [then] is told the uptime they were back at, on the main thread. */
     fun restoreShapes(then: (Long) -> Unit) = main.post {
         shapesHidden = false
-        shapes.forEach { it.visibility = View.VISIBLE }
+        if (!inFront) shapes.forEach { it.visibility = View.VISIBLE }
         then(android.os.SystemClock.uptimeMillis())
     }
 
@@ -313,7 +328,7 @@ object Overlay {
             } else {
                 val v = ShapeView(host).also {
                     it.show(s)
-                    if (shapesHidden) it.visibility = View.INVISIBLE
+                    if (shapesHidden || inFront) it.visibility = View.INVISIBLE
                 }
                 wm.addView(v, lp)
                 shapes.add(v)

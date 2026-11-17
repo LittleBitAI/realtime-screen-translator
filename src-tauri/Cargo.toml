@@ -30,6 +30,7 @@ sha2 = "0.10"
 tauri = { version = "2.12.5", optional = true }
 tiny_http = "0.12"
 ureq = "3.5.2"
+zune-jpeg = "0.5"
 
 [target."cfg(windows)".dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_Security_Cryptography", "Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }

@@ -45,6 +45,8 @@ pub struct Status {
     pub overlay_allowed: bool,
     pub gemini_requests: u32,
     pub notice: Option<&'static str>,
+    /// The language the reader translates from (`ja` or `en`).
+    pub source_lang: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -224,4 +226,46 @@ pub struct ExportIn {
 pub struct ExportOut {
     pub files: Vec<String>,
     pub count: u32,
+}
+
+/// The language the reader translates from: `ja` or `en`.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct LangIn {
+    pub lang: String,
+}
+
+/// P12: one page picture of a site opened in the reader. `image` is the
+/// picture as the page loaded it; without it the backend fetches `src`.
+#[derive(Deserialize, Debug, Default)]
+pub struct PageIn {
+    pub src: String,
+    #[serde(default)]
+    pub image: Option<Vec<u8>>,
+    pub page_url: String,
+    #[serde(default)]
+    pub title: String,
+    /// Where the picture sits on the site page, so a book keeps reading order.
+    #[serde(default)]
+    pub index: i64,
+}
+
+/// A white shape and its Korean, in the page picture's own pixels.
+#[derive(Serialize, Debug, Clone, PartialEq)]
+pub struct PageBox {
+    pub x: i64,
+    pub y: i64,
+    pub w: u32,
+    pub h: u32,
+    pub radius: u16,
+    pub font_px: u16,
+    pub ko: String,
+}
+
+#[derive(Serialize, Debug)]
+pub struct PageOut {
+    pub width: u32,
+    pub height: u32,
+    /// Answered from the saved translation, with no Gemini request.
+    pub saved: bool,
+    pub boxes: Vec<PageBox>,
 }

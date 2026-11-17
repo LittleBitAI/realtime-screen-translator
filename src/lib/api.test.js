@@ -23,7 +23,7 @@ describe('api over HTTP', () => {
 
   it('calls a failed fetch unreachable', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('down'); }));
-    const e = await api.stop().catch((e) => e);
+    const e = await api.putSourceLang('en').catch((e) => e);
     expect(e).toBeInstanceOf(ApiError);
     expect(e.code).toBe('unreachable');
   });
@@ -35,12 +35,16 @@ describe('api over HTTP', () => {
     await api.books(7);
     await api.exportBook(3, 'webp');
     await api.putKey('k');
+    await api.putSourceLang('en');
     expect(f.mock.calls.map(([p, o]) => [o.method, p, o.body])).toEqual([
       ['GET', '/books?limit=20', undefined],
       ['GET', '/books?limit=20&before=7', undefined],
       ['POST', '/books/3/export', '{"format":"webp"}'],
       ['PUT', '/settings/gemini-key', '{"key":"k"}'],
+      ['PUT', '/settings/source-lang', '{"lang":"en"}'],
     ]);
+    // A browser cannot show another site with the translation on it.
+    expect(api.canOpenSites()).toBe(false);
     expect(await api.previewSrc('strips/1/0-5.webp')).toBe('/files/strips/1/0-5.webp');
     // The backend gives the strip's full path in the data folder.
     expect(await api.previewSrc('\\\\?\\C:\\data\\strips\\2\\0-9.webp')).toBe('/files/strips/2/0-9.webp');

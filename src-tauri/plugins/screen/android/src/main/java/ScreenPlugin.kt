@@ -106,6 +106,24 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
         put("overlay", overlayReady())
     }
 
+    /**
+     * This app's own screens came to the front or left it: while they show,
+     * nothing is captured, and the floating button and the shapes step aside
+     * (the screens have their own on/off button).
+     */
+    private fun front(shown: Boolean) {
+        Capture.appInFront = shown
+        Overlay.appInFront(shown)
+    }
+
+    override fun onResume() = front(true)
+
+    override fun onPause() = front(false)
+
+    private fun resumedNow(): Boolean =
+        (activity as? androidx.lifecycle.LifecycleOwner)?.lifecycle?.currentState
+            ?.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) == true
+
     @Command
     fun permissions(invoke: Invoke) {
         invoke.resolve(state())
@@ -182,6 +200,8 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.reject("permission_required")
             return
         }
+        // The first resume can come before this plugin was loaded.
+        front(resumedNow())
         Overlay.showButton(activity.applicationContext)
         Overlay.showLayer(activity.applicationContext)
         Overlay.setOn(true)

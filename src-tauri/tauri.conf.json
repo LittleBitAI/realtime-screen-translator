@@ -10,14 +10,7 @@
     "beforeBuildCommand": "pnpm build"
   },
   "app": {
-    "windows": [
-      {
-        "label": "main",
-        "title": "실시간 화면 번역",
-        "width": 420,
-        "height": 760
-      }
-    ],
+    "windows": [],
     "security": { "csp": null }
   },
   "bundle": {

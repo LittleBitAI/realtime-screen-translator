@@ -1,7 +1,25 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window and overlay: app commands and placement events.",
+  "description": "The app's own screens and the overlay: every app command and placement events.",
+  "local": true,
   "windows": ["main", "overlay"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "allow-get-status",
+    "allow-put-settings-gemini-key",
+    "allow-post-permissions-request",
+    "allow-post-translation-start",
+    "allow-post-translation-stop",
+    "allow-post-frames",
+    "allow-post-crops",
+    "allow-get-placements",
+    "allow-post-strips",
+    "allow-get-books",
+    "allow-post-books-export",
+    "allow-get-preview",
+    "allow-put-settings-source-lang",
+    "allow-post-reader-open",
+    "allow-post-reader-close"
+  ]
 }

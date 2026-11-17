@@ -67,6 +67,14 @@ CREATE TABLE IF NOT EXISTS Placement (
     radius INTEGER NOT NULL,
     font_px INTEGER NOT NULL
 );
+-- A page the reader translated: `key` is the picture's SHA-256 and the
+-- source language, so the same page is never sent to Gemini twice.
+CREATE TABLE IF NOT EXISTS ReaderPage (
+    key TEXT PRIMARY KEY,
+    picture_id INTEGER NOT NULL REFERENCES Picture(id),
+    page_url TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ReaderPage_url ON ReaderPage(page_url);
 CREATE INDEX IF NOT EXISTS Picture_book ON Picture(book_id, seq);
 CREATE INDEX IF NOT EXISTS Strip_picture ON Strip(picture_id, y_start);
 CREATE INDEX IF NOT EXISTS Placement_picture ON Placement(picture_id);
@@ -248,6 +256,33 @@ pub fn placements(db: &Db, picture_id: i64) -> Res<Vec<PlacementRow>> {
         })
     })?;
     rows.collect()
+}
+
+// ---- ReaderPage
+
+/// The picture a page with this key was saved as, if it was.
+pub fn reader_page(db: &Db, key: &str) -> Res<Option<i64>> {
+    db.query_row("SELECT picture_id FROM ReaderPage WHERE key = ?1", [key], |r| r.get(0)).optional()
+}
+
+/// The book of the site page `page_url`, if one of its pictures was saved.
+pub fn reader_book(db: &Db, page_url: &str) -> Res<Option<i64>> {
+    db.query_row(
+        "SELECT p.book_id FROM ReaderPage r JOIN Picture p ON p.id = r.picture_id WHERE r.page_url = ?1 LIMIT 1",
+        [page_url],
+        |r| r.get(0),
+    )
+    .optional()
+}
+
+pub fn insert_reader_page(db: &Db, key: &str, picture_id: i64, page_url: &str) -> Res<()> {
+    db.execute("INSERT INTO ReaderPage (key, picture_id, page_url) VALUES (?1, ?2, ?3)", params![key, picture_id, page_url])?;
+    Ok(())
+}
+
+pub fn set_picture_seq(db: &Db, id: i64, seq: i64) -> Res<()> {
+    db.execute("UPDATE Picture SET seq = ?1 WHERE id = ?2", params![seq, id])?;
+    Ok(())
 }
 
 #[derive(Clone, Debug)]

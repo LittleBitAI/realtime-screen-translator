@@ -71,7 +71,7 @@ impl Platform for Browser {
 /// The HTTP status an error code of the design is answered with.
 fn status_of(code: &str) -> u16 {
     match code {
-        "bad_request" | "key_format" | "bad_frame" | "bad_image" | "bad_format" | "stale_seq" | "frame_unknown" => 400,
+        "bad_request" | "key_format" | "bad_frame" | "bad_image" | "bad_format" | "stale_seq" | "frame_unknown" | "bad_lang" => 400,
         "storage_denied" => 403,
         "not_found" => 404,
         "key_missing" | "permission_required" | "capture_unsupported" | "not_on" | "already_on" | "picture_closed" | "already_covered" | "empty_book" => 409,
@@ -120,6 +120,7 @@ fn content_type(path: &Path) -> &'static str {
         "svg" => "image/svg+xml",
         "png" => "image/png",
         "webp" => "image/webp",
+        "jpeg" | "jpg" => "image/jpeg",
         "ico" => "image/x-icon",
         "json" => "application/json",
         "woff2" => "font/woff2",
@@ -141,6 +142,7 @@ fn api(b: &Backend, device: &Browser, method: &Method, path: &str, q: &str, raw:
         }
         (Get, "/status") => reply(Ok(b.status())),
         (Put, "/settings/gemini-key") => reply(body(raw).and_then(|k| b.put_key(k))),
+        (Put, "/settings/source-lang") => reply(body(raw).and_then(|l| b.put_source_lang(l))),
         (Post, "/permissions/request") => reply(Ok(b.request_permissions())),
         (Post, "/translation/start") => reply(b.start()),
         (Post, "/translation/stop") => reply(b.stop()),

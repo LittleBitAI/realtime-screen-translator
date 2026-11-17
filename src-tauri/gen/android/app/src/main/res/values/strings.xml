@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">"realtime-screen-translator"</string>
-    <string name="main_activity_title">"realtime-screen-translator"</string>
+    <string name="app_name">"실시간 화면 번역"</string>
+    <string name="main_activity_title">"실시간 화면 번역"</string>
 </resources>

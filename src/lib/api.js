@@ -47,9 +47,10 @@ async function call(cmd, args, method, path, body) {
 export const api = {
   status: () => call('get_status', {}, 'GET', '/status'),
   putKey: (key) => call('put_settings_gemini_key', { key }, 'PUT', '/settings/gemini-key', { key }),
-  requestPermissions: () => call('post_permissions_request', {}, 'POST', '/permissions/request'),
-  start: () => call('post_translation_start', {}, 'POST', '/translation/start'),
-  stop: () => call('post_translation_stop', {}, 'POST', '/translation/stop'),
+  putSourceLang: (lang) => call('put_settings_source_lang', { lang }, 'PUT', '/settings/source-lang', { lang }),
+  /** Only the installed app can show another site with the translation on it (P12). */
+  canOpenSites: inTauri,
+  openSite: (url) => call('post_reader_open', { url }, 'POST', '/reader/open', { url }),
   books: (before = null) =>
     call('get_books', { limit: 20, before }, 'GET', before == null ? '/books?limit=20' : `/books?limit=20&before=${before}`),
   exportBook: (bookId, format) =>

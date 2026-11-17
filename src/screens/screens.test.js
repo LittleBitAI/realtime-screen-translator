@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { api, ApiError } from '../lib/api.js';
 import Home from './Home.svelte';
 import Library from './Library.svelte';
@@ -12,9 +12,9 @@ vi.mock('../lib/api.js', async (real) => {
     api: {
       status: vi.fn(),
       putKey: vi.fn(),
-      requestPermissions: vi.fn(),
-      start: vi.fn(),
-      stop: vi.fn(),
+      putSourceLang: vi.fn(),
+      canOpenSites: vi.fn(() => true),
+      openSite: vi.fn(),
       books: vi.fn(),
       exportBook: vi.fn(),
       previewSrc: vi.fn(async (p) => `/files/${p}`),
@@ -25,14 +25,11 @@ vi.mock('../lib/api.js', async (real) => {
 });
 
 const off = {
-  on: false,
-  mode: null,
   key_set: false,
   key_tail: null,
-  capture_allowed: false,
-  overlay_allowed: false,
   notice: null,
   gemini_requests: 0,
+  source_lang: 'ja',
 };
 const never = () => new Promise(() => {});
 const failing = async () => {
@@ -40,29 +37,34 @@ const failing = async () => {
 };
 const feature = (id) => document.querySelectorAll(`[data-feature="${id}"]`);
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  api.canOpenSites.mockReturnValue(true);
+  localStorage.clear();
+});
 afterEach(cleanup);
 
 describe('S1 Home', () => {
-  it('loading: grey bars and a locked toggle', () => {
+  const typeUrl = (value) => fireEvent.input(screen.getByLabelText('주소'), { target: { value } });
+  const openBar = () => feature('open-site')[0];
+
+  it('loading: grey bars, and nothing to open before an address', () => {
     api.status.mockImplementation(never);
     render(Home);
-    expect(feature('toggle-translation')[0].disabled).toBe(true);
+    expect(openBar().disabled).toBe(true);
     expect(screen.getByText('상태를 읽는 중입니다.')).toBeTruthy();
-    // Not yet known, so neither 켜짐 nor 꺼짐.
-    expect(screen.getByText('상태 확인 중')).toBeTruthy();
-    expect(screen.queryByText('번역 꺼짐')).toBeNull();
   });
 
-  it('empty: no key, no permissions, asks for the key first', async () => {
+  it('empty: no key, asks for the key first and opens nothing', async () => {
     api.status.mockResolvedValue(off);
     render(Home);
-    await screen.findByText('번역을 켜려면 Gemini API 키를 먼저 넣어 주세요.');
-    expect(screen.getAllByText('없음').length).toBeGreaterThanOrEqual(4);
+    await screen.findByText('번역하려면 Gemini API 키를 먼저 넣어 주세요.');
+    expect(screen.getByText('없음')).toBeTruthy();
     expect(screen.getByRole('link', { name: '설정으로 가기' }).getAttribute('href')).toBe('/options');
-    await fireEvent.click(feature('toggle-translation')[0]);
+    await typeUrl('https://example.com/manga/1');
+    await fireEvent.click(openBar());
     await screen.findByText(/키가 없습니다/);
-    expect(api.start).not.toHaveBeenCalled();
+    expect(api.openSite).not.toHaveBeenCalled();
   });
 
   it('error: a 500 says so and offers to read again', async () => {
@@ -70,73 +72,51 @@ describe('S1 Home', () => {
     render(Home);
     await screen.findByText(/상태를 읽지 못했습니다/);
     expect(screen.getByRole('button', { name: '다시 읽기' })).toBeTruthy();
-    expect(screen.getByText('상태를 알 수 없음')).toBeTruthy();
-    expect(screen.queryByText('번역 꺼짐')).toBeNull();
     // Every unread value is a dash, not a loading bar.
-    expect(screen.getAllByText('—').length).toBe(6);
+    expect(screen.getAllByText('—').length).toBe(3);
   });
 
   it('error: a notice gives the reason and what to do', async () => {
-    api.status.mockResolvedValue({
-      ...off,
-      on: true,
-      key_set: true,
-      key_tail: 'abcd',
-      capture_allowed: true,
-      overlay_allowed: true,
-      notice: 'key_invalid',
-    });
+    api.status.mockResolvedValue({ ...off, key_set: true, key_tail: 'abcd', notice: 'key_invalid' });
     render(Home);
     await screen.findByText('Gemini API 키가 맞지 않습니다.');
     expect(screen.getByText('설정에서 키를 다시 넣어 주세요.')).toBeTruthy();
   });
 
-  it('asks for the permissions before turning on, then starts', async () => {
-    let s = { ...off, key_set: true, key_tail: 'abcd' };
-    api.status.mockImplementation(async () => s);
-    api.requestPermissions.mockImplementation(async () => {
-      s = { ...s, capture_allowed: true, overlay_allowed: true };
-      return { capture_allowed: true, overlay_allowed: true };
-    });
-    api.start.mockImplementation(async () => {
-      s = { ...s, on: true, mode: 'scroll', gemini_requests: 3 };
-      return s;
-    });
+  it('full: opens the address in the reader and keeps it among the recent ones', async () => {
+    api.status.mockResolvedValue({ ...off, key_set: true, key_tail: 'abcd', source_lang: 'en', gemini_requests: 3 });
+    api.openSite.mockResolvedValue(null);
     render(Home);
-    // The toggle reads 번역 켜기 while loading too: wait for the status.
     await screen.findByText('끝 abcd');
-    await fireEvent.click(feature('toggle-translation')[0]);
-    await screen.findByText('번역 끄기');
-    expect(api.requestPermissions).toHaveBeenCalledOnce();
-    expect(api.start).toHaveBeenCalledOnce();
-    // full: on, the mode and the request count, the permissions collapsed.
-    expect(screen.getByText('번역 켜짐')).toBeTruthy();
-    expect(screen.getByText('스크롤')).toBeTruthy();
+    expect(screen.getByText('영어')).toBeTruthy();
     expect(screen.getByText('3번')).toBeTruthy();
-    expect(screen.getByText('권한 모두 허용됨').closest('details').open).toBe(false);
+    await typeUrl('https://example.com/manga/1');
+    await fireEvent.click(openBar());
+    await screen.findByRole('button', { name: 'https://example.com/manga/1' });
+    expect(api.openSite).toHaveBeenCalledWith('https://example.com/manga/1');
+    expect(JSON.parse(localStorage.getItem('rst-recent-sites'))).toEqual(['https://example.com/manga/1']);
   });
 
-  it('where capture is impossible (a browser), turning on says so and asks for nothing', async () => {
-    api.status.mockResolvedValue({ ...off, key_set: true, key_tail: 'abcd', capture_supported: false });
-    render(Home);
-    const why = /이 브라우저에서는 다른 앱의 화면을 읽거나 그 위에 번역을 띄울 수 없어/;
-    await screen.findByText(why);
-    expect(screen.getByRole('button', { name: '이 브라우저에서는 쓸 수 없음' }).disabled).toBe(true);
-    await fireEvent.click(feature('toggle-translation')[0]);
-    await screen.findByText('번역 꺼짐');
-    expect(screen.getAllByText(why).length).toBe(1);
-    expect(api.requestPermissions).not.toHaveBeenCalled();
-    expect(api.start).not.toHaveBeenCalled();
-  });
-
-  it('a refusal explains why and offers to allow again', async () => {
+  it('a wrong address is explained', async () => {
     api.status.mockResolvedValue({ ...off, key_set: true, key_tail: 'abcd' });
-    api.requestPermissions.mockResolvedValue({ capture_allowed: false, overlay_allowed: false });
+    api.openSite.mockRejectedValue(new ApiError('bad_url', 500));
     render(Home);
-    const ask = await screen.findByRole('button', { name: '권한 허용하기' });
-    await fireEvent.click(ask);
-    await screen.findByText(/허용하지 않으셨습니다/);
-    expect(screen.getByRole('button', { name: '권한 허용하기' }).disabled).toBe(false);
+    await screen.findByText('끝 abcd');
+    await typeUrl('not a site');
+    await fireEvent.click(openBar());
+    await screen.findByText(/주소가 맞지 않습니다/);
+  });
+
+  it('in a browser, opening says it needs the app and asks for nothing', async () => {
+    api.canOpenSites.mockReturnValue(false);
+    api.status.mockResolvedValue({ ...off, key_set: true, key_tail: 'abcd' });
+    render(Home);
+    const why = /브라우저에서는 다른 사이트를 이 화면 안에 열 수 없습니다/;
+    await screen.findByText(why);
+    await typeUrl('https://example.com/manga/1');
+    await fireEvent.click(openBar());
+    expect(screen.getAllByText(why).length).toBe(2);
+    expect(api.openSite).not.toHaveBeenCalled();
   });
 });
 
@@ -255,6 +235,23 @@ describe('S3 Options', () => {
     await fireEvent.click(screen.getByRole('button', { name: '저장' }));
     await screen.findByText(/키 모양이 맞지 않습니다/);
     expect(input.value).toBe('bad key');
+  });
+
+  it('chooses the language the manga is written in, and keeps the old one if saving fails', async () => {
+    api.status.mockResolvedValue(off);
+    api.putSourceLang.mockResolvedValueOnce({ lang: 'en' });
+    api.putSourceLang.mockRejectedValueOnce(new ApiError('internal', 500));
+    render(Options);
+    const ja = await screen.findByRole('radio', { name: /일본어/ });
+    await waitFor(() => expect(ja.checked).toBe(true));
+    const en = screen.getByRole('radio', { name: /영어/ });
+    await fireEvent.click(en);
+    await screen.findByText(/새로 여는 페이지부터 이 언어로 읽습니다/);
+    expect(api.putSourceLang).toHaveBeenLastCalledWith('en');
+    expect(en.checked).toBe(true);
+    await fireEvent.click(ja);
+    await screen.findByText(/바꾸지 못했습니다/);
+    expect(en.checked).toBe(true);
   });
 
   it('full: saves, then shows only the tail and can delete', async () => {

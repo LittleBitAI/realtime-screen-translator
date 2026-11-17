@@ -23,6 +23,11 @@ object Capture {
     @Volatile var alive = false
     /** Translation is off: frames are not delivered. */
     @Volatile var paused = true
+    /**
+     * This app's own screens are in front: they are not a page to translate
+     * or keep, so their frames are dropped until the reader goes back.
+     */
+    @Volatile var appInFront = false
 
     private const val KEEP = 3
     private const val THUMB_W = 96
@@ -74,7 +79,7 @@ object Capture {
 
     /** A new image from the mirror, which it composed at uptime [at]. */
     fun onFrame(bmp: Bitmap, at: Long) {
-        if (paused) return
+        if (paused || appInFront) return
         val thumb = thumbnail(bmp)
         synchronized(lock) {
             store(bmp, thumb, at)

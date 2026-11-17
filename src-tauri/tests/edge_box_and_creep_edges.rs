@@ -7,6 +7,7 @@ mod support;
 
 use realtime_screen_translator::api::{CropIn, CropsIn, FrameIn, FrameOut, KeyIn};
 use realtime_screen_translator::platform::{Permissions, Platform};
+use realtime_screen_translator::backend::OVERLAY_LAG;
 use realtime_screen_translator::Backend;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -167,10 +168,13 @@ fn a_text_area_cut_by_the_edge_gives_way_to_the_whole_one_a_scroll_shows() {
     let held = run.backend.crops(CropsIn { picture_id: g.picture_id, frame_seq: run.seq, crops: vec![crop(&whole, 1900)] }).unwrap();
     assert_eq!(held.pending, 1);
     assert!(run.backend.placements(Default::default()).unwrap().placements.is_empty(), "the cut translation stayed");
-    // The next frame was taken before the overlay was drawn again.
-    let h = run.send(scene.thumb(300, SCREEN_W, SCREEN_H));
-    assert!(h.placements.is_empty() && rows(&h), "the text area was not asked for again: {:?}", h.detect);
-    run.backend.crops(CropsIn { picture_id: h.picture_id, frame_seq: run.seq, crops: vec![crop(&whole, 1900)] }).unwrap();
+    // The next frames were taken before the capture caught up with the
+    // overlay drawn without the shape.
+    for k in 1..=OVERLAY_LAG {
+        let h = run.send(scene.thumb(300, SCREEN_W, SCREEN_H));
+        assert!(h.placements.is_empty() && rows(&h), "frame {k}: the text area was not asked for again: {:?}", h.detect);
+        run.backend.crops(CropsIn { picture_id: h.picture_id, frame_seq: run.seq, crops: vec![crop(&whole, 1900)] }).unwrap();
+    }
     std::thread::sleep(Duration::from_millis(300));
     assert_eq!(run.gemini.count(), 2, "a crop that may show the white shape went to Gemini");
     let i = run.send(scene.thumb(300, SCREEN_W, SCREEN_H));

@@ -89,13 +89,37 @@ pub fn decode_webp(bytes: &[u8]) -> Option<Rgb> {
     Some(Rgb { w, h, px })
 }
 
-/// A strip file: lossless WebP, or PNG as strips were kept before.
+/// A strip file: lossless WebP, PNG as strips were kept before, or a
+/// reader page kept as the site sent it (JPEG too).
 pub fn decode_strip(bytes: &[u8]) -> Option<Rgb> {
-    if bytes.starts_with(b"RIFF") {
-        decode_webp(bytes)
-    } else {
-        decode_png(bytes)
+    match mime(bytes)? {
+        "image/webp" => decode_webp(bytes),
+        "image/jpeg" => decode_jpeg(bytes),
+        _ => decode_png(bytes),
     }
+}
+
+/// The picture type of `bytes` by its signature: JPEG, PNG or WebP only.
+pub fn mime(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.starts_with(&[0xff, 0xd8, 0xff]) {
+        Some("image/jpeg")
+    } else if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        Some("image/png")
+    } else if bytes.len() >= 12 && bytes.starts_with(b"RIFF") && &bytes[8..12] == b"WEBP" {
+        Some("image/webp")
+    } else {
+        None
+    }
+}
+
+pub fn decode_jpeg(bytes: &[u8]) -> Option<Rgb> {
+    use zune_jpeg::zune_core::{bytestream::ZCursor, colorspace::ColorSpace, options::DecoderOptions};
+    let options = DecoderOptions::default().jpeg_set_out_colorspace(ColorSpace::RGB);
+    let mut d = zune_jpeg::JpegDecoder::new_with_options(ZCursor::new(bytes), options);
+    let px = d.decode().ok()?;
+    let info = d.info()?;
+    let (w, h) = (info.width as u32, info.height as u32);
+    (px.len() == w as usize * h as usize * 3).then_some(Rgb { w, h, px })
 }
 
 /// The `w` x `h` area of `img` at (`x`, `y`), clipped to the picture.

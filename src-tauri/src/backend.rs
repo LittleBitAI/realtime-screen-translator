@@ -20,6 +20,9 @@ use std::sync::{Arc, Mutex, MutexGuard};
 const KEY_SETTING: &str = "gemini_api_key";
 const MODEL_SETTING: &str = "gemini_model";
 
+#[path = "reader.rs"]
+mod reader;
+
 #[derive(Clone)]
 struct Known {
     fp: u64,
@@ -68,6 +71,15 @@ struct Pic {
 }
 
 const RETRY_MS: i64 = 15_000;
+/// Frames a change of the overlay may take to reach the capture, where the
+/// capture holds it (A6). On the reference phone (Galaxy S21, Android 15)
+/// shapes drawn after one frame first show three frames later: the draw is
+/// posted to the UI thread, the overlay windows are laid out, and the mirror
+/// composes them afterwards. Until then a frame may show the overlay as it
+/// was drawn for any of these frames, so all of them are left out of the
+/// comparisons, and the overlay counts as unchanged only after this many
+/// frames brought no change. A slower phone may need more.
+pub const OVERLAY_LAG: usize = 4;
 
 impl Pic {
     fn failed(&mut self, rows: (i64, i64), now: i64) {
@@ -122,15 +134,17 @@ struct Session {
     /// against it when the screen rests, so what the steps got wrong is undone.
     /// With the seq of the frame it is.
     anchor: Option<(Vec<u8>, f64, u64)>,
-    /// `scroll_y` the overlay was drawn at before the last frame.
-    drawn_before: i64,
+    /// `scroll_y` the overlay was drawn at for the last [`OVERLAY_LAG`]
+    /// frames, the newer first: a frame may still show any of them.
+    drawn: VecDeque<i64>,
     /// A part of the still screen changed much (`tracker::changed_block`):
     /// the screen is looked at again, at `relook_at` at the earliest.
     relook_due: bool,
     relook_at: i64,
-    /// (`revision`, `scroll_y`) as the last two frames came in, the newer
-    /// first: the overlay each of them holds was drawn from about these.
-    entries: [Option<(u64, i64)>; 2],
+    /// (`revision`, `scroll_y`) as the last frames came in, the newer first,
+    /// [`OVERLAY_LAG`] + 1 of them: the overlay a frame holds was drawn from
+    /// one of these.
+    entries: VecDeque<Option<(u64, i64)>>,
     turning: bool,
     /// A look under the shapes found other words there (`words_under`): the
     /// next frame of that picture turns the page, and the turn does not come
@@ -200,6 +214,13 @@ impl Session {
             }
         }
         mask
+    }
+    /// Scrolls a frame taken now may show the overlay drawn at: `now`, and
+    /// those of the last [`OVERLAY_LAG`] frames.
+    fn drawn_at(&self, now: i64) -> Vec<i64> {
+        let mut at = vec![now];
+        at.extend(self.drawn.iter().filter(|&&d| d != now));
+        at
     }
     fn pic(&mut self) -> Option<&mut Pic> {
         let id = self.current?;
@@ -437,6 +458,7 @@ impl Backend {
     }
 
     pub fn status(&self) -> Status {
+        let source_lang = self.source_lang();
         let st = self.lock();
         let perms = self.platform.permissions();
         Status {
@@ -449,6 +471,7 @@ impl Backend {
             overlay_allowed: perms.overlay,
             gemini_requests: st.gemini_requests,
             notice: st.notice,
+            source_lang,
         }
     }
 
@@ -528,10 +551,10 @@ impl Backend {
             scroll_y: 0,
             scroll_f: 0.0,
             anchor: None,
-            drawn_before: 0,
+            drawn: VecDeque::new(),
             relook_due: false,
             relook_at: 0,
-            entries: [None; 2],
+            entries: VecDeque::new(),
             turning: false,
             words_changed: None,
             left_for_words: None,
@@ -633,7 +656,7 @@ impl Backend {
         // A dark page whose shapes cover all that is lit looks the same, but
         // it looked so a frame before too: blocked is the screen going black
         // around the shapes, or black with no shapes at all.
-        let shapes = s.overlay_mask(&[s.scroll_y, s.drawn_before]);
+        let shapes = s.overlay_mask(&s.drawn_at(s.scroll_y));
         let went_dark = s.prev.as_ref().is_none_or(|p| p.len() != thumb.len() || !tracker::is_blocked(p, &shapes));
         if tracker::is_blocked(&thumb, &[]) || (tracker::is_blocked(&thumb, &shapes) && went_dark) {
             st.notice = Some("capture_blocked");
@@ -661,19 +684,21 @@ impl Backend {
         // The overlay in this frame was drawn for the last frame, the one in
         // the previous frame for the frame before: both are left out.
         let entry_scroll = s.scroll_y;
-        let shapes = s.overlay_mask(&[entry_scroll, s.drawn_before]);
+        let shapes = s.overlay_mask(&s.drawn_at(entry_scroll));
         // Side columns found still in a scroll (`s.side`) are not left out
         // here: a change in them (a new window, new words in a panel) is the
         // screen changing. The shift search finds them again every time.
         let mask = joined(shapes.clone(), &hide);
-        s.drawn_before = entry_scroll;
+        s.drawn.push_front(entry_scroll);
+        s.drawn.truncate(OVERLAY_LAG);
         // Nothing placed, taken away or moved since the frame before last:
         // this frame and the last hold the same overlay, so a change under
         // it is the page under it changing (the overlay lets it through, or
         // is not in the capture).
         let entry = Some((s.revision, entry_scroll));
-        let same_overlay = s.entries == [entry, entry];
-        s.entries = [entry, s.entries[0]];
+        s.entries.push_front(entry);
+        s.entries.truncate(OVERLAY_LAG + 1);
+        let same_overlay = s.entries.len() == OVERLAY_LAG + 1 && s.entries.iter().all(|e| *e == entry);
         match s.prev.take() {
             None => {
                 if s.current.is_none() && !s.turning {
@@ -820,7 +845,9 @@ impl Backend {
             // Measured again from the last resting screen in one step.
             let mut kept = None;
             if let Some((a, f, at)) = s.anchor.take() {
-                let mask = joined(joined(s.overlay_mask(&[f.round() as i64, s.scroll_y, s.drawn_before]), &hide), &tracker::col_mask(s.side, rows));
+                let mut offsets = s.drawn_at(s.scroll_y);
+                offsets.push(f.round() as i64);
+                let mask = joined(joined(s.overlay_mask(&offsets), &hide), &tracker::col_mask(s.side, rows));
                 match tracker::fine_shift(&a, &thumb, &mask, rows, s.fixed.0, s.fixed.1, true) {
                     // Not a tenth of a row from it: still that screen. It is
                     // kept, so a scroll too slow to tell frame by frame adds
@@ -937,7 +964,7 @@ impl Backend {
         let shapes = pic.placements.iter().map(|p| (p.x, p.y, p.w, p.h)).chain(pic.erased.iter().map(|e| e.0));
         let mut out = vec![];
         for (x, y, w, h) in shapes {
-            for off in [s.scroll_y, s.drawn_before] {
+            for off in s.drawn_at(s.scroll_y) {
                 let (x0, y0) = (x.clamp(0, sw), (y - off).clamp(0, sh));
                 let (x1, y1) = ((x + w as i64).clamp(0, sw), (y - off + h as i64).clamp(0, sh));
                 if x1 > x0 && y1 > y0 && !out.contains(&(x0 as u32, y0 as u32, (x1 - x0) as u32, (y1 - y0) as u32)) {
@@ -1357,9 +1384,10 @@ fn replace_cut(st: &mut State, picture_id: i64, rect: (i64, i64, u32, u32)) -> A
     let (bt, bb) = ((s.fixed.0 as f64 * scale) as i64, (s.fixed.1 as f64 * scale) as i64);
     let e = detect::EDGE as i64;
     let at_edge = |r: Rect, a: (i64, i64, i64, i64)| r.1 <= a.1 + bt + e || r.1 + r.3 as i64 >= a.3 - bb - e;
-    // This frame and the next still show the overlay as it was drawn before
-    // (`Backend::frame`): the frame after them is the first without the shape.
-    let clean_from = s.last_seq.unwrap_or(0) + 2;
+    // This frame and the next [`OVERLAY_LAG`] may still show the overlay as
+    // it was drawn before (`Backend::frame`): the frame after them is the
+    // first without the shape.
+    let clean_from = s.last_seq.unwrap_or(0) + 1 + OVERLAY_LAG as u64;
     let in_capture = s.overlay_in_capture;
     let pic = s.pics.get_mut(&picture_id).unwrap();
     let cut: Vec<_> = pic.edge_rects.iter().filter(|&&(r, a)| at_edge(r, a) && grows(r, rect)).map(|&(r, _)| r).collect();

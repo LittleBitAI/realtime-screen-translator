@@ -3,22 +3,16 @@
 /** The status notice (P1 `notice`): what went wrong and what to do. */
 export const notices = {
   key_invalid: { why: 'Gemini API 키가 맞지 않습니다.', todo: '설정에서 키를 다시 넣어 주세요.', options: true },
-  capture_blocked: { why: '보던 앱이 화면 캡처를 막아 두었습니다.', todo: '그 앱은 번역할 수 없습니다. 다른 앱에서 읽어 주세요.' },
-  gemini_unreachable: { why: 'Gemini에 닿지 않습니다.', todo: '인터넷 연결을 확인해 주세요. 다시 닿으면 이어서 번역합니다.' },
-  detector_missing: { why: '말풍선을 찾는 모델을 아직 받지 못했습니다.', todo: '인터넷에 연결한 채로 잠시 기다려 주세요.' },
+  gemini_unreachable: { why: 'Gemini에 닿지 않습니다.', todo: '인터넷 연결을 확인해 주세요. 페이지를 다시 넘기면 이어서 번역합니다.' },
 };
 
-/** Why turning translation on did not work (P4 errors). */
-export function startError(code) {
+/** Why a site did not open in the reader. */
+export function openError(code) {
   switch (code) {
+    case 'bad_url':
+      return '주소가 맞지 않습니다. 만화 페이지의 주소를 그대로 붙여 넣어 주세요.';
     case 'key_missing':
       return 'Gemini API 키가 없습니다. 설정에서 키를 먼저 넣어 주세요.';
-    case 'permission_required':
-      return '화면 캡처와 다른 앱 위에 표시 권한이 있어야 번역을 켤 수 있습니다.';
-    case 'capture_unsupported':
-      return captureUnsupported;
-    case 'key_invalid':
-      return notices.key_invalid.why + ' ' + notices.key_invalid.todo;
     default:
       return reachError();
   }
@@ -26,9 +20,12 @@ export function startError(code) {
 
 export const reachError = () => '앱과 연결하지 못했습니다. 잠시 뒤 다시 해 주세요.';
 
-/** Where capture is impossible (a browser): P1 `capture_supported` false, P4 `capture_unsupported`. */
-export const captureUnsupported =
-  '이 브라우저에서는 다른 앱의 화면을 읽거나 그 위에 번역을 띄울 수 없어 번역을 켤 수 없습니다. 휴대폰이나 PC에 설치한 앱에서 켜 주세요.';
+/** In a browser no other site can be opened inside these screens. */
+export const readerUnsupported =
+  '브라우저에서는 다른 사이트를 이 화면 안에 열 수 없습니다. 휴대폰이나 PC에 설치한 앱에서 열어 주세요. 번역본과 설정은 여기서도 볼 수 있습니다.';
+
+/** The language the reader translates from (P1 `source_lang`). */
+export const langText = (lang) => (lang === 'en' ? '영어' : '일본어');
 
 /** Why an export did not work (P11 errors). */
 export function exportError(code) {
@@ -56,29 +53,16 @@ export function keyError(code) {
   }
 }
 
-/** The tracking mode on the first screen (P1 `mode`). */
-export function modeText(status) {
-  if (!status.on) return '없음';
-  if (status.mode === 'scroll') return '스크롤';
-  if (status.mode === 'slide') return '슬라이딩';
-  return '화면을 살피는 중';
-}
-
-export function permissionText(status) {
-  if (status.capture_allowed && status.overlay_allowed) return '모두 허용됨';
-  if (status.capture_allowed) return '화면 캡처만 허용됨';
-  if (status.overlay_allowed) return '다른 앱 위에 표시만 허용됨';
-  return '없음';
-}
-
-export const allowed = (yes) => (yes ? '허용됨' : '없음');
-
 export const kindText = (kind) => (kind === 'stitched' ? '이어 붙인 한 장' : '페이지별 그림');
 
 const when = new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
 
-/** A book's name, from when translation was turned on for it. */
-export const bookName = (startedAt) => `${when.format(new Date(startedAt))}에 켠 번역본`;
+/**
+ * A book's name: the site page's title for one the reader saved, or, for
+ * one screen capture saved (titled by its start time), when it began.
+ */
+export const bookName = (book) =>
+  book.title && !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(book.title) ? book.title : `${when.format(new Date(book.started_at))}에 켠 번역본`;
 
 /** An export in a browser: the pictures are made and wait to be downloaded. */
 export const exportReady = (count) => `그림 ${count}장을 만들었습니다. 아래를 눌러 이 기기에 내려받으세요.`;

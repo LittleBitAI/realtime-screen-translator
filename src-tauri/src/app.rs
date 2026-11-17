@@ -26,6 +26,38 @@ struct AppPlatform {
 
 const OVERLAY: &str = "overlay";
 
+/// P12: the reader's page script, run on every page the app's windows load
+/// (it leaves the app's own screens alone).
+const READER_JS: &str = include_str!("reader.js");
+/// The PC's reader window; Android has one window, which the site replaces.
+#[cfg(desktop)]
+const SITE: &str = "site";
+
+/// The app's own address, where the reader goes back to on Android.
+#[cfg(mobile)]
+fn home() -> std::sync::MutexGuard<'static, Option<tauri::Url>> {
+    static HOME: std::sync::Mutex<Option<tauri::Url>> = std::sync::Mutex::new(None);
+    HOME.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Where the app's windows may go: web pages and the app's own, never
+/// another app (`intent:`, `market:`, a shop's own scheme), which an ad on a
+/// manga site redirects to.
+fn may_navigate(url: &tauri::Url) -> bool {
+    matches!(url.scheme(), "http" | "https" | "tauri" | "asset" | "about")
+}
+
+/// A site address as typed: `https://` when no scheme is given; only web pages.
+fn site_url(typed: &str) -> ApiResult<tauri::Url> {
+    let typed = typed.trim();
+    let full = if typed.contains("://") { typed.to_string() } else { format!("https://{typed}") };
+    let url: tauri::Url = full.parse().map_err(|_| ApiError("bad_url"))?;
+    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+        return Err(ApiError("bad_url"));
+    }
+    Ok(url)
+}
+
 /// The script that drew the overlay last, run again once its page loads.
 #[cfg(desktop)]
 fn last_drawn() -> std::sync::MutexGuard<'static, String> {
@@ -67,58 +99,13 @@ fn fit_overlay(w: &tauri::WebviewWindow) -> Result<(), String> {
     Ok(())
 }
 
-/// Windows (P4, R29): the on/off button over other apps, a small
-/// always-on-top window near the bottom right edge of the work area, left
-/// out of capture like the overlay. Its page is inline, and a click is a
-/// navigation to `rst-toggle:` that switches translation instead of loading.
+/// Windows (P4): the label of the on/off button window, should one be up.
+/// The reader (P12) replaced screen capture, so the app no longer shows it.
 #[cfg(windows)]
 mod button {
     use super::*;
 
     pub const LABEL: &str = "onoff";
-    const HTML: &str = "<!doctype html><meta charset=utf-8><body style='margin:0;overflow:hidden;background:transparent'>        <a id=b href='rst-toggle:tap' style='display:block;box-sizing:border-box;height:100vh;line-height:100vh;border-radius:24px;        background:rgba(34,34,34,.85);color:white;font:600 14px sans-serif;text-align:center;text-decoration:none;user-select:none'>번역 켜기</a>";
-
-    pub fn show(app: &AppHandle) -> Result<(), String> {
-        if app.get_webview_window(LABEL).is_some() {
-            return Ok(());
-        }
-        let url: tauri::Url = format!("data:text/html;charset=utf-8,{}", HTML.replace(' ', "%20")).parse().map_err(|e| format!("{e}"))?;
-        let handle = app.clone();
-        let w = tauri::WebviewWindowBuilder::new(app, LABEL, tauri::WebviewUrl::External(url))
-            .inner_size(112.0, 44.0)
-            .transparent(true)
-            .decorations(false)
-            .resizable(false)
-            .always_on_top(true)
-            .skip_taskbar(true)
-            .focused(false)
-            .shadow(false)
-            .visible(false)
-            .on_navigation(move |url| {
-                if url.scheme() != "rst-toggle" {
-                    return true;
-                }
-                // Off the UI thread: start and stop build and close windows.
-                let h = handle.clone();
-                std::thread::spawn(move || pipeline::toggle(&h.state::<Backend>()));
-                false
-            })
-            .build()
-            .map_err(|e| e.to_string())?;
-        if let Ok(hwnd) = w.hwnd() {
-            use windows_sys::Win32::UI::WindowsAndMessaging::{SetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE};
-            // SAFETY: the handle belongs to the window built above.
-            unsafe { SetWindowDisplayAffinity(hwnd.0 as _, WDA_EXCLUDEFROMCAPTURE) };
-        }
-        if let (Ok(Some(m)), Ok(size)) = (w.primary_monitor(), w.outer_size()) {
-            let area = m.work_area();
-            let gap = (24.0 * m.scale_factor()) as i32;
-            let x = area.position.x + area.size.width as i32 - size.width as i32 - gap;
-            let y = area.position.y + area.size.height as i32 - size.height as i32 - gap;
-            let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
-        }
-        w.show().map_err(|e| e.to_string())
-    }
 
     pub fn label(app: &AppHandle, on: bool) {
         if let Some(w) = app.get_webview_window(LABEL) {
@@ -522,7 +509,77 @@ fn get_preview(app: AppHandle, path: String) -> ApiResult<String> {
     }
     let dir = app.path().app_data_dir().map_err(|_| ApiError("internal"))?;
     let bytes = std::fs::read(dir.join(rel)).map_err(|_| ApiError("not_found"))?;
-    Ok(format!("data:image/webp;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+    // Reader pages are kept as the site sent them (JPEG too).
+    let mime = crate::export::mime(&bytes).unwrap_or("image/webp");
+    Ok(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+}
+
+#[tauri::command(async, rename_all = "snake_case")]
+fn put_settings_source_lang(b: B<'_>, lang: String) -> ApiResult<LangIn> {
+    b.put_source_lang(LangIn { lang })
+}
+
+/// P12: the site at `url` in the reader. The PC opens it in a window of its
+/// own; Android shows it in the app's one window, the phone's Back or the
+/// page's 앱 button coming back.
+#[tauri::command(async, rename_all = "snake_case")]
+fn post_reader_open(app: AppHandle, url: String) -> ApiResult<()> {
+    let url = site_url(&url)?;
+    let fail = |e: tauri::Error| {
+        eprintln!("reader: {e}");
+        ApiError("internal")
+    };
+    #[cfg(desktop)]
+    {
+        if let Some(w) = app.get_webview_window(SITE) {
+            w.navigate(url).map_err(fail)?;
+            let _ = w.show();
+            let _ = w.set_focus();
+            return Ok(());
+        }
+        tauri::WebviewWindowBuilder::new(&app, SITE, tauri::WebviewUrl::External(url))
+            .initialization_script(READER_JS)
+            .on_navigation(may_navigate)
+            .title("만화 읽기")
+            .inner_size(1100.0, 900.0)
+            .build()
+            .map_err(fail)?;
+    }
+    #[cfg(mobile)]
+    {
+        let w = app.get_webview_window("main").ok_or(ApiError("internal"))?;
+        *home() = Some(w.url().map_err(fail)?);
+        w.navigate(url).map_err(fail)?;
+    }
+    Ok(())
+}
+
+/// The page's 앱 button: back to the app's screens.
+#[tauri::command(async, rename_all = "snake_case")]
+fn post_reader_close(app: AppHandle) -> ApiResult<()> {
+    #[cfg(desktop)]
+    if let Some(w) = app.get_webview_window(SITE) {
+        let _ = w.close();
+    }
+    #[cfg(mobile)]
+    {
+        let w = app.get_webview_window("main").ok_or(ApiError("internal"))?;
+        let home = home().clone().ok_or(ApiError("internal"))?;
+        w.navigate(home).map_err(|_| ApiError("internal"))?;
+    }
+    Ok(())
+}
+
+/// P12: one page picture of the site in the reader (`image` in base64, or
+/// none for the app to fetch `src` itself).
+#[tauri::command(async, rename_all = "snake_case")]
+fn post_reader_page(b: B<'_>, src: String, image: Option<String>, page_url: String, title: Option<String>, index: Option<i64>) -> ApiResult<PageOut> {
+    use base64::Engine;
+    let image = match image {
+        Some(s) => Some(base64::engine::general_purpose::STANDARD.decode(s).map_err(|_| ApiError("bad_image"))?),
+        None => None,
+    };
+    b.read_page(PageIn { src, image, page_url, title: title.unwrap_or_default(), index: index.unwrap_or(0) })
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -546,11 +603,14 @@ pub fn run() {
             let model = crate::models::path(&data_dir);
             let backend = Backend::open(data_dir, std::env::var("RST_GEMINI_BASE_URL").ok(), platform)?;
             app.manage(backend);
-            // Nothing to ask for on Windows (R29): the button is up from the start.
-            #[cfg(windows)]
-            if let Err(e) = button::show(&handle) {
-                eprintln!("on/off button: {e}");
-            }
+            // Built here rather than in tauri.conf.json, so it carries the
+            // reader's script: on Android the sites open in this window.
+            let main = tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
+                .initialization_script(READER_JS)
+                .on_navigation(may_navigate);
+            #[cfg(desktop)]
+            let main = main.title("실시간 화면 번역").inner_size(420.0, 760.0);
+            main.build()?;
             // The capture loop: frames, detection and strips while translation is on.
             #[cfg(any(windows, target_os = "android"))]
             std::thread::spawn(move || {
@@ -574,7 +634,11 @@ pub fn run() {
             post_strips,
             get_books,
             post_books_export,
-            get_preview
+            get_preview,
+            put_settings_source_lang,
+            post_reader_open,
+            post_reader_close,
+            post_reader_page
         ])
         .run(tauri::generate_context!())
         .expect("the Tauri app failed to run");

@@ -5,7 +5,7 @@
   import Options from './screens/Options.svelte';
 
   const screens = { S1: Home, S2: Library, S3: Options };
-  const titles = { S1: '실시간 화면 인식 번역', S2: '번역본', S3: '설정' };
+  const titles = { S1: '만화 번역', S2: '번역본', S3: '설정' };
   let id = $derived(screenFor(route.path));
   let Screen = $derived(screens[id]);
 

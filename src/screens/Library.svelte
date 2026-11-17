@@ -89,7 +89,7 @@
   {:else if books.length === 0}
     <div data-feature="list-books" class="mt-4 rounded-xl border border-gray-300 bg-white p-4">
       <h2 class="m-0 text-xl font-bold">아직 저장된 번역본이 없습니다</h2>
-      <p class="m-0 mt-2">번역을 켜고 만화를 읽으면, 번역이 얹힌 그림이 여기에 번역본으로 쌓입니다.</p>
+      <p class="m-0 mt-2">첫 화면에서 만화 페이지를 열어 읽으면, 번역이 얹힌 그림이 여기에 번역본으로 쌓입니다.</p>
       <a href="/" onclick={link} class="mt-4 inline-flex min-h-12 items-center rounded-lg bg-primary px-4 font-semibold text-white no-underline">첫 화면으로 가기</a>
     </div>
   {:else}
@@ -102,7 +102,7 @@
               {#await api.previewSrc(preview(book))}
                 미리보기
               {:then src}
-                <img {src} alt="{bookName(book.started_at)} 미리보기" class="h-full w-full object-cover object-top" />
+                <img {src} alt="{bookName(book)} 미리보기" class="h-full w-full object-cover object-top" />
               {:catch}
                 미리보기 없음
               {/await}
@@ -110,7 +110,7 @@
               미리보기 없음
             {/if}
           </div>
-          <h2 class="m-0 mt-4 text-base font-bold break-keep">{bookName(book.started_at)}</h2>
+          <h2 class="m-0 mt-4 text-base font-bold break-keep">{bookName(book)}</h2>
           <dl class="m-0 mt-2 flex flex-col gap-2">
             <div class="flex items-center justify-between gap-2">
               <dt>그림 수</dt>
