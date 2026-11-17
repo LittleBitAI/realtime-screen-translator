@@ -16,6 +16,13 @@ pub trait Platform: Send + Sync {
     fn request_permissions(&self) -> Permissions;
     /// What is granted now, without asking.
     fn permissions(&self) -> Permissions;
+    /// Whether this host can capture other apps' screens at all (Android and
+    /// Windows can; a browser and other desktops cannot). Where it cannot,
+    /// P4 refuses with `capture_unsupported` instead of reporting a session
+    /// that no frame will ever reach.
+    fn can_capture(&self) -> bool {
+        true
+    }
     /// Start capture and put the overlay and the on/off button over other apps.
     fn start(&self) -> Result<(), String>;
     /// Take capture and the overlay down.

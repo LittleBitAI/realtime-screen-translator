@@ -64,6 +64,9 @@ def book(seed: int, picture_id: int, seq: int) -> list[dict]:
 
 
 calls = [
+    # The browser host cannot capture; the seed attaches a stand-in capturing
+    # device and then pushes the frames and strips a phone would send.
+    {"method": "POST", "path": "/test/simulated-device", "body": None},
     {"method": "PUT", "path": "/settings/gemini-key", "body": {"key": KEY}},
     {"method": "POST", "path": "/permissions/request", "body": None},
     *book(3, 1, 1),

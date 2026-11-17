@@ -116,6 +116,19 @@ describe('S1 Home', () => {
     expect(screen.getByText('권한 모두 허용됨').closest('details').open).toBe(false);
   });
 
+  it('where capture is impossible (a browser), turning on says so and asks for nothing', async () => {
+    api.status.mockResolvedValue({ ...off, key_set: true, key_tail: 'abcd', capture_supported: false });
+    render(Home);
+    const why = /이 브라우저에서는 다른 앱의 화면을 읽거나 그 위에 번역을 띄울 수 없어/;
+    await screen.findByText(why);
+    expect(screen.getByRole('button', { name: '이 브라우저에서는 쓸 수 없음' }).disabled).toBe(true);
+    await fireEvent.click(feature('toggle-translation')[0]);
+    await screen.findByText('번역 꺼짐');
+    expect(screen.getAllByText(why).length).toBe(1);
+    expect(api.requestPermissions).not.toHaveBeenCalled();
+    expect(api.start).not.toHaveBeenCalled();
+  });
+
   it('a refusal explains why and offers to allow again', async () => {
     api.status.mockResolvedValue({ ...off, key_set: true, key_tail: 'abcd' });
     api.requestPermissions.mockResolvedValue({ capture_allowed: false, overlay_allowed: false });

@@ -29,6 +29,9 @@
                     "key_tail": {
                       "description": "string | null"
                     },
+                    "capture_supported": {
+                      "description": "bool (false where this host cannot capture other apps' screens: a browser, desktops other than Windows; P4 then answers capture_unsupported)"
+                    },
                     "capture_allowed": {
                       "description": "bool"
                     },

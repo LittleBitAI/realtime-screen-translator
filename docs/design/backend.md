@@ -231,10 +231,10 @@ sequenceDiagram
     서버->>사용자: 흰 shape과 한국어가 그려진 그림 파일을 갤러리나 내려받기 폴더에 저장하고 경로를 알려 준다
 ```
 
-- **P1** `GET /status` 요청 없음 / 응답 `on`: bool, `mode`: idle | scroll | slide, `key_set`: bool, `key_tail`: string | null, `capture_allowed`: bool, `overlay_allowed`: bool, `gemini_requests`: u32, `notice`: key_invalid | capture_blocked | gemini_unreachable | null / 오류 없음
+- **P1** `GET /status` 요청 없음 / 응답 `on`: bool, `mode`: idle | scroll | slide, `key_set`: bool, `key_tail`: string | null, `capture_supported`: bool, `capture_allowed`: bool, `overlay_allowed`: bool, `gemini_requests`: u32, `notice`: key_invalid | capture_blocked | gemini_unreachable | null / 오류 없음. `capture_supported`는 이 기기가 다른 앱 화면을 캡처할 수 있는지다(Android와 Windows 앱은 참, 브라우저와 다른 데스크톱은 거짓).
 - **P2** `PUT /settings/gemini-key` 요청 `key`: string / 응답 `key_set`: bool, `key_tail`: string | null / 오류 key_format
 - **P3** `POST /permissions/request` 요청 없음 / 응답 `capture_allowed`: bool, `overlay_allowed`: bool / 오류 없음
-- **P4** `POST /translation/start` 요청 없음 / 응답 `on`: bool, `book_id`: i64 / 오류 key_missing, permission_required, already_on
+- **P4** `POST /translation/start` 요청 없음 / 응답 `on`: bool, `book_id`: i64 / 오류 key_missing, capture_unsupported(캡처할 수 없는 기기라 어떤 권한으로도 켤 수 없음), permission_required, already_on
 - **P5** `POST /translation/stop` 요청 없음 / 응답 `on`: bool, `book_id`: i64 | null, `picture_count`: u32 / 오류 not_on
 - **P6** `POST /frames` 요청 `seq`: u64, `width`: u32, `height`: u32, `thumb`: bytes, `captured_at`: i64 / 응답 `motion`: still | scroll | page | blocked, `dy`: i32, `mode`: scroll | slide, `picture_id`: i64, `detect`: {top: u32, bottom: u32} | null, `save`: {top: u32, bottom: u32} | null, `clear`: bool, `placements`: [{id: i64, x: i32, y: i32, w: u32, h: u32, radius: u16, ko: string, font_px: u16}] / 오류 not_on, stale_seq
 - **P7** `POST /crops` 요청 `picture_id`: i64, `frame_seq`: u64, `crops`: [{x: u32, y: u32, w: u32, h: u32, kind: dialogue | effect, score: f32, image: bytes}] / 응답 `placed`: [{id: i64, x: i32, y: i32, w: u32, h: u32, radius: u16, ko: string, font_px: u16}], `pending`: u32, `skipped_effects`: u32, `discarded`: u32 / 오류 not_on, key_missing, picture_closed

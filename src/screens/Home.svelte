@@ -3,7 +3,7 @@
   import Shell from '../lib/Shell.svelte';
   import { api } from '../lib/api.js';
   import { link } from '../lib/router.svelte.js';
-  import { allowed, modeText, notices, permissionText, reachError, startError } from '../lib/text.js';
+  import { allowed, captureUnsupported, modeText, notices, permissionText, reachError, startError } from '../lib/text.js';
 
   // S1: turn translation on and off, and see at a glance whether the key,
   // the permissions and the capture are all right.
@@ -30,6 +30,8 @@
   });
 
   let granted = $derived(!!status && status.capture_allowed && status.overlay_allowed);
+  // A browser cannot capture other apps' screens: no permission changes that.
+  let unsupported = $derived(status?.capture_supported === false);
   let notice = $derived(status?.notice ? notices[status.notice] : null);
 
   async function askPermissions() {
@@ -66,6 +68,8 @@
       // R29: the first time, the permissions are asked for right here.
       if (!status.key_set) {
         problem = { text: startError('key_missing'), options: true };
+      } else if (unsupported) {
+        problem = { text: startError('capture_unsupported') };
       } else if (!granted && !(await askPermissions())) {
         problem = problem ?? { text: startError('permission_required') };
       } else {
@@ -148,6 +152,8 @@
         {:else if !status.key_set}
           <p class="m-0">번역을 켜려면 Gemini API 키를 먼저 넣어 주세요.</p>
           <a href="/options" onclick={link} class="mt-2 inline-flex min-h-12 items-center rounded-lg bg-primary px-4 text-white no-underline">설정으로 가기</a>
+        {:else if unsupported}
+          <p class="m-0">{captureUnsupported}</p>
         {:else}
           <p class="m-0">키 확인, 캡처를 막아 둔 앱, Gemini 연결에 문제가 생기면 여기에 알려 드립니다.</p>
         {/if}
@@ -200,7 +206,9 @@
             <dd class="m-0">{#if status}{allowed(status.overlay_allowed)}{:else}{@render blank('w-18')}{/if}</dd>
           </div>
         </dl>
-        {#if denied}
+        {#if unsupported}
+          <p class="m-0 mt-4 rounded-lg bg-gray-200 px-4 py-2 text-sm">이 브라우저에서는 두 권한 모두 쓸 수 없습니다. 휴대폰이나 PC에 설치한 앱에서 허용해 주세요.</p>
+        {:else if denied}
           <p class="m-0 mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm">
             허용하지 않으셨습니다. 화면 캡처가 있어야 보던 만화의 대사를 읽고, 다른 앱 위에 표시가 있어야 그 위에 번역을 그릴 수 있습니다.
           </p>
@@ -208,11 +216,11 @@
         <button
           type="button"
           data-feature="request-permissions"
-          disabled={!status || asking || granted}
+          disabled={!status || asking || granted || unsupported}
           onclick={askPermissions}
           class="mt-4 min-h-12 w-full rounded-lg border border-gray-500 bg-gray-200 font-semibold text-ink disabled:text-gray-500"
         >
-          {#if asking}묻는 중{:else if granted}모두 허용됨{:else}권한 허용하기{/if}
+          {#if asking}묻는 중{:else if granted}모두 허용됨{:else if unsupported}이 브라우저에서는 쓸 수 없음{:else}권한 허용하기{/if}
         </button>
         <p class="m-0 mt-2 text-sm text-gray-500">허용하지 않으면 번역이 켜지지 않습니다. PC에서는 묻지 않습니다.</p>
       {/if}

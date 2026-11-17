@@ -76,7 +76,7 @@ $env:PORT = "3000"; $env:APP_DATA_DIR = "$env:LOCALAPPDATA\rst-web"; node script
 PORT=3000 APP_DATA_DIR="$HOME/rst-web" node scripts/live.mjs
 ```
 
-브라우저판은 화면을 캡처하거나 다른 앱 위에 그리지 않습니다. 권한은 물으면 허용된 것으로 칩니다. 내보낸 그림은 `APP_DATA_DIR/export`에 놓이고, 번역본 화면에 그림마다 뜨는 내려받기 버튼으로 브라우저가 있는 기기에 받습니다. 실제로 보던 앱 위에 번역을 띄우는 일은 같은 화면과 백엔드를 쓰는 Tauri 앱(Windows, Android)이 합니다. 그 구성은 아래 [구조](#구조)에 있습니다.
+브라우저는 다른 앱의 화면을 캡처하거나 그 위에 그릴 수 없으므로, 브라우저판은 권한을 허용하지 않고 번역 켜기를 거절하며 첫 화면이 그 까닭과 설치한 앱에서 켜라는 안내를 보여 줍니다. `e2e/seed.json`만 `POST /test/simulated-device`로 대역 캡처 기기를 붙여 휴대폰처럼 프레임과 화면 조각을 보냅니다. 내보낸 그림은 `APP_DATA_DIR/export`에 놓이고, 번역본 화면에 그림마다 뜨는 내려받기 버튼으로 브라우저가 있는 기기에 받습니다. 실제로 보던 앱 위에 번역을 띄우는 일은 같은 화면과 백엔드를 쓰는 Tauri 앱(Windows, Android)이 합니다. 그 구성은 아래 [구조](#구조)에 있습니다.
 
 ## 테스트
 

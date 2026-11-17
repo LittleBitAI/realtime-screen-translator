@@ -140,7 +140,15 @@ Two causes stack up, and every fix touched neither. (1) The scope conflict is in
 
 ## Result
 
-pending — the fix records what it observed here, with the tests and the commit.
+Draft, not verified on a device. The commit that adds this line, "Refuse to turn translation on where the host cannot capture", changes web-host so that by default it answers what a browser can actually do. P1 reports `capture_supported`, `capture_allowed` and `overlay_allowed` as false. P3 grants nothing. P4 answers 409 `{"error":"capture_unsupported"}`, and `on` stays false. Only `POST /test/simulated-device`, which `e2e/make_seed.py` calls first, attaches the stand-in device. `Backend::start` now refuses on any host whose `Platform::can_capture` is false, and the native app returns false off Windows and Android. That covers a second place where the same rule applies: the app on macOS or Linux. contract-host keeps the default of true. S1 says why it cannot be turned on and points to the installed app, without asking for permissions. Tests run on Windows 11:
+- `cargo test --test capture_capability_edges`: `start_opens_a_session_only_where_capture_is_possible_and_granted`, a 7-row table over can_capture × capture × overlay. 1 passed.
+- `cargo test --test web_host_files`: `the_browser_host_never_reports_a_capture_it_cannot_do`. 3 passed.
+- `cargo test --test contract`: 37 passed.
+- Vitest `src/screens/screens.test.js` ("where capture is impossible (a browser), turning on says so and asks for nothing") and `src/lib/text.test.js`: 21 passed.
+
+Not done:
+- Experiment step 1 (getDisplayMedia on a Galaxy S21) was not run, because no device was available.
+- The spec revision that moves capture to the installed apps, which the person chose in round 3, is still not applied. The review still receives rev 1, so step 2's condition ("a review supplied revision 2") has not been met.
 
 ## Unresolved limits
 

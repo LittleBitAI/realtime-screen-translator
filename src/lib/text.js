@@ -15,6 +15,8 @@ export function startError(code) {
       return 'Gemini API 키가 없습니다. 설정에서 키를 먼저 넣어 주세요.';
     case 'permission_required':
       return '화면 캡처와 다른 앱 위에 표시 권한이 있어야 번역을 켤 수 있습니다.';
+    case 'capture_unsupported':
+      return captureUnsupported;
     case 'key_invalid':
       return notices.key_invalid.why + ' ' + notices.key_invalid.todo;
     default:
@@ -23,6 +25,10 @@ export function startError(code) {
 }
 
 export const reachError = () => '앱과 연결하지 못했습니다. 잠시 뒤 다시 해 주세요.';
+
+/** Where capture is impossible (a browser): P1 `capture_supported` false, P4 `capture_unsupported`. */
+export const captureUnsupported =
+  '이 브라우저에서는 다른 앱의 화면을 읽거나 그 위에 번역을 띄울 수 없어 번역을 켤 수 없습니다. 휴대폰이나 PC에 설치한 앱에서 켜 주세요.';
 
 /** Why an export did not work (P11 errors). */
 export function exportError(code) {

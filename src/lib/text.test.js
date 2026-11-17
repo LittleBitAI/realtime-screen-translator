@@ -23,6 +23,7 @@ describe('text', () => {
     expect(keyError('key_format')).toContain('키 모양');
     expect(exportError('empty_book')).toContain('내보낼 그림이 없습니다');
     expect(startError('key_missing')).toContain('키가 없습니다');
+    expect(startError('capture_unsupported')).toContain('설치한 앱에서 켜 주세요');
     expect(startError('whatever')).toContain('연결하지 못했습니다');
   });
 });

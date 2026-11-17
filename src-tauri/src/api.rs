@@ -39,6 +39,8 @@ pub struct Status {
     pub mode: &'static str,
     pub key_set: bool,
     pub key_tail: Option<String>,
+    /// False where this host cannot capture other apps' screens at all.
+    pub capture_supported: bool,
     pub capture_allowed: bool,
     pub overlay_allowed: bool,
     pub gemini_requests: u32,

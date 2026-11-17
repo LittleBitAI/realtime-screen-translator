@@ -444,6 +444,7 @@ impl Backend {
             mode: st.session.as_ref().and_then(|s| s.mode).unwrap_or("idle"),
             key_set: st.key.is_some(),
             key_tail: st.key.as_deref().map(tail),
+            capture_supported: self.platform.can_capture(),
             capture_allowed: perms.capture,
             overlay_allowed: perms.overlay,
             gemini_requests: st.gemini_requests,
@@ -486,6 +487,10 @@ impl Backend {
         }
         if st.key.is_none() {
             return Err(ApiError("key_missing"));
+        }
+        // No permission can make up for a host that cannot capture at all.
+        if !self.platform.can_capture() {
+            return Err(ApiError("capture_unsupported"));
         }
         let perms = self.platform.permissions();
         if !perms.capture || !perms.overlay {

@@ -1,34 +1,50 @@
 //! The app in a browser: the built screens (`dist/`) and the API of
 //! `docs/design/api.yaml` on one port (`PORT`), its data under
-//! `APP_DATA_DIR`. The device layer is a stand-in: nothing is captured or
-//! drawn over other apps, permissions are granted once asked for (as on a
-//! phone that says yes), and exports go to `APP_DATA_DIR/export`. The phone
-//! and the PC run the same screens inside the Tauri app (`app.rs`).
+//! `APP_DATA_DIR`, and exports go to `APP_DATA_DIR/export`. A browser cannot
+//! capture other apps' screens or draw over them, so this host says so: no
+//! permission is granted and P4 answers `capture_unsupported`. Capture and
+//! the overlay are the installed apps' (`app.rs`: Android and Windows).
+//!
+//! `POST /test/simulated-device` attaches a stand-in capturing device for the
+//! e2e seed (`e2e/seed.json`), which then pushes frames and strips itself the
+//! way the phone plugin would: permissions are granted when asked and P4 opens
+//! a session. Nothing on the screens calls it.
 
 use realtime_screen_translator::api::*;
 use realtime_screen_translator::platform::{Permissions, Platform};
 use realtime_screen_translator::Backend;
 use serde_json::{json, Value};
 use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tiny_http::{Header, Method, Request, Response, Server};
 
 struct Browser {
     granted: Mutex<Permissions>,
+    /// A stand-in capturing device is attached (the e2e seed only).
+    simulated: AtomicBool,
     data_dir: PathBuf,
 }
 
 impl Platform for Browser {
     fn request_permissions(&self) -> Permissions {
-        let p = Permissions { capture: true, overlay: true };
-        *self.granted.lock().unwrap() = p;
-        p
+        if self.simulated.load(Ordering::SeqCst) {
+            *self.granted.lock().unwrap() = Permissions { capture: true, overlay: true };
+        }
+        self.permissions()
     }
     fn permissions(&self) -> Permissions {
         *self.granted.lock().unwrap()
     }
+    fn can_capture(&self) -> bool {
+        self.simulated.load(Ordering::SeqCst)
+    }
     fn start(&self) -> Result<(), String> {
-        Ok(())
+        if self.can_capture() {
+            Ok(())
+        } else {
+            Err("a browser cannot capture other apps' screens".into())
+        }
     }
     fn stop(&self) {}
     fn emit(&self, _: &str, _: Value) {}
@@ -58,7 +74,7 @@ fn status_of(code: &str) -> u16 {
         "bad_request" | "key_format" | "bad_frame" | "bad_image" | "bad_format" | "stale_seq" | "frame_unknown" => 400,
         "storage_denied" => 403,
         "not_found" => 404,
-        "key_missing" | "permission_required" | "not_on" | "already_on" | "picture_closed" | "already_covered" | "empty_book" => 409,
+        "key_missing" | "permission_required" | "capture_unsupported" | "not_on" | "already_on" | "picture_closed" | "already_covered" | "empty_book" => 409,
         "storage_full" => 507,
         _ => 500,
     }
@@ -116,9 +132,13 @@ fn file_response(path: &Path) -> Option<Response<std::io::Cursor<Vec<u8>>>> {
     Some(Response::from_data(data).with_header(Header::from_bytes("Content-Type", content_type(path)).unwrap()))
 }
 
-fn api(b: &Backend, method: &Method, path: &str, q: &str, raw: &[u8]) -> Option<Response<std::io::Cursor<Vec<u8>>>> {
+fn api(b: &Backend, device: &Browser, method: &Method, path: &str, q: &str, raw: &[u8]) -> Option<Response<std::io::Cursor<Vec<u8>>>> {
     use Method::*;
     Some(match (method, path) {
+        (Post, "/test/simulated-device") => {
+            device.simulated.store(true, Ordering::SeqCst);
+            json_response(200, json!({"simulated": true}))
+        }
         (Get, "/status") => reply(Ok(b.status())),
         (Put, "/settings/gemini-key") => reply(body(raw).and_then(|k| b.put_key(k))),
         (Post, "/permissions/request") => reply(Ok(b.request_permissions())),
@@ -147,14 +167,14 @@ fn api(b: &Backend, method: &Method, path: &str, q: &str, raw: &[u8]) -> Option<
     })
 }
 
-fn handle(b: &Backend, dist: &Path, data_dir: &Path, mut req: Request) {
+fn handle(b: &Backend, device: &Browser, dist: &Path, data_dir: &Path, mut req: Request) {
     let url = req.url().to_string();
     let (path, q) = url.split_once('?').unwrap_or((&url, ""));
     let path = path.to_string();
     let mut raw = vec![];
     let _ = req.as_reader().read_to_end(&mut raw);
     let method = req.method().clone();
-    let response = if let Some(r) = api(b, &method, &path, q, &raw) {
+    let response = if let Some(r) = api(b, device, &method, &path, q, &raw) {
         r
     } else if method != Method::Get && method != Method::Head {
         json_response(405, json!({"error": "method_not_allowed"}))
@@ -197,8 +217,8 @@ fn main() {
     }
     // `absolute`, not `canonicalize`: no `\\?\` before the paths the screens show.
     let data_dir = std::path::absolute(&data_dir).unwrap_or(data_dir);
-    let platform = Arc::new(Browser { granted: Mutex::new(Permissions::default()), data_dir: data_dir.clone() });
-    let backend = match Backend::open(data_dir.clone(), std::env::var("RST_GEMINI_BASE_URL").ok(), platform) {
+    let platform = Arc::new(Browser { granted: Mutex::new(Permissions::default()), simulated: AtomicBool::new(false), data_dir: data_dir.clone() });
+    let backend = match Backend::open(data_dir.clone(), std::env::var("RST_GEMINI_BASE_URL").ok(), platform.clone()) {
         Ok(b) => Arc::new(b),
         Err(e) => {
             eprintln!("cannot open the backend: {e}");
@@ -215,7 +235,7 @@ fn main() {
     eprintln!("listening on http://localhost:{port}");
     let (dist, data_dir) = (Arc::new(dist), Arc::new(data_dir));
     for req in server.incoming_requests() {
-        let (b, dist, data_dir) = (backend.clone(), dist.clone(), data_dir.clone());
-        std::thread::spawn(move || handle(&b, &dist, &data_dir, req));
+        let (b, device, dist, data_dir) = (backend.clone(), platform.clone(), dist.clone(), data_dir.clone());
+        std::thread::spawn(move || handle(&b, &device, &dist, &data_dir, req));
     }
 }

@@ -306,6 +306,12 @@ impl Platform for AppPlatform {
         cfg!(target_os = "android")
     }
 
+    fn can_capture(&self) -> bool {
+        // Android (MediaProjection) and Windows (Graphics Capture) only; on
+        // other desktops P4 says capture is unsupported, not that a permission is missing.
+        cfg!(any(windows, target_os = "android"))
+    }
+
     fn request_permissions(&self) -> Permissions {
         #[cfg(target_os = "android")]
         {

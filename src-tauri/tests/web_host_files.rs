@@ -127,6 +127,25 @@ fn a_browser_export_can_be_fetched_by_the_reader_in_each_format() {
 }
 
 #[test]
+fn the_browser_host_never_reports_a_capture_it_cannot_do() {
+    let host = Host::start("capture");
+    let s = host.call("GET", "/status", &serde_json::Value::Null);
+    assert_eq!((s["capture_supported"].clone(), s["capture_allowed"].clone(), s["overlay_allowed"].clone()), (false.into(), false.into(), false.into()), "{s}");
+    host.call("PUT", "/settings/gemini-key", &serde_json::json!({ "key": "test_key_ABCDEFGHIJKLMNOP" }));
+    let p = host.call("POST", "/permissions/request", &serde_json::Value::Null);
+    assert_eq!((p["capture_allowed"].clone(), p["overlay_allowed"].clone()), (false.into(), false.into()), "permissions are not granted: {p}");
+    let r = host.send("POST", "/translation/start", b"").unwrap();
+    assert_eq!((r.status, String::from_utf8_lossy(&r.body).to_string()), (409, r#"{"error":"capture_unsupported"}"#.to_string()));
+    assert_eq!(host.call("GET", "/status", &serde_json::Value::Null)["on"], false, "translation is not reported on");
+
+    // Only the stand-in device the e2e seed attaches makes it act as a capturing phone.
+    host.call("POST", "/test/simulated-device", &serde_json::Value::Null);
+    assert_eq!(host.call("GET", "/status", &serde_json::Value::Null)["capture_supported"], true);
+    assert_eq!(host.call("POST", "/permissions/request", &serde_json::Value::Null)["capture_allowed"], true);
+    assert_eq!(host.call("POST", "/translation/start", &serde_json::Value::Null)["on"], true);
+}
+
+#[test]
 fn the_files_route_serves_previews_and_exports_and_denies_every_other_form() {
     let host = Host::start("files");
     let planted = b"planted-not-for-the-reader";
