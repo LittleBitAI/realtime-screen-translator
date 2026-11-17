@@ -96,3 +96,54 @@ fn a_translation_in_the_still_side_panel_stays_while_the_rest_scrolls() {
     assert_eq!(at("가"), Some(panel_y), "the translation in the still panel moved with the scroll");
     std::mem::forget(dirs);
 }
+
+/// Edge case of the forty-second review: the scroll comes while the panel
+/// balloon's translation is still on its way (`late` false), or before the
+/// crops of the frame before it are even sent (`late` true). The
+/// translation comes where the balloon stands on the screen.
+fn translated_after_the_scroll(late: bool) {
+    let dirs = Dirs::new();
+    let gemini = Gemini::start();
+    let backend = Backend::open(dirs.data.clone(), Some(gemini.url.clone()), Arc::new(Device(dirs.export.clone()))).unwrap();
+    backend.put_key(KeyIn { key: TEST_KEY.into() }).unwrap();
+    backend.start().unwrap();
+    let (panel, page) = (Balloon::new(100, 600, 160, 220, 4201), Balloon::new(750, 1200, 140, 200, 4202));
+    gemini.read_as(panel.size(), "あ");
+    gemini.translate_as("あ", "가");
+    gemini.read_as(page.size(), "い");
+    gemini.translate_as("い", "나");
+    gemini.delay(Duration::from_millis(800));
+    let mut seq = 0;
+    let mut frame = |o: usize| -> FrameOut {
+        seq += 1;
+        backend.frame(FrameIn { seq, width: SCREEN_W, height: SCREEN_H, thumb: thumb(o), captured_at: seq as i64 * 100 }).unwrap()
+    };
+    frame(0);
+    let f = frame(0);
+    let crop = |b: &Balloon| CropIn { x: b.x as u32, y: b.y as u32, w: b.w, h: b.h, kind: "dialogue".into(), score: 0.9, image: b.png(0, 0) };
+    let send = || backend.crops(CropsIn { picture_id: f.picture_id, frame_seq: 2, crops: vec![crop(&panel), crop(&page)] }).unwrap();
+    if !late {
+        send();
+    }
+    assert_eq!(frame(12).motion, "scroll");
+    if late {
+        send();
+    }
+    let at = |ko: &str| backend.placements(Default::default()).unwrap().placements.into_iter().find(|p| p.ko == ko);
+    wait_for("the two balloons were not translated", || at("가").is_some() && at("나").is_some());
+    let (p, q) = (at("가").unwrap(), at("나").unwrap());
+    let covers = |p: &realtime_screen_translator::api::PlacementOut, top: i64, h: u32| p.y as i64 <= top && p.y as i64 + p.h as i64 >= top + h as i64;
+    assert!(covers(&p, panel.y, panel.h), "the panel's translation is not on its balloon: {p:?}");
+    assert!(covers(&q, page.y - 120, page.h), "the page's translation is not on its balloon: {q:?}");
+    std::mem::forget(dirs);
+}
+
+#[test]
+fn a_panel_translation_coming_after_the_scroll_is_on_its_balloon() {
+    translated_after_the_scroll(false);
+}
+
+#[test]
+fn a_panel_crop_of_a_frame_before_the_scroll_is_placed_on_its_balloon() {
+    translated_after_the_scroll(true);
+}

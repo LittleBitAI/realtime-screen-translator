@@ -726,21 +726,24 @@ impl Backend {
                             s.mode = Some("scroll");
                             let h = req.height as i64;
                             let band = ((s.fixed.0 as f64 * scale) as i64, (s.fixed.1 as f64 * scale) as i64);
+                            // Balloons in the still side columns did not move:
+                            // their translations keep their place on the screen,
+                            // not in the picture, and so do those still coming.
+                            // The book keeps them where they were first seen.
+                            let (width, current) = (req.width, s.current);
+                            if side != (0, 0) {
+                                for t in s.pending.iter_mut().flat_map(|p| p.targets.iter_mut()) {
+                                    if Some(t.0) == current && in_side(side, width, t.1 .0, t.1 .2) {
+                                        t.1 .1 += dy as i64;
+                                        t.2 .1 += dy as i64;
+                                        t.2 .3 += dy as i64;
+                                    }
+                                }
+                            }
                             if let Some(pic) = s.pic() {
                                 pic.reopen();
-                                // Balloons in the still side columns did not
-                                // move: their translations keep their place on
-                                // the screen, not in the picture. The book keeps
-                                // them where they were first seen.
                                 if side != (0, 0) {
-                                    let cw = req.width as f64 / THUMB_W as f64;
-                                    let (l, r) = (side.0 as f64 * cw, req.width as f64 - side.1 as f64 * cw);
-                                    let still: Vec<i64> = pic
-                                        .placements
-                                        .iter()
-                                        .filter(|p| !(l..=r).contains(&(p.x as f64 + p.w as f64 / 2.0)))
-                                        .map(|p| p.id)
-                                        .collect();
+                                    let still: Vec<i64> = pic.placements.iter().filter(|p| in_side(side, width, p.x, p.w)).map(|p| p.id).collect();
                                     for p in pic.placements.iter_mut().filter(|p| still.contains(&p.id)) {
                                         p.y += dy as i64;
                                     }
@@ -1008,7 +1011,12 @@ impl Backend {
         // again only waits for that answer), and its own rows are looked at
         // again later (on a scroll, the page's return, or after a while).
         let mut failed = None;
+        // A balloon in still side columns stands where it stood on the
+        // screen then: it is placed by the scroll now (as the shift keeps
+        // those placed and coming, `in_side`).
+        let (side, scroll_now, width) = if s.current == Some(req.picture_id) { (s.side, s.scroll_y, s.screen.0) } else { ((0, 0), offset, 0) };
         for c in req.crops {
+            let offset = if side != (0, 0) && in_side(side, width, c.x as i64, c.w) { scroll_now } else { offset };
             let rows = (c.y as i64 + offset, c.y as i64 + c.h as i64 + offset);
             if let Err(e) = take_crop(st, req.picture_id, c, (req.frame_seq, offset), now, &mut result, &mut jobs) {
                 eprintln!("crop of picture {} at rows {rows:?}: {e}", req.picture_id);
@@ -1452,6 +1460,14 @@ fn take_crop(st: &mut State, picture_id: i64, c: CropIn, (seq, offset): (u64, i6
     s.pending.push(Pending { fp, aspect, targets: vec![(picture_id, rect, area)] });
     jobs.push(Job { fp, aspect, png: c.image });
     Ok(())
+}
+
+/// Whether a box `x`, `w` wide stands in the still side columns `side`
+/// (`tracker::fixed_cols`) of a screen `width` wide: its middle does.
+fn in_side(side: (usize, usize), width: u32, x: i64, w: u32) -> bool {
+    let cw = width as f64 / THUMB_W as f64;
+    let mid = x as f64 + w as f64 / 2.0;
+    mid < side.0 as f64 * cw || mid > width as f64 - side.1 as f64 * cw
 }
 
 fn place(db: &Db, picture_id: i64, fingerprint: &str, rect: Rect, area: (i64, i64, i64, i64), ko: &str, placed: &[PlacementRow]) -> ApiResult<Option<PlacementRow>> {
