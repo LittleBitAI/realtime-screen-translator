@@ -7,6 +7,7 @@ mod support;
 
 use realtime_screen_translator::api::{CropIn, CropsIn, FrameIn, FrameOut, KeyIn};
 use realtime_screen_translator::platform::{Permissions, Platform};
+use realtime_screen_translator::backend::OVERLAY_LAG;
 use realtime_screen_translator::Backend;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -103,10 +104,11 @@ fn a_page_alike_but_for_its_words_is_a_page_turn_where_the_overlay_is_not_captur
 }
 
 #[test]
-fn a_page_alike_but_for_its_words_is_a_page_turn_under_an_overlay_drawn_alike_in_both_frames() {
-    // Android: the overlay is in the capture, but the last two frames hold it
-    // alike, so the change under it comes through from the page.
-    let (a, first, second) = turn_to_a_page_with_other_words(true, 2);
+fn a_page_alike_but_for_its_words_is_a_page_turn_under_an_overlay_held_alike_since_its_draw() {
+    // Android: the overlay is in the capture, but every frame it can still be
+    // arriving in (OVERLAY_LAG after the draw) holds it alike, so the change
+    // under it comes through from the page.
+    let (a, first, second) = turn_to_a_page_with_other_words(true, OVERLAY_LAG);
     assert_eq!(first.motion, "page", "the next page was taken for the one still on screen");
     assert_ne!(second.picture_id, a.picture_id, "the next page kept the translated page's picture");
     assert!(second.placements.is_empty(), "the old translation stayed on the next page");
