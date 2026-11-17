@@ -78,6 +78,16 @@ PORT=3000 APP_DATA_DIR="$HOME/rst-web" node scripts/live.mjs
 
 브라우저는 다른 앱의 화면을 캡처하거나 그 위에 그릴 수 없으므로, 브라우저판은 권한을 허용하지 않고 번역 켜기를 거절하며 첫 화면이 그 까닭과 설치한 앱에서 켜라는 안내를 보여 줍니다. `e2e/seed.json`만 `POST /test/simulated-device`로 대역 캡처 기기를 붙여 휴대폰처럼 프레임과 화면 조각을 보냅니다. 내보낸 그림은 `APP_DATA_DIR/export`에 놓이고, 번역본 화면에 그림마다 뜨는 내려받기 버튼으로 브라우저가 있는 기기에 받습니다. 실제로 보던 앱 위에 번역을 띄우는 일은 같은 화면과 백엔드를 쓰는 Tauri 앱(Windows, Android)이 합니다. 그 구성은 아래 [구조](#구조)에 있습니다.
 
+### Android APK (Windows)
+
+JDK 17과 Android SDK(command-line tools, `platform-tools`, `build-tools;34.0.0`, `ndk;27.2.12479018`)를 깔고 `JAVA_HOME`, `ANDROID_HOME`, `NDK_HOME`을 맞춥니다. Android 프로젝트는 `src-tauri/gen/android`에 커밋되어 있습니다.
+
+```sh
+cargo tauri android build --apk --target aarch64 --features app -c '{"build":{"beforeBuildCommand":"corepack pnpm build"}}'
+```
+
+Windows 개발자 모드가 꺼져 있으면 마지막 심볼릭 링크 단계에서 멈춥니다. 그때는 `target/aarch64-linux-android/release/librealtime_screen_translator.so`를 `src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/`에 복사하고, `src-tauri/gen/android`에서 `./gradlew.bat assembleUniversalDebug -x rustBuildUniversalDebug -x rustBuildArm64Debug -PabiList=arm64-v8a -ParchList=arm64 -PtargetList=aarch64`를 돌립니다. APK는 `app/build/outputs/apk/universal/debug/app-universal-debug.apk`에 나옵니다.
+
 ## 테스트
 
 ```sh
