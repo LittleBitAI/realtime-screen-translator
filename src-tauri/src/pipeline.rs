@@ -165,7 +165,7 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
     // same but for the words the shapes cover (the capture holds them): a
     // look under the shapes tells (`Backend::text_areas`).
     if screen.touched() && out.motion == "still" {
-        look_under(backend, screen, out.picture_id);
+        look_under(backend, screen, out.picture_id, seq);
     }
     if let Some(r) = out.detect {
         let shown = clean.as_ref().map_or(seq, |c| c.seq);
@@ -215,13 +215,21 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
     }
 }
 
-fn look_under(backend: &Backend, screen: &dyn Screen, picture_id: i64) {
+/// Looks under the shapes of `picture_id` on frame `seq` (`Backend::text_areas`).
+fn look_under(backend: &Backend, screen: &dyn Screen, picture_id: i64, seq: u64) {
     let areas = backend.text_areas(picture_id);
     if areas.is_empty() {
         return;
     }
-    let Some(c) = screen.peek() else { return };
-    let seen: Vec<_> = areas.iter().filter_map(|&(id, (_, y, _, h))| screen.strip(c.seq, y, y + h).map(|png| (id, png))).collect();
+    // With no shape drawn yet (every translation still coming), the frame
+    // itself shows the words; else one is taken with the shapes hidden.
+    let from = if backend.shapes_drawn(picture_id).is_empty() {
+        seq
+    } else {
+        let Some(c) = screen.peek() else { return };
+        c.seq
+    };
+    let seen: Vec<_> = areas.iter().filter_map(|&(fp, r)| screen.strip(from, r.1, r.1 + r.3).map(|png| (fp, r, png))).collect();
     if let Err(e) = backend.words_under(picture_id, &seen) {
         eprintln!("words under the shapes: {e}");
     }

@@ -861,24 +861,31 @@ impl Backend {
     }
 
     /// The page change settled on `thumb`: back on a page seen before, or a new page.
-    /// The text areas (screen pixels, by placement id) of picture
-    /// `picture_id` wholly on the screen now, where the capture holds the
-    /// overlay (A6): there the shapes hide the words under them, and a page
-    /// turned without any slide, its drawing the same, changes nothing the
-    /// capture sees. The capture loop looks under the shapes after a tap that
-    /// left the screen still (`pipeline::step`) and sends what it saw to
+    /// The text areas (screen pixels, with the fingerprint of the words
+    /// their translation is made for) of picture `picture_id` wholly on the
+    /// screen now, where the capture holds the overlay (A6): there the shapes
+    /// hide the words under them, and a page turned without any slide, its
+    /// drawing the same, changes nothing the capture sees. Balloons whose
+    /// translation is still coming are among them: their words are not
+    /// covered yet, but the answer would be placed over another page's. The
+    /// capture loop looks under the shapes after a tap that left the screen
+    /// still (`pipeline::step`) and sends what it saw to
     /// [`Backend::words_under`]. Empty where nothing needs looking at.
-    pub fn text_areas(&self, picture_id: i64) -> Vec<(i64, (u32, u32, u32, u32))> {
+    pub fn text_areas(&self, picture_id: i64) -> Vec<(u64, (u32, u32, u32, u32))> {
         let st = self.lock();
         let Some(s) = st.session.as_ref().filter(|s| s.overlay_in_capture && !s.turning && s.current == Some(picture_id)) else { return vec![] };
         let Some(pic) = s.pics.get(&picture_id) else { return vec![] };
-        pic.texts
-            .iter()
-            .filter(|(id, _)| pic.placements.iter().any(|p| p.id == *id))
-            .filter_map(|&(id, (x, y, w, h))| {
+        let placed = pic.texts.iter().filter_map(|&(id, r)| {
+            let p = pic.placements.iter().find(|p| p.id == id)?;
+            Some((fingerprint::from_hex(&p.fingerprint)?, r))
+        });
+        let coming = s.pending.iter().flat_map(|p| p.targets.iter().filter(|t| t.0 == picture_id).map(|t| (p.fp, t.1)));
+        placed
+            .chain(coming)
+            .filter_map(|(fp, (x, y, w, h))| {
                 let y = y - s.scroll_y;
                 let fits = x >= 0 && y >= 0 && x + w as i64 <= s.screen.0 as i64 && y + h as i64 <= s.screen.1 as i64;
-                fits.then_some((id, (x as u32, y as u32, w, h)))
+                fits.then_some((fp, (x as u32, y as u32, w, h)))
             })
             .collect()
     }
@@ -907,31 +914,31 @@ impl Backend {
         out
     }
 
-    /// What is under the shapes now: for each placement id from
-    /// [`Backend::text_areas`], a PNG of the screen rows of its text area,
-    /// from a frame taken with the shapes hidden. If any of them no longer
+    /// What is under the shapes now: for each text area from
+    /// [`Backend::text_areas`] (its fingerprint and screen rect), a PNG of
+    /// the screen rows of it, from a frame taken with the shapes hidden. If any of them no longer
     /// holds what its translation was made for (the fingerprint, as R23),
     /// another page is showing (one drawn the same, its words changed in one
     /// balloon or all): the next frame turns to it, and on the new page the
     /// balloons whose words stayed get their stored translations back
     /// without asking Gemini. Answered with whether it turns.
-    pub fn words_under(&self, picture_id: i64, seen: &[(i64, Vec<u8>)]) -> ApiResult<bool> {
+    pub fn words_under(&self, picture_id: i64, seen: &[(u64, (u32, u32, u32, u32), Vec<u8>)]) -> ApiResult<bool> {
         let mut st = self.lock();
         let s = st.session.as_mut().ok_or(ApiError("not_on"))?;
         if s.current != Some(picture_id) || s.turning {
             return Ok(false);
         }
-        let Some(pic) = s.pics.get(&picture_id) else { return Ok(false) };
+        if !s.pics.contains_key(&picture_id) {
+            return Ok(false);
+        }
         let mut other = 0;
-        for (id, png) in seen {
-            let (Some(&(_, (x, _, w, h))), Some(p)) = (pic.texts.iter().find(|t| t.0 == *id), pic.placements.iter().find(|p| p.id == *id)) else { continue };
-            let Some(img) = export::decode_png(png).filter(|i| i.h == h && x >= 0 && x as u32 + w <= i.w) else { continue };
+        for &(want, (x, _, w, h), ref png) in seen {
+            let Some(img) = export::decode_png(png).filter(|i| i.h == h && x + w <= i.w) else { continue };
             let gray = img.gray();
             let x = x as usize;
             let area: Vec<u8> = gray.chunks(img.w as usize).flat_map(|row| row[x..x + w as usize].iter().copied()).collect();
             let fp = fingerprint::dhash(&area, w as usize, h as usize);
-            let same = fingerprint::from_hex(&p.fingerprint).is_some_and(|f| (f ^ fp).count_ones() <= fingerprint::MAX_BITS);
-            if !same {
+            if (want ^ fp).count_ones() > fingerprint::MAX_BITS {
                 other += 1;
             }
         }
