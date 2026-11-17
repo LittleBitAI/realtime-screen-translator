@@ -257,7 +257,9 @@ impl State {
             .iter()
             // A failed attempt is not a translation: the balloon is asked again.
             .filter(|k| k.status != "failed" && fingerprint::same_balloon(fp, aspect, k.fp, k.aspect))
-            .min_by_key(|k| (k.fp ^ fp).count_ones())
+            // Of two alike, the one of the closer shape: a balloon seen cut
+            // at the screen's edge and seen whole are both known.
+            .min_by_key(|k| ((k.fp ^ fp).count_ones(), ((k.aspect - aspect).abs() * 1000.0) as u32))
     }
 }
 
@@ -1340,7 +1342,9 @@ fn grows(small: (i64, i64, u32, u32), big: (i64, i64, u32, u32)) -> bool {
 /// A text area taken at the screen's edge or a fixed band's that `rect`
 /// shows larger was cut there: its placements and the answer still awaited for it go. Where the
 /// capture holds the overlay their shapes are remembered as erased.
-fn replace_cut(st: &mut State, picture_id: i64, rect: (i64, i64, u32, u32)) -> ApiResult<()> {
+/// Answered with the fingerprints of what gave way (asked for or placed):
+/// their translations are of the cut words, not of the whole ones.
+fn replace_cut(st: &mut State, picture_id: i64, rect: (i64, i64, u32, u32)) -> ApiResult<Vec<u64>> {
     let s = st.session.as_mut().unwrap();
     // A status bar, navigation bar or toolbar that stays put cuts the
     // content at its edge as the screen's edge does.
@@ -1355,7 +1359,7 @@ fn replace_cut(st: &mut State, picture_id: i64, rect: (i64, i64, u32, u32)) -> A
     let pic = s.pics.get_mut(&picture_id).unwrap();
     let cut: Vec<_> = pic.edge_rects.iter().filter(|&&(r, a)| at_edge(r, a) && grows(r, rect)).map(|&(r, _)| r).collect();
     if cut.is_empty() {
-        return Ok(());
+        return Ok(vec![]);
     }
     pic.edge_rects.retain(|(r, _)| !cut.contains(r));
     let (gone, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut pic.placements).into_iter().partition(|p| cut.iter().any(|&e| overlap(e, (p.x, p.y, p.w, p.h)) > 0.5));
@@ -1363,8 +1367,13 @@ fn replace_cut(st: &mut State, picture_id: i64, rect: (i64, i64, u32, u32)) -> A
     if in_capture {
         pic.erased.extend(gone.iter().map(|p| ((p.x, p.y, p.w, p.h), clean_from)));
     }
+    let mut fps: Vec<u64> = gone.iter().filter_map(|p| fingerprint::from_hex(&p.fingerprint)).collect();
     for p in s.pending.iter_mut() {
+        let before = p.targets.len();
         p.targets.retain(|t| !(t.0 == picture_id && cut.contains(&t.1)));
+        if p.targets.len() < before {
+            fps.push(p.fp);
+        }
     }
     if !gone.is_empty() {
         s.revision += 1;
@@ -1372,7 +1381,7 @@ fn replace_cut(st: &mut State, picture_id: i64, rect: (i64, i64, u32, u32)) -> A
     for p in gone {
         store::delete_placement(&st.db, p.id)?;
     }
-    Ok(())
+    Ok(fps)
 }
 
 /// Whether thumbnails `a` and `b` of a screen at `scroll_y` differ in the
@@ -1430,7 +1439,7 @@ fn take_crop(st: &mut State, picture_id: i64, c: CropIn, (seq, offset): (u64, i6
     // is read as it is, and remembered. Seen larger later, once a scroll
     // shows more of it, it was cut: what was placed or asked for it gives
     // way to the whole one.
-    replace_cut(st, picture_id, rect)?;
+    let cut = replace_cut(st, picture_id, rect)?;
     // A frame that may still show an erased shape over this text area shows
     // our white, not the Japanese under it: its rows are looked at again in
     // a later frame (A6).
@@ -1456,7 +1465,9 @@ fn take_crop(st: &mut State, picture_id: i64, c: CropIn, (seq, offset): (u64, i6
         }
         return Ok(());
     }
-    if let Some(k) = st.find_known(fp, aspect).cloned() {
+    // Not the translation of the cut words this crop shows more of: the
+    // words that came into sight are read too.
+    if let Some(k) = st.find_known(fp, aspect).filter(|k| !cut.contains(&k.fp)).cloned() {
         store::touch_translation(&st.db, &k.hex, now)?;
         if k.status == "ready" {
             let ko = k.ko.unwrap_or_default();
@@ -1477,7 +1488,7 @@ fn take_crop(st: &mut State, picture_id: i64, c: CropIn, (seq, offset): (u64, i6
     let s = st.session.as_mut().unwrap();
     result.pending += 1;
     // Already asked (earlier or in this batch): this place gets the same answer.
-    if let Some(p) = s.pending.iter_mut().find(|p| fingerprint::same_balloon(fp, aspect, p.fp, p.aspect)) {
+    if let Some(p) = s.pending.iter_mut().find(|p| !cut.contains(&p.fp) && fingerprint::same_balloon(fp, aspect, p.fp, p.aspect)) {
         p.targets.push((picture_id, rect, area));
         return Ok(());
     }
