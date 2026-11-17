@@ -111,7 +111,8 @@ struct Session {
     rows: usize,
     fixed: (usize, usize),
     /// Thumbnail columns at the left and right that stay put while the rest
-    /// scrolls (`tracker::fixed_cols`): left out of the comparisons.
+    /// scrolls (`tracker::fixed_cols`): left out of the measure against the
+    /// last resting screen, never out of the still check.
     side: (usize, usize),
     /// Picture y of the screen's top row: `scroll_f` rounded. The scroll is
     /// summed with sub-pixel precision so frame-by-frame rounding does not add up.
@@ -648,7 +649,10 @@ impl Backend {
         // the previous frame for the frame before: both are left out.
         let entry_scroll = s.scroll_y;
         let shapes = s.overlay_mask(&[entry_scroll, s.drawn_before]);
-        let mask = joined(joined(shapes.clone(), &hide), &tracker::col_mask(s.side, rows));
+        // Side columns found still in a scroll (`s.side`) are not left out
+        // here: a change in them (a new window, new words in a panel) is the
+        // screen changing. The shift search finds them again every time.
+        let mask = joined(shapes.clone(), &hide);
         s.drawn_before = entry_scroll;
         // Nothing placed, taken away or moved since the frame before last:
         // this frame and the last hold the same overlay, so a change under
