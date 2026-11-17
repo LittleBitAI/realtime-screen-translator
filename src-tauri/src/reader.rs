@@ -96,7 +96,9 @@ impl Backend {
             // The picture as the site sent it, in the app's own folder (E5).
             let rel_dir = format!("strips/{pic}");
             std::fs::create_dir_all(self.data_dir.join(&rel_dir)).map_err(storage_error)?;
-            let rel = format!("{rel_dir}/page.{ext}");
+            // Named after the page itself: a picture id freed by a failed save
+            // and taken by another page never leads two pages to one file.
+            let rel = format!("{rel_dir}/page-{}-{lang}.{ext}", &hash[..16]);
             written = Some(self.data_dir.join(&rel));
             std::fs::write(self.data_dir.join(&rel), &bytes).map_err(storage_error)?;
             store::insert_strip(&tx, pic, 0, h, &rel, now)?;
@@ -113,7 +115,8 @@ impl Backend {
             tx.commit()?;
             Ok(())
         })();
-        drop(guard);
+        // Cleaned up before the lock goes: the rolled-back picture id is free
+        // again, and the next page to save may take it (and its folder).
         let save_error = match saved {
             Ok(()) => {
                 self.pages.forget(&page_key);
@@ -130,7 +133,16 @@ impl Backend {
                 Some(e.0)
             }
         };
+        self.let_go(guard);
         Ok(PageOut { width: w, height: h, saved: false, boxes, save_error })
+    }
+
+    /// Gives up the lock after a page save. Under test, it checks what the
+    /// next save to take the lock would find on disk.
+    fn let_go(&self, guard: MutexGuard<'_, State>) {
+        drop(guard);
+        #[cfg(test)]
+        tests::after_let_go(self);
     }
 
     /// One Gemini request for the whole page (R9, R10 in `gemini::read_page`).
@@ -295,6 +307,82 @@ mod tests {
 
     fn item(text: [f64; 4], balloon: Option<[f64; 4]>) -> PageItem {
         PageItem { text, balloon, src: String::new(), ko: "안녕".into() }
+    }
+
+    struct Quiet(PathBuf);
+
+    impl Platform for Quiet {
+        fn request_permissions(&self) -> crate::platform::Permissions {
+            self.permissions()
+        }
+        fn permissions(&self) -> crate::platform::Permissions {
+            crate::platform::Permissions { capture: false, overlay: false }
+        }
+        fn start(&self) -> Result<(), String> {
+            Ok(())
+        }
+        fn stop(&self) {}
+        fn emit(&self, _: &str, _: serde_json::Value) {}
+        fn export_dir(&self) -> PathBuf {
+            self.0.clone()
+        }
+        fn seal(&self, d: &[u8]) -> Option<Vec<u8>> {
+            Some(d.to_vec())
+        }
+        fn unseal(&self, d: &[u8]) -> Option<Vec<u8>> {
+            Some(d.to_vec())
+        }
+    }
+
+    /// What the save after a page save finds when it takes the lock: every
+    /// page image no kept strip names, by data folder (from `after_let_go`).
+    static STRAYS: Mutex<Vec<String>> = Mutex::new(vec![]);
+
+    pub(super) fn after_let_go(b: &Backend) {
+        let st = b.lock();
+        let mut q = st.db.prepare("SELECT file_path FROM Strip").unwrap();
+        let kept: std::collections::HashSet<String> = q.query_map([], |r| r.get(0)).unwrap().map(|p| p.unwrap()).collect();
+        for d in std::fs::read_dir(b.data_dir.join("strips")).into_iter().flatten() {
+            let d = d.unwrap();
+            for f in std::fs::read_dir(d.path()).unwrap() {
+                let rel = format!("strips/{}/{}", d.file_name().to_string_lossy(), f.unwrap().file_name().to_string_lossy());
+                if !kept.contains(&rel) {
+                    STRAYS.lock().unwrap().push(format!("{}|{rel}", b.data_dir.display()));
+                }
+            }
+        }
+    }
+
+    /// The next save to take the lock finds on disk exactly the page images
+    /// the library keeps: a failed save removes its image before letting go,
+    /// so the page that takes its freed picture id never meets that file.
+    #[test]
+    fn the_next_save_to_take_the_lock_finds_only_kept_page_images() {
+        let dir = std::env::temp_dir().join(format!("rst-reader-{}-{}", std::process::id(), now_ms()));
+        let b = Backend::open(dir.clone(), Some("http://127.0.0.1:9".into()), Arc::new(Quiet(dir.join("export")))).unwrap();
+        b.lock().key = Some("k".into());
+        // A save for a site page under `outside/` fails after its image is written.
+        b.lock().db.execute_batch("CREATE TRIGGER refuse BEFORE INSERT ON ReaderPage WHEN NEW.page_url LIKE '%/outside/%' BEGIN SELECT RAISE(ABORT, 'refused'); END;").unwrap();
+        let fixture = std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/page.jpg")).unwrap();
+        let lang = b.source_lang();
+        // Failing and kept pages in turn: each kept page takes the picture id
+        // the failed one before it gave back.
+        for n in 0..6u8 {
+            let mut page = fixture.clone();
+            page.extend([0, n]); // past the picture's end: another content key
+            let url = if n % 2 == 0 { "https://m.example/outside/target.txt" } else { "https://m.example/c/kept" };
+            // Read before and not kept: no Gemini is needed here.
+            let hash: String = Sha256::digest(&page).iter().map(|b| format!("{b:02x}")).collect();
+            b.pages.keep(&format!("{hash}:{lang}"), vec![item([0.2, 0.2, 0.3, 0.3], None)]);
+            let req = PageIn { src: "https://cdn.example/p.jpg".into(), image: Some(page), page_url: url.into(), title: "t".into(), index: 0 };
+            assert_eq!(b.read_page(req).unwrap().save_error.is_some(), n % 2 == 0, "{url}");
+        }
+        let ids: Vec<i64> = b.lock().db.prepare("SELECT picture_id FROM ReaderPage ORDER BY picture_id").unwrap().query_map([], |r| r.get(0)).unwrap().map(|r| r.unwrap()).collect();
+        assert_eq!(ids, [1, 2, 3], "each kept page took the id a failed save freed");
+        let mine = format!("{}|", dir.display());
+        let strays: Vec<String> = STRAYS.lock().unwrap().iter().filter(|s| s.starts_with(&mine)).cloned().collect();
+        assert!(strays.is_empty(), "the next save found images no page keeps: {strays:?}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
