@@ -159,11 +159,20 @@ fn handle(b: &Backend, dist: &Path, data_dir: &Path, mut req: Request) {
     } else if method != Method::Get && method != Method::Head {
         json_response(405, json!({"error": "method_not_allowed"}))
     } else if let Some(rel) = path.strip_prefix("/files/") {
-        // Strip previews of the books (`preview_path`), from the app's own folder only.
-        match inside(data_dir, rel).filter(|p| p.starts_with(data_dir.join("strips"))).and_then(|p| file_response(&p)) {
-            Some(r) => r,
-            None => json_response(404, json!({"error": "not_found"})),
-        }
+        // The files the API names, from the app's own folder only: book
+        // previews (`preview_path`, under `strips/`) and exported pictures
+        // (`files` of an export, under `export/`), the latter as downloads,
+        // since in a browser the reader has no other way to get them.
+        let file = inside(data_dir, rel).filter(|p| p.is_file());
+        let response = match file {
+            Some(p) if p.starts_with(data_dir.join("strips")) => file_response(&p),
+            Some(p) if p.starts_with(data_dir.join("export")) => file_response(&p).map(|r| {
+                let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("picture");
+                r.with_header(Header::from_bytes("Content-Disposition", format!("attachment; filename=\"{name}\"")).unwrap())
+            }),
+            _ => None,
+        };
+        response.unwrap_or_else(|| json_response(404, json!({"error": "not_found"})))
     } else {
         // A built file, or a screen route (`/`, `/library`, `/options`):
         // every route loads the app, which shows the screen for its path.

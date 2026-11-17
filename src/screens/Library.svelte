@@ -3,7 +3,7 @@
   import Shell from '../lib/Shell.svelte';
   import { api } from '../lib/api.js';
   import { link } from '../lib/router.svelte.js';
-  import { bookName, exportDone, exportError, kindText, reachError } from '../lib/text.js';
+  import { bookName, exportDone, exportError, exportReady, kindText, reachError } from '../lib/text.js';
 
   // The books and the boxes standing in for them while loading share one grid.
   const grid = 'mt-4 grid grid-cols-1 items-start gap-4 sm:grid-cols-2';
@@ -44,7 +44,7 @@
 
   // The entry read back from the state, so changes to it are seen.
   function job(id) {
-    jobs[id] ??= { format: 'png', busy: false, error: '', done: '' };
+    jobs[id] ??= { format: 'png', busy: false, error: '', done: '', links: [] };
     return jobs[id];
   }
 
@@ -54,8 +54,12 @@
     j.busy = true;
     j.error = '';
     j.done = '';
+    j.links = [];
     try {
-      j.done = exportDone(await api.exportBook(book.id, j.format));
+      const out = await api.exportBook(book.id, j.format);
+      // In a browser the files sit on the host: the reader downloads each one.
+      j.links = api.exportLinks(out);
+      j.done = j.links.length ? exportReady(out.count) : exportDone(out);
     } catch (e) {
       j.error = exportError(e.code);
     } finally {
@@ -91,7 +95,7 @@
   {:else}
     <div data-feature="list-books" class={grid}>
       {#each books as book (book.id)}
-        {@const j = jobs[book.id] ?? { format: 'png', busy: false, error: '', done: '' }}
+        {@const j = jobs[book.id] ?? { format: 'png', busy: false, error: '', done: '', links: [] }}
         <article class="box-border min-w-0 rounded-xl border border-gray-300 bg-white p-4">
           <div class="flex h-40 items-center justify-center overflow-hidden rounded-lg bg-gray-300 text-sm text-gray-500">
             {#if preview(book)}
@@ -152,6 +156,22 @@
             </button>
             {#if j.error}<p role="alert" class="m-0 mt-2 rounded-lg bg-red-50 px-4 py-2 text-sm">{j.error}</p>{/if}
             {#if j.done}<p role="status" class="m-0 mt-2 rounded-lg bg-blue-50 px-4 py-2 text-sm break-all">{j.done}</p>{/if}
+            {#if j.links.length}
+              <ul class="m-0 mt-2 flex list-none flex-col gap-2 p-0">
+                {#each j.links as file, i (file.href)}
+                  <li>
+                    <a
+                      href={file.href}
+                      download={file.name}
+                      data-feature="export-book"
+                      class="flex min-h-11 items-center justify-center rounded-lg border border-primary px-4 font-semibold text-ink no-underline"
+                    >
+                      그림 {i + 1} 내려받기
+                    </a>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
           {/if}
         </article>
       {/each}

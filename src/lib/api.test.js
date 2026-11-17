@@ -46,4 +46,13 @@ describe('api over HTTP', () => {
     expect(await api.previewSrc('\\\\?\\C:\\data\\strips\\2\\0-9.webp')).toBe('/files/strips/2/0-9.webp');
     expect(await api.previewSrc('/data/user/0/app/strips/3/0-9.webp')).toBe('/files/strips/3/0-9.webp');
   });
+
+  it('offers each exported picture for download from the host', () => {
+    // The backend names the files it wrote in the data folder's `export/`.
+    const out = { count: 2, files: ['C:\\data\\export\\translated-1.png', '/data/export/translated-2.webp'] };
+    expect(api.exportLinks(out)).toEqual([
+      { href: '/files/export/translated-1.png', name: 'translated-1.png' },
+      { href: '/files/export/translated-2.webp', name: 'translated-2.webp' },
+    ]);
+  });
 });

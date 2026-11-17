@@ -76,7 +76,7 @@ $env:PORT = "3000"; $env:APP_DATA_DIR = "$env:LOCALAPPDATA\rst-web"; node script
 PORT=3000 APP_DATA_DIR="$HOME/rst-web" node scripts/live.mjs
 ```
 
-브라우저판은 화면을 캡처하거나 다른 앱 위에 그리지 않습니다. 권한은 물으면 허용된 것으로 치고, 내보낸 그림은 `APP_DATA_DIR/export`에 놓입니다. 실제로 보던 앱 위에 번역을 띄우는 일은 같은 화면과 백엔드를 쓰는 Tauri 앱(Windows, Android)이 합니다. 그 구성은 아래 [구조](#구조)에 있습니다.
+브라우저판은 화면을 캡처하거나 다른 앱 위에 그리지 않습니다. 권한은 물으면 허용된 것으로 칩니다. 내보낸 그림은 `APP_DATA_DIR/export`에 놓이고, 번역본 화면에 그림마다 뜨는 내려받기 버튼으로 브라우저가 있는 기기에 받습니다. 실제로 보던 앱 위에 번역을 띄우는 일은 같은 화면과 백엔드를 쓰는 Tauri 앱(Windows, Android)이 합니다. 그 구성은 아래 [구조](#구조)에 있습니다.
 
 ## 테스트
 

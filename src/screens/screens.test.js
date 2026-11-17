@@ -18,6 +18,8 @@ vi.mock('../lib/api.js', async (real) => {
       books: vi.fn(),
       exportBook: vi.fn(),
       previewSrc: vi.fn(async (p) => `/files/${p}`),
+      // Inside the app by default: exports are already in the gallery.
+      exportLinks: vi.fn(() => []),
     },
   };
 });
@@ -171,6 +173,26 @@ describe('S2 Library', () => {
     await fireEvent.click(screen.getByRole('button', { name: '다시 내보내기' }));
     await screen.findByText('그림 2장을 /data/export에 저장했습니다.');
     expect(api.exportBook).toHaveBeenLastCalledWith(2, 'webp');
+    expect(screen.queryByRole('link', { name: /내려받기/ })).toBeNull();
+  });
+
+  it('full, in a browser: each exported picture is offered as a download', async () => {
+    const out = { count: 2, files: ['/data/export/a.png', '/data/export/b.png'] };
+    api.books.mockResolvedValue({ books: [book(2, 2)], next_before: null });
+    api.exportBook.mockResolvedValue(out);
+    api.exportLinks.mockReturnValue([
+      { href: '/files/export/a.png', name: 'a.png' },
+      { href: '/files/export/b.png', name: 'b.png' },
+    ]);
+    render(Library);
+    await fireEvent.click(await screen.findByRole('button', { name: '내보내기' }));
+    await screen.findByText('그림 2장을 만들었습니다. 아래를 눌러 이 기기에 내려받으세요.');
+    expect(api.exportLinks).toHaveBeenCalledWith(out);
+    const links = screen.getAllByRole('link', { name: /내려받기/ });
+    expect(links.map((a) => [a.getAttribute('href'), a.getAttribute('download'), a.dataset.feature])).toEqual([
+      ['/files/export/a.png', 'a.png', 'export-book'],
+      ['/files/export/b.png', 'b.png', 'export-book'],
+    ]);
   });
 });
 

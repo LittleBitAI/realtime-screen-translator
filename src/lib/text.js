@@ -74,6 +74,9 @@ const when = new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 
 /** A book's name, from when translation was turned on for it. */
 export const bookName = (startedAt) => `${when.format(new Date(startedAt))}에 켠 번역본`;
 
+/** An export in a browser: the pictures are made and wait to be downloaded. */
+export const exportReady = (count) => `그림 ${count}장을 만들었습니다. 아래를 눌러 이 기기에 내려받으세요.`;
+
 /** Where an export went: the folder (or gallery place) of its first file. */
 export function exportDone(out) {
   const first = out.files[0] ?? '';
