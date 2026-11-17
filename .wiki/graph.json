@@ -1,0 +1,35 @@
+{
+ "ns": "repo",
+ "repo": "realtime-screen-translator",
+ "nodes_from": ".wiki/corpus.json",
+ "edges": [
+  {
+   "a": "README.md",
+   "b": "docs/design/backend.md",
+   "kind": "link"
+  },
+  {
+   "a": "README.md",
+   "b": "docs/design/frontend.md",
+   "kind": "link"
+  },
+  {
+   "a": "docs/design/frontend.md",
+   "b": "docs/design/backend.md",
+   "kind": "link"
+  }
+ ],
+ "orphans": [
+  "docs/research/review-oneshot-initial-f1-1.md",
+  "docs/research/review-oneshot-initial-f1-2.md"
+ ],
+ "counts": {
+  "docs": 5,
+  "linked": 2,
+  "read": 0,
+  "orphans": 2,
+  "pages": 0,
+  "decisions": 0,
+  "injectable_decisions": 0
+ }
+}
