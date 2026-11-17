@@ -13,7 +13,7 @@ use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
 use windows::core::{factory, Interface};
 use windows::Graphics::Capture::{Direct3D11CaptureFramePool, GraphicsCaptureItem, GraphicsCaptureSession};
 use windows::Graphics::DirectX::Direct3D11::IDirect3DDevice;
@@ -338,7 +338,8 @@ impl Screen for WinScreen {
         export::encode_png(&export::rows(&img, top, bottom)).ok()
     }
 
-    fn draw(&self, placements: &[PlacementOut], clear: bool) {
-        let _ = self.app.emit_to("overlay", "placements", serde_json::json!({"placements": placements, "clear": clear}));
+    /// Every frame's placements replace the overlay's: `clear` needs nothing more.
+    fn draw(&self, placements: &[PlacementOut], _clear: bool) {
+        crate::app::draw_overlay(&self.app, &serde_json::json!(placements));
     }
 }

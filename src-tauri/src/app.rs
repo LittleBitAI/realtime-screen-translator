@@ -26,6 +26,26 @@ struct AppPlatform {
 
 const OVERLAY: &str = "overlay";
 
+/// The script that drew the overlay last, run again once its page loads.
+#[cfg(desktop)]
+fn last_drawn() -> std::sync::MutexGuard<'static, String> {
+    static LAST: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+    LAST.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// A7, R28: the Windows overlay shows exactly `placements` (a JSON array of
+/// `PlacementOut`, screen pixels) as white shapes with the Korean in them.
+#[cfg(desktop)]
+pub(crate) fn draw_overlay(app: &AppHandle, placements: &serde_json::Value) {
+    let script = crate::overlay::script(placements);
+    *last_drawn() = script.clone();
+    if let Some(w) = app.get_webview_window(OVERLAY) {
+        if let Err(e) = w.eval(script) {
+            eprintln!("overlay: {e}");
+        }
+    }
+}
+
 /// Windows (P4, R29): the on/off button over other apps, a small
 /// always-on-top window near the bottom right edge of the work area, left
 /// out of capture like the overlay. Its page is inline, and a click is a
@@ -280,23 +300,41 @@ impl Platform for AppPlatform {
         #[cfg(desktop)]
         {
             if self.app.get_webview_window(OVERLAY).is_none() {
-                let w = tauri::WebviewWindowBuilder::new(&self.app, OVERLAY, tauri::WebviewUrl::App("index.html?overlay".into()))
+                // A7: the overlay's own inline page (`overlay::HTML`), drawn on by
+                // `draw_overlay`; once loaded it shows what was drawn meanwhile.
+                let url: tauri::Url = crate::overlay::data_url().parse().map_err(|e| format!("{e}"))?;
+                let w = tauri::WebviewWindowBuilder::new(&self.app, OVERLAY, tauri::WebviewUrl::External(url))
                     .transparent(true)
                     .decorations(false)
+                    .resizable(false)
                     .always_on_top(true)
                     .skip_taskbar(true)
                     .focused(false)
                     .shadow(false)
-                    .maximized(true)
+                    .visible(false)
+                    .on_page_load(|w, p| {
+                        if p.event() == tauri::webview::PageLoadEvent::Finished {
+                            let _ = w.eval(last_drawn().clone());
+                        }
+                    })
                     .build()
                     .map_err(|e| e.to_string())?;
                 w.set_ignore_cursor_events(true).map_err(|e| e.to_string())?;
+                // Over the whole primary monitor, the one captured: a
+                // placement's screen pixels are the window's own (the page
+                // divides them by the scale factor). Not maximized, which
+                // would leave out the taskbar and move the origin with it.
+                if let Ok(Some(m)) = w.primary_monitor() {
+                    w.set_position(*m.position()).map_err(|e| e.to_string())?;
+                    w.set_size(*m.size()).map_err(|e| e.to_string())?;
+                }
                 #[cfg(windows)]
                 if let Ok(hwnd) = w.hwnd() {
                     use windows_sys::Win32::UI::WindowsAndMessaging::{SetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE};
                     // SAFETY: the handle belongs to the window built above.
                     unsafe { SetWindowDisplayAffinity(hwnd.0 as _, WDA_EXCLUDEFROMCAPTURE) };
                 }
+                w.show().map_err(|e| e.to_string())?;
             }
             #[cfg(windows)]
             {
@@ -318,6 +356,10 @@ impl Platform for AppPlatform {
             self.screen.set_on(false);
             button::label(&self.app, false);
         }
+        #[cfg(desktop)]
+        {
+            *last_drawn() = crate::overlay::script(&serde_json::json!([]));
+        }
         if let Some(w) = self.app.get_webview_window(OVERLAY) {
             let _ = w.close();
         }
@@ -328,6 +370,10 @@ impl Platform for AppPlatform {
         #[cfg(target_os = "android")]
         if event == "placements" {
             let _ = android::call::<serde_json::Value>(&self.app, "draw", serde_json::json!({"placements": payload["placements"], "clear": false}));
+        }
+        #[cfg(desktop)]
+        if event == "placements" {
+            draw_overlay(&self.app, &payload["placements"]);
         }
         let _ = self.app.emit(event, payload);
     }

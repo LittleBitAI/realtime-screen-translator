@@ -101,6 +101,8 @@ struct Session {
     /// Last picture shown, kept for `picture_id` during a page change.
     last_pic: Option<i64>,
     prev: Option<Vec<u8>>,
+    /// Thumbnail pixels the last frame hid (`Backend::frame_hiding`).
+    hidden_prev: Vec<bool>,
     screen: (u32, u32),
     /// Thumbnail rows of a frame of this screen.
     rows: usize,
@@ -495,6 +497,7 @@ impl Backend {
             current: None,
             last_pic: None,
             prev: None,
+            hidden_prev: vec![],
             screen: (0, 0),
             rows: 0,
             fixed: (0, 0),
@@ -542,6 +545,17 @@ impl Backend {
     // ---- P6
 
     pub fn frame(&self, req: FrameIn) -> ApiResult<FrameOut> {
+        self.frame_hiding(req, vec![])
+    }
+
+    /// [`Backend::frame`] of a thumbnail whose pixels `hidden` (one per
+    /// pixel, empty: none) hold something drawn over every app that stays
+    /// put: this app's own floating button, blacked out by the capture loop.
+    /// They are left out of the comparisons with the frames before, as the
+    /// overlay is, so a fixed black block cannot outweigh the content that
+    /// scrolls. (Fixed bands are still found with them: a row the button is
+    /// in can still be a toolbar's.)
+    pub fn frame_hiding(&self, req: FrameIn, hidden: Vec<bool>) -> ApiResult<FrameOut> {
         let mut guard = self.lock();
         let st = &mut *guard;
         let s = st.session.as_mut().ok_or(ApiError("not_on"))?;
@@ -576,10 +590,14 @@ impl Backend {
             s.screen = (req.width, req.height);
             s.rows = rows;
             s.prev = None;
+            s.hidden_prev = vec![];
             s.fixed = (0, 0);
             s.anchor = None;
         }
         let scale = s.scale();
+        // What this frame or the one before hid (the button may have moved).
+        let hidden = if hidden.len() == thumb.len() { hidden } else { vec![] };
+        let hide = joined(std::mem::replace(&mut s.hidden_prev, hidden.clone()), &hidden);
 
         // The overlay is left out as in the comparisons below: on Android the
         // capture holds the white shapes over a blocked app as well.
@@ -614,7 +632,8 @@ impl Backend {
         // The overlay in this frame was drawn for the last frame, the one in
         // the previous frame for the frame before: both are left out.
         let entry_scroll = s.scroll_y;
-        let mask = s.overlay_mask(&[entry_scroll, s.drawn_before]);
+        let shapes = s.overlay_mask(&[entry_scroll, s.drawn_before]);
+        let mask = joined(shapes.clone(), &hide);
         s.drawn_before = entry_scroll;
         // Nothing placed, taken away or moved since the frame before last:
         // this frame and the last hold the same overlay, so a change under
@@ -655,7 +674,7 @@ impl Backend {
                 if still && !other {
                     settled = true;
                 } else {
-                    let (ft, fb) = tracker::fixed_rows(&prev, &thumb, &mask, rows);
+                    let (ft, fb) = tracker::fixed_rows(&prev, &thumb, &shapes, rows);
                     let shift = if other {
                         None
                     } else {
@@ -727,7 +746,7 @@ impl Backend {
             // Measured again from the last resting screen in one step.
             let mut kept = None;
             if let Some((a, f, at)) = s.anchor.take() {
-                let mask = s.overlay_mask(&[f.round() as i64, s.scroll_y, s.drawn_before]);
+                let mask = joined(s.overlay_mask(&[f.round() as i64, s.scroll_y, s.drawn_before]), &hide);
                 match tracker::fine_shift(&a, &thumb, &mask, rows, s.fixed.0, s.fixed.1, true) {
                     // Not a tenth of a row from it: still that screen. It is
                     // kept, so a scroll too slow to tell frame by frame adds
@@ -1097,6 +1116,17 @@ impl Backend {
             }
         })
     }
+}
+
+/// Mask `m` with the pixels of `extra` added (either may be empty: none).
+fn joined(mut m: Vec<bool>, extra: &[bool]) -> Vec<bool> {
+    if m.is_empty() {
+        return extra.to_vec();
+    }
+    if m.len() == extra.len() {
+        m.iter_mut().zip(extra).for_each(|(a, &b)| *a |= b);
+    }
+    m
 }
 
 fn new_pic(id: i64, screen: (u32, u32)) -> Pic {

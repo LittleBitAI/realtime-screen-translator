@@ -16,6 +16,7 @@ pub mod fingerprint;
 pub mod gemini;
 pub mod layout;
 pub mod models;
+pub mod overlay;
 pub mod pipeline;
 pub mod platform;
 pub mod store;

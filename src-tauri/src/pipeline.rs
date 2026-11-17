@@ -91,7 +91,10 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
             sent[i] = 0;
         }
     }
-    let out = match backend.frame(FrameIn { seq, width: f.width, height: f.height, thumb: sent, captured_at: f.captured_at }) {
+    // The button stays put over a scrolling page: its black block is left
+    // out of the comparisons, not taken as the page standing still.
+    let hidden = button.map(|b| cover(size.0, sent.len() / THUMB_W, &[b])).unwrap_or_default();
+    let out = match backend.frame_hiding(FrameIn { seq, width: f.width, height: f.height, thumb: sent, captured_at: f.captured_at }, hidden) {
         Ok(out) => out,
         Err(e) => {
             if e.0 != "not_on" {
