@@ -728,6 +728,26 @@ impl Backend {
                             let band = ((s.fixed.0 as f64 * scale) as i64, (s.fixed.1 as f64 * scale) as i64);
                             if let Some(pic) = s.pic() {
                                 pic.reopen();
+                                // Balloons in the still side columns did not
+                                // move: their translations keep their place on
+                                // the screen, not in the picture. The book keeps
+                                // them where they were first seen.
+                                if side != (0, 0) {
+                                    let cw = req.width as f64 / THUMB_W as f64;
+                                    let (l, r) = (side.0 as f64 * cw, req.width as f64 - side.1 as f64 * cw);
+                                    let still: Vec<i64> = pic
+                                        .placements
+                                        .iter()
+                                        .filter(|p| !(l..=r).contains(&(p.x as f64 + p.w as f64 / 2.0)))
+                                        .map(|p| p.id)
+                                        .collect();
+                                    for p in pic.placements.iter_mut().filter(|p| still.contains(&p.id)) {
+                                        p.y += dy as i64;
+                                    }
+                                    for t in pic.texts.iter_mut().filter(|t| still.contains(&t.0)) {
+                                        t.1 .1 += dy as i64;
+                                    }
+                                }
                                 // Rows saved and detected while no band was known held
                                 // the band, not content: the content that scrolls
                                 // into them is asked for like any new rows.
@@ -861,6 +881,30 @@ impl Backend {
                 fits.then_some((id, (x as u32, y as u32, w, h)))
             })
             .collect()
+    }
+
+    /// Screen rects (x, y, w, h) of the shapes of `picture_id` that a frame
+    /// taken now may hold, where the capture holds the overlay (A6): drawn
+    /// at this scroll or the one before, and those erased lately. Strips of
+    /// rows under them are taken from a frame with the shapes hidden
+    /// (`pipeline::step`): the book keeps the page as it is (E5).
+    pub fn shapes_drawn(&self, picture_id: i64) -> Vec<(u32, u32, u32, u32)> {
+        let st = self.lock();
+        let Some(s) = st.session.as_ref().filter(|s| s.overlay_in_capture && s.current == Some(picture_id)) else { return vec![] };
+        let Some(pic) = s.pics.get(&picture_id) else { return vec![] };
+        let (sw, sh) = (s.screen.0 as i64, s.screen.1 as i64);
+        let shapes = pic.placements.iter().map(|p| (p.x, p.y, p.w, p.h)).chain(pic.erased.iter().map(|e| e.0));
+        let mut out = vec![];
+        for (x, y, w, h) in shapes {
+            for off in [s.scroll_y, s.drawn_before] {
+                let (x0, y0) = (x.clamp(0, sw), (y - off).clamp(0, sh));
+                let (x1, y1) = ((x + w as i64).clamp(0, sw), (y - off + h as i64).clamp(0, sh));
+                if x1 > x0 && y1 > y0 && !out.contains(&(x0 as u32, y0 as u32, (x1 - x0) as u32, (y1 - y0) as u32)) {
+                    out.push((x0 as u32, y0 as u32, (x1 - x0) as u32, (y1 - y0) as u32));
+                }
+            }
+        }
+        out
     }
 
     /// What is under the shapes now: for each placement id from

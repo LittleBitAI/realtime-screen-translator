@@ -134,6 +134,23 @@ pub fn step(backend: &Backend, screen: &dyn Screen, event: Event) {
         from = c.seq;
         parts = vec![(r.top, r.bottom)];
     }
+    // On Android the capture holds the translation shapes too (A6): rows
+    // under them are not the page. On a still screen they are taken from a
+    // frame with the shapes hidden, if it shows the same screen; else (and
+    // while the screen moves, the overlay lagging behind) they are left
+    // unsaved and asked for again.
+    let shapes = if out.save.is_some() { backend.shapes_drawn(out.picture_id) } else { vec![] };
+    if let Some(r) = out.save.filter(|r| shapes.iter().any(|s| s.1 < r.bottom && s.1 + s.3 > r.top)) {
+        let mut seen = over.clone();
+        seen.extend(&shapes);
+        match screen.peek().filter(|c| out.motion == "still" && same_screen(&thumb, size, c, &seen)) {
+            Some(c) => {
+                from = c.seq;
+                parts = clear_of(r, button);
+            }
+            None => parts = parts.into_iter().flat_map(|p| clear_of_shapes(p, &shapes)).collect(),
+        }
+    }
     for (top, bottom) in parts {
         match screen.strip(from, top, bottom) {
             Some(image) => {
@@ -214,6 +231,15 @@ fn look_under(backend: &Backend, screen: &dyn Screen, picture_id: i64) {
 pub fn clear_of(r: Range, button: Option<(u32, u32, u32, u32)>) -> Vec<(u32, u32)> {
     let Some((_, y, _, h)) = button.filter(|b| b.1 < r.bottom && b.1 + b.3 > r.top) else { return vec![(r.top, r.bottom)] };
     [(r.top, y), (y + h, r.bottom)].into_iter().filter(|p| p.1 > p.0).collect()
+}
+
+/// The parts of screen rows `r` (top, bottom) that no shape (x, y, w, h) meets.
+fn clear_of_shapes(r: (u32, u32), shapes: &[(u32, u32, u32, u32)]) -> Vec<(u32, u32)> {
+    let mut parts = vec![r];
+    for &(_, y, _, h) in shapes {
+        parts = parts.into_iter().flat_map(|p| clear_of(Range { top: p.0, bottom: p.1 }, Some((0, y, 0, h)))).collect();
+    }
+    parts
 }
 
 /// Whether `c` shows the screen of `thumb` (`size`): the same apart from

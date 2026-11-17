@@ -127,11 +127,13 @@ impl Screen for Reader {
         let words = export::decode_png(&b.png(0, 0)).unwrap();
         let mut rows = Rgb::new(SCREEN_W, bottom - top);
         for y in 0..rows.h as i64 {
+            let sy = y + top as i64 - b.y;
+            if !(0..b.h as i64).contains(&sy) {
+                continue;
+            }
             for x in 0..b.w as i64 {
-                let (src, dst) = (((y + top as i64 - b.y) * b.w as i64 + x) as usize * 3, ((y * SCREEN_W as i64) + b.x + x) as usize * 3);
-                if (0..b.h as i64).contains(&(y + top as i64 - b.y)) {
-                    rows.px[dst..dst + 3].copy_from_slice(&words.px[src..src + 3]);
-                }
+                let (src, dst) = ((sy * b.w as i64 + x) as usize * 3, ((y * SCREEN_W as i64) + b.x + x) as usize * 3);
+                rows.px[dst..dst + 3].copy_from_slice(&words.px[src..src + 3]);
             }
         }
         export::encode_png(&rows).ok()
