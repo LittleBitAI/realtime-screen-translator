@@ -5,7 +5,8 @@ plugins {
 
 android {
     namespace = "ai.littlebit.rst.screen"
-    compileSdk = 34
+    // tauri-android's release variant refuses a library compiled against less than 36 (checkReleaseAarMetadata).
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
