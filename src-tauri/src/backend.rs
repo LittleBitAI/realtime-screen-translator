@@ -1178,10 +1178,7 @@ impl Backend {
             return Err(ApiError("already_covered"));
         }
         // The strip must really be screen rows top..bottom, or the export is wrong.
-        let img = export::decode_png(&req.image).ok_or(ApiError("bad_image"))?;
-        if img.w != s.screen.0 || img.h != req.bottom - req.top {
-            return Err(ApiError("bad_image"));
-        }
+        let img = export::decode_capture_png(&req.image, s.screen.0, req.bottom - req.top).ok_or(ApiError("bad_image"))?;
         // E5: lossless WebP in the app's own folder, kept as a path relative to it.
         let rel_dir = format!("strips/{}", req.picture_id);
         std::fs::create_dir_all(self.data_dir.join(&rel_dir)).map_err(storage_error)?;
@@ -1469,7 +1466,7 @@ fn take_crop(st: &mut State, picture_id: i64, c: CropIn, (seq, offset): (u64, i6
     }
     // The picture must be the text area it says it is, or it is not
     // the crop it claims (a whole screen sent as a small crop).
-    let Some(img) = export::decode_png(&c.image).filter(|i| (i.w, i.h) == (c.w, c.h)) else {
+    let Some(img) = export::decode_capture_png(&c.image, c.w, c.h) else {
         result.discarded += 1;
         return Ok(());
     };
