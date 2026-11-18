@@ -15,7 +15,7 @@
   },
   {
    "a": "docs/design/frontend.md",
-   "b": "docs/design/backend.md",
+   "b": "DESIGN.md",
    "kind": "link"
   },
   {
@@ -104,15 +104,14 @@
   }
  ],
  "orphans": [
-  "DESIGN.md",
   "docs/research/review-oneshot-initial-f1-1.md",
   "docs/research/review-oneshot-initial-f1-2.md"
  ],
  "counts": {
   "docs": 6,
-  "linked": 1,
+  "linked": 2,
   "read": 2,
-  "orphans": 3,
+  "orphans": 2,
   "pages": 8,
   "decisions": 6,
   "injectable_decisions": 2

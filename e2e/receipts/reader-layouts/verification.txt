@@ -1,8 +1,30 @@
 Reader layout verification, 2026-11-18
 
-Runtime source commit f6061d9c7f0a26932ee5fc9d8aaa6ff8080f09fe
+Native package build source f6061d9c7f0a26932ee5fc9d8aaa6ff8080f09fe
 Selected palette Slate and blue
 Physical phone approved for acceptance Galaxy S21+ (SM-G996N), Android 15
+
+Current candidate binding
+  Use the exact reviewed commit in place of HEAD when verifying a
+  detached candidate. This check covers tracked inputs to the frontend,
+  both native packages and the browser host. Its exact exclusions are
+  documentation, generated wiki indexes, this evidence, and the Rust
+  integration test, which is compiled and run separately.
+
+  git diff --exit-code --no-renames f6061d9c7f0a26932ee5fc9d8aaa6ff8080f09fe HEAD -- . `
+    ':(exclude,literal).wiki/corpus.json' ':(exclude,literal).wiki/graph.json' `
+    ':(exclude,literal)DESIGN.md' ':(exclude,literal)README.md' `
+    ':(exclude,literal)docs/design/frontend.md' `
+    ':(exclude,literal)docs/design/shots/library-windows.png' `
+    ':(exclude,literal)docs/design/shots/library-galaxy-s21-plus.png' `
+    ':(exclude,literal)e2e/receipts/reader-layouts/verification.txt' `
+    ':(exclude,literal)src-tauri/tests/web_host_files.rs'
+
+  Exit 0 permits reuse of the native packages after checking their hashes
+  below. The review-round report identifies the commit and records the
+  fresh browser, device and integration-test observations made against
+  it. The palette measurements, native picker checks and finished
+  screenshots below are retained from the package-build run.
 
 Browser
   node scripts/live.mjs served an isolated data directory on port 18841.
@@ -21,6 +43,30 @@ Browser
   node artifacts/layout-browser-actions.mjs
   Browser UI saved and found a URL, added a list membership, exported a
   real WebP and made 0 Gemini requests.
+
+Isolated API
+  cargo test -p realtime-screen-translator --test web_host_files saved_list_memberships_preserve_the_book_through_the_http_api -- --exact --nocapture
+  cargo test -p realtime-screen-translator --test web_host_files a_browser_export_can_be_fetched_by_the_reader_in_each_format -- --exact --nocapture
+  Each scenario starts its own compiled browser host, sends requests to
+  an ephemeral port on 127.0.0.1, uses a fresh app-data and frontend
+  directory, and points the model endpoint at loopback.
+
+  GET /lists and GET /books expected HTTP 200 and empty arrays on a
+  fresh store. Both returned 200 with empty arrays. POST /library/edit
+  saved a title and URL with a query string and returned 200. GET /books
+  searching by title returned one row with the exact title and URL.
+  A new list returned no books. After saving the same book in two lists,
+  removing its first membership returned that list to empty. Deleting
+  that list left the other membership in place. Filtering by the title
+  or by the encoded address each returned the original book ID and URL.
+  An unmatched query returned no books. GET /status reported 0 model
+  requests.
+
+  The export scenario used two synthetic books. POST /books/1/export
+  returned 200 for PNG and WebP, with one file matching the response
+  count for each. GET of each returned file yielded 200, the expected
+  format signature, bytes equal to the file written, and an attachment
+  header. GET /status reported 0 model requests.
 
 Contrast
   node artifacts/layout-palettes.mjs
