@@ -493,6 +493,7 @@ fn test_books_remain_after_restart() {
     let books = app.books();
     assert!(!books.is_empty(), "P10 lists no books after restart");
     assert_eq!(books[0]["id"].as_i64(), Some(book), "the last book is not on top: {books:?}");
+    assert!(books[0]["url"].is_null(), "a captured book has no site address");
     let pictures = books[0]["pictures"].as_array().cloned().unwrap_or_default();
     assert_eq!(pictures.len(), 1, "book pictures: {pictures:?}");
 }

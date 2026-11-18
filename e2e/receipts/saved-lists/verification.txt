@@ -1,0 +1,115 @@
+Saved-list verification, 2026-11-18
+
+Tested revision: 060cd20e9d4fff74bd2989d991a9f74760c68014
+Runtime inputs SHA-256: 0d60f59b6fb32521aa34f42c4ae3cd9a1949fe68dd56eb8ee989a4e5f3d4ff96
+Evidence inputs SHA-256: 2556b0811e07f073383b4e7b2a19d4de6b52c396c6be6a40dc223850b386d0f9
+
+Binding and gate results
+  receipt_matches_reviewed_head: PASS on 060cd20e9d4fff74bd2989d991a9f74760c68014.
+  In the round-one run, both git rev-parse HEAD and git log -1 --format=%H
+  for this receipt returned that SHA. The package comparison against the
+  original implementation cbae6c9 exited 0 with no diff outside the receipt
+  directory and the added HTTP test. The tested HTTP suite blob was
+  dd552e6835c61f9591ee61a48065b5ced6a19491.
+
+  GitHub Actions returned headSha 060cd20e9d4fff74bd2989d991a9f74760c68014,
+  conclusion success, Gate step success for the push and pull request:
+    https://github.com/LittleBitAI/realtime-screen-translator/actions/runs/44253871163
+    https://github.com/LittleBitAI/realtime-screen-translator/actions/runs/44253878521
+  The owner's earlier gate report concerned the previous head. The results
+  above were read from the hosted runs.
+
+  The measurements below came from builds at 060cd20. The reader, browser,
+  API and offline checks were repeated on d73c765. The exact-head certificate
+  and passing gate for that run are available here:
+    https://github.com/LittleBitAI/realtime-screen-translator/actions/runs/44257936775
+  Round four reuses those observations. Commit 03ea755 changed only the
+  generated wiki corpus. Neither it nor the wiki graph feeds a build or test.
+  runtime_inputs_equal: PASS. The measured source 060cd20, certified d73c765,
+  reviewed 03ea755 and staged repair tree yielded the same runtime digest above.
+  Both fingerprints omit only two shared metadata files: .wiki/corpus.json
+  and .wiki/graph.json. The runtime digest also omits this receipt directory
+  and the CI workflow. The evidence digest also omits verification.txt itself.
+  It covers the workflow, certificate checker, tests and screenshots.
+  Both cover the wiki adapter that specifies the gate.
+  Both digests use SHA-256 over Git's recursive NUL-terminated tree records,
+  including paths, modes and object IDs.
+
+  On a successful task-branch push, CI writes the exact checkout SHA, Gate
+  result and run URL above this text in saved-list-verification.txt. This
+  certified copy is in the hosted step summary and the test-reports artifact.
+  The checker compares the pushed and checked-out SHAs and recomputes both
+  digests from that checkout before it emits the certificate.
+
+Windows native reader
+  Microsoft Windows 11 Home 10.0.26200 x64, Cargo 1.98.1, debug build.
+  cargo build -p realtime-screen-translator --bin realtime-screen-translator --features app,tauri/custom-protocol
+  Build succeeded with product name RST Saved Lists 060cd20 and isolated
+  identifier ai.littlebit.rst-saved-lists.
+  Executable SHA-256: 6C7550F8BC44E568FE355FBC29E3534EB4B221C0DDDC7DA7B32ABBE1A7B5F265
+  The rendered library saved the link, found it by address, found the imported
+  chapter by title, moved both lists and entries, removed a membership and
+  deleted its list. The status counter read 0. After closing the process and
+  launching the same executable, Queue retained all four titles in order:
+  Lantern Chapter, Ink Trail, Paper Harbor, Station Archive.
+  Reading the first three opened the chapter, saved link and recovered site
+  address respectively. Each reader rendered the cached Korean text 안녕.
+  All three opens together made 0 Gemini requests.
+  windows-link.png captures the opened Ink Trail link at /saved?q=ink.
+
+Android native reader
+  Physical Galaxy S21+ SM-G996N, Android 15, arm64-v8a. The Rust cross-build
+  used the same product name override. After the Windows symlink error,
+  Gradle assembleUniversalDebug packaged the newly built JNI library.
+  JNI SHA-256: 48E90759D3B6D7922A72B46A2F151D26CCDA09DB0717865D3FB0B653233042D0
+  APK SHA-256: 6903735C441036198BFE95B04614A0AF804D83057572E5438C696B73223BF075
+  The packaged JNI matched its build. Installation into the isolated package
+  ai.littlebit.realtime_screen_translator.savedlists succeeded. The installed
+  base APK hash matched the local APK. Library edits and both searches passed
+  with 0 requests. After force-stop and restart, Android reported COLD.
+  The same Queue order persisted. Read opened /chapter.html?id=2,
+  /saved?q=ink and /legacy, each with the cached Korean overlay 안녕. The
+  request counter still read 0. android-chapter.png captures chapter 2.
+  The installed Android chapter and the Windows site reader both returned
+  image bytes with SHA-256 cba0b21ebd217e11628af58bce4580e4993657a77b23b4630100309c4e550250,
+  equal to the fixture page.
+
+Browser and legacy data
+  Edge 157.0.4341.60 on Windows 11. node scripts/live.mjs built the screens
+  and started the real web-host on port 18821 with a fresh isolated fixture.
+  Web-host executable SHA-256: EA10AF712D568806447ABA06269C601D8A8F5E47DEABBA9FF2BD8267A5E96090
+  Browser and native frontend: index-DN2AXO52.js, SHA-256
+  9BCA4CFB48D359B261F84DB5A27BC9D89AE0E3D5E0EFB8025AD14CEEE444B099.
+  The fixture used the SQLite schema at d76c692. It contained a site book,
+  an imported chapter and a book with saved pictures and no source address.
+  In Edit, the driver saved a new link, created and reordered lists, and put
+  the chapter in two of them. Removing it from one list and deleting that
+  list left the chapter readable in Queue. Searches matched the title and
+  the address including its query string. Paper Harbor exposed its stored
+  site address. Station Archive showed the missing-address notice and a
+  working export. Its exported PNG decoded at 600 by 800 pixels.
+  At viewport widths 400 and 960, content and available widths were 385
+  and 945 pixels respectively. The search control measured 48 pixels high
+  at both widths. The browser's Gemini request counter remained 0.
+
+Isolated API and offline results
+  cargo test -p realtime-screen-translator --test reader_edges --test web_host_files --test overlay_and_storage_edges
+  reader_edges: 7 passed. web_host_files: 4 passed. overlay_and_storage_edges:
+  4 passed. No failures or ignored tests.
+  saved_list_memberships_preserve_the_book_through_the_http_api passed on a
+  fresh loopback HTTP server and an empty temporary database. Deleting the
+  first of two lists left the original book ID in the second list. Title and
+  encoded address searches returned that book and its exact address. Requests: 0.
+  imported_chapter_survives_restart_and_shares_the_url_cache_by_language
+  passed, including byte-for-byte imported pages and exported translated pixels.
+  cargo test -p realtime-screen-translator --test contract test_books_remain_after_restart -- --exact
+  1 passed, 36 filtered out.
+  corepack pnpm exec vitest run src/lib/api.test.js src/lib/text.test.js src/lib/reader.test.js src/screens/screens.test.js
+  Node v24.18.0, 4 files and 31 tests passed.
+
+Reuse
+  The two native installations retained their isolated SQLite fixture data.
+  The executable, installed APK, browser fixture, UI interactions, cold starts,
+  image-byte checks and focused test results above were measured in round two.
+  The three library screenshots were recaptured and matched the original
+  bytes. The two reader screenshots are new. No live model service was used.

@@ -127,6 +127,41 @@ fn a_browser_export_can_be_fetched_by_the_reader_in_each_format() {
 }
 
 #[test]
+fn saved_list_memberships_preserve_the_book_through_the_http_api() {
+    use serde_json::{json, Value};
+
+    let host = Host::start("saved-lists");
+    let get = |path: &str| host.call("GET", path, &Value::Null);
+    let edit = |body| host.call("POST", "/library/edit", &body);
+    assert_eq!(get("/lists"), json!([]));
+    assert_eq!(get("/books")["books"], json!([]));
+
+    let address = "https://example.org/chapter?q=paper&part=2";
+    edit(json!({"action":"save_link", "title":"Paper Moon", "url":address}));
+    let books = get("/books?search=Moon")["books"].as_array().unwrap().clone();
+    assert_eq!(books.len(), 1);
+    let book = books[0]["id"].as_i64().unwrap();
+    for name in ["Later", "Favorites"] {
+        edit(json!({"action":"create", "name":name}));
+    }
+    let lists = get("/lists");
+    let later = lists[0]["id"].as_i64().unwrap();
+    let favorites = lists[1]["id"].as_i64().unwrap();
+    for list in [later, favorites] {
+        edit(json!({"action":"add", "list":list, "book":book}));
+    }
+    edit(json!({"action":"remove", "list":later, "book":book}));
+    edit(json!({"action":"delete", "list":later}));
+    assert_eq!(get("/lists"), json!([{"id":favorites,"name":"Favorites","entries":[book]}]));
+    for term in ["Paper%20Moon", "q%3Dpaper%26part%3D2"] {
+        let found = get(&format!("/books?list={favorites}&search={term}"));
+        assert_eq!(found["books"], json!(books));
+        assert_eq!(found["books"][0]["url"], address);
+    }
+    assert_eq!(get("/status")["gemini_requests"], 0);
+}
+
+#[test]
 fn the_browser_host_never_reports_a_capture_it_cannot_do() {
     let host = Host::start("capture");
     let s = host.call("GET", "/status", &serde_json::Value::Null);

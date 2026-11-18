@@ -55,8 +55,15 @@ export const api = {
   canOpenSites: inTauri,
   openSite: (url) => call('post_reader_open', { url }, 'POST', '/reader/open', { url }),
   importChapter: () => call('post_chapter_import', {}),
-  books: (before = null) =>
-    call('get_books', { limit: 20, before }, 'GET', before == null ? '/books?limit=20' : `/books?limit=20&before=${before}`),
+  lists: () => call('get_lists', {}, 'GET', '/lists'),
+  editLibrary: (edit) => call('edit_library', { edit }, 'POST', '/library/edit', edit),
+  books: (before = null, list = null, search = '') => {
+    const query = new URLSearchParams({ limit: 20 });
+    if (before != null) query.set('before', before);
+    if (list != null) query.set('list', list);
+    if (search) query.set('search', search);
+    return call('get_books', { limit: 20, before, list, search }, 'GET', `/books?${query}`);
+  },
   exportBook: (bookId, format) =>
     call('post_books_export', { book_id: bookId, format }, 'POST', `/books/${bookId}/export`, { format }),
   /** Where a book's preview (`preview_path`, a file in the app's data folder) can be shown from. */

@@ -10,6 +10,8 @@ describe('text', () => {
   it('names a book by its site page, or by when capture began', () => {
     expect(bookName({ title: 'FX Fighter Kurumi-chan - Chapter 54', started_at: 0 })).toBe('FX Fighter Kurumi-chan - Chapter 54');
     expect(bookName({ title: '2026-11-17 08:00', started_at: Date.UTC(2026, 10, 17, 8) })).toMatch(/에 켠 번역본$/);
+    expect(bookName({ title: '2026-11-17 08:00', url: 'https://example.org/chapter' })).toBe('2026-11-17 08:00');
+    expect(bookName({ title: '2026-11-17 08:00', imported: true })).toBe('2026-11-17 08:00');
   });
 
   it('says where an export went', () => {

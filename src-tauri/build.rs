@@ -13,6 +13,8 @@ const COMMANDS: &[&str] = &[
     "get_placements",
     "post_strips",
     "get_books",
+    "get_lists",
+    "edit_library",
     "post_books_export",
     "get_preview",
     "put_settings_source_lang",

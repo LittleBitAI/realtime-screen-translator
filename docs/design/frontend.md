@@ -28,6 +28,10 @@ Since 2026-11-17 (the in-app reader, see `backend.md`), S1 opens a manga page by
 
 ### S2 `/library` — 기기에 저장된 번역본을 새것부터 훑어보고, 남기고 싶은 번역본을 골라 그림 파일로 내보내는 화면입니다.
 
+Search by title or site address across the device library, or choose a named list to browse in reading order. In the installed app, Read opens the saved site or the app-owned chapter. Books whose original address is unavailable show their saved pictures and export controls.
+
+Edit opens the link form and list controls. A work can belong to several lists. Removing a membership or deleting a list keeps the work, its images and its translations in the library.
+
 ![S2 desktop](shots/S2-desktop.png)
 ![S2 phone](shots/S2-phone.png)
 

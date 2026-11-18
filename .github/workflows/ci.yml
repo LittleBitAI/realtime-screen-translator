@@ -24,6 +24,10 @@ jobs:
       - name: Gate
         shell: pwsh
         run: cargo run -q -p xtask -- artifacts/junit.xml && corepack pnpm install --frozen-lockfile && corepack pnpm test && corepack pnpm build
+      - name: Attach saved-list runtime receipt to the checked push
+        if: github.event_name == 'push' && github.ref_name == 'organize-manga-in-saved-lists'
+        shell: pwsh
+        run: python -B e2e/receipts/saved-lists/test_certify.py -v && python -B e2e/receipts/saved-lists/certify.py
       - name: Keep the test reports
         if: always()
         uses: actions/upload-artifact@v4

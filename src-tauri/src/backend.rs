@@ -25,6 +25,8 @@ mod reader;
 pub(crate) const MAX_PAGE_BYTES: u64 = 20 << 20;
 #[path = "chapter.rs"]
 mod chapter;
+#[path = "library.rs"]
+mod library;
 
 #[derive(Clone)]
 struct Known {
@@ -1223,17 +1225,21 @@ impl Backend {
     // ---- P10, P11
 
     pub fn books(&self, req: BooksIn) -> ApiResult<BooksOut> {
+        self.browse(req, None, "")
+    }
+
+    pub fn browse(&self, req: BooksIn, list: Option<i64>, search: &str) -> ApiResult<BooksOut> {
         let st = self.lock();
         let limit = req.limit.clamp(1, 200);
-        let mut rows = store::books(&st.db, limit + 1, req.before)?;
+        let mut rows = store::books(&st.db, limit + 1, req.before, list, search.trim())?;
         let next_before = if rows.len() > limit as usize {
             rows.truncate(limit as usize);
-            rows.last().map(|b| b.id)
+            rows.last().map(|(b, _)| b.id)
         } else {
             None
         };
         let mut books = vec![];
-        for b in rows {
+        for (b, url) in rows {
             let mut pictures = vec![];
             for p in store::pictures(&st.db, b.id)? {
                 let preview = self.strips(&st.db, p.id)?.into_iter().next().map(|s| s.file_path).unwrap_or_default();
@@ -1247,7 +1253,7 @@ impl Backend {
                 });
             }
             let imported = store::is_chapter(&st.db, b.id)?;
-            books.push(BookOut { id: b.id, title: b.title, started_at: b.started_at, ended_at: b.ended_at, pictures, imported });
+            books.push(BookOut { id: b.id, title: b.title, started_at: b.started_at, ended_at: b.ended_at, pictures, imported, url: url.filter(|s| crate::api::web_url(s).is_ok()) });
         }
         Ok(BooksOut { books, next_before })
     }

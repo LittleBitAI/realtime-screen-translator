@@ -16,6 +16,8 @@
     "allow-get-placements",
     "allow-post-strips",
     "allow-get-books",
+    "allow-get-lists",
+    "allow-edit-library",
     "allow-post-books-export",
     "allow-get-preview",
     "allow-put-settings-source-lang",

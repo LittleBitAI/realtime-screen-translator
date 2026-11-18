@@ -82,7 +82,8 @@ const when = new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 
  * one screen capture saved (titled by its start time), when it began.
  */
 export const bookName = (book) =>
-  book.title && !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(book.title) ? book.title : `${when.format(new Date(book.started_at))}에 켠 번역본`;
+  book.title && (book.url || book.imported || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(book.title))
+    ? book.title : `${when.format(new Date(book.started_at))}에 켠 번역본`;
 
 /** An export in a browser: the pictures are made and wait to be downloaded. */
 export const exportReady = (count) => `그림 ${count}장을 만들었습니다. 아래를 눌러 이 기기에 내려받으세요.`;

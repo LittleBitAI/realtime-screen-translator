@@ -33,6 +33,21 @@ impl From<rusqlite::Error> for ApiError {
 
 pub type ApiResult<T> = Result<T, ApiError>;
 
+/// A site address as typed: `https://` when no scheme is given; only web pages.
+pub fn site_url(typed: &str) -> ApiResult<url::Url> {
+    let typed = typed.trim();
+    let full = if typed.contains("://") { typed.to_string() } else { format!("https://{typed}") };
+    web_url(&full)
+}
+
+pub(crate) fn web_url(address: &str) -> ApiResult<url::Url> {
+    let url: url::Url = address.parse().map_err(|_| ApiError("bad_url"))?;
+    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+        return Err(ApiError("bad_url"));
+    }
+    Ok(url)
+}
+
 #[derive(Serialize, Debug)]
 pub struct Status {
     pub on: bool,
@@ -205,6 +220,8 @@ pub struct BookOut {
     pub pictures: Vec<PictureOut>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub imported: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
 }
 
 #[derive(Serialize, Debug)]
@@ -224,6 +241,26 @@ pub struct ChapterPageOut {
 pub struct BooksOut {
     pub books: Vec<BookOut>,
     pub next_before: Option<i64>,
+}
+
+#[derive(Serialize, Debug)]
+pub struct ReadingList {
+    pub id: i64,
+    pub name: String,
+    pub entries: Vec<i64>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "action", rename_all = "snake_case")]
+pub enum LibraryEdit {
+    SaveLink { url: String, title: String },
+    Create { name: String },
+    Rename { list: i64, name: String },
+    Delete { list: i64 },
+    Add { list: i64, book: i64 },
+    Remove { list: i64, book: i64 },
+    MoveList { list: i64, up: bool },
+    MoveEntry { list: i64, book: i64, up: bool },
 }
 
 fn default_format() -> String {

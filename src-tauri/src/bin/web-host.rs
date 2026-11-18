@@ -71,7 +71,7 @@ impl Platform for Browser {
 /// The HTTP status an error code of the design is answered with.
 fn status_of(code: &str) -> u16 {
     match code {
-        "bad_request" | "key_format" | "bad_frame" | "bad_image" | "bad_format" | "stale_seq" | "frame_unknown" | "bad_lang" => 400,
+        "bad_request" | "bad_name" | "bad_url" | "key_format" | "bad_frame" | "bad_image" | "bad_format" | "stale_seq" | "frame_unknown" | "bad_lang" => 400,
         "storage_denied" => 403,
         "not_found" => 404,
         "key_missing" | "permission_required" | "capture_unsupported" | "not_on" | "already_on" | "picture_closed" | "already_covered" | "empty_book" => 409,
@@ -153,10 +153,14 @@ fn api(b: &Backend, device: &Browser, method: &Method, path: &str, q: &str, raw:
             reply(b.placements(PlacementsIn { since }))
         }
         (Post, "/strips") => reply(body(raw).and_then(|s| b.strip(s))),
+        (Get, "/lists") => reply(b.lists()),
+        (Post, "/library/edit") => reply(body(raw).and_then(|edit| b.edit_library(edit))),
         (Get, "/books") => {
             let limit = query(q, "limit").and_then(|v| v.parse().ok()).unwrap_or(20);
             let before = query(q, "before").and_then(|v| v.parse().ok());
-            reply(b.books(BooksIn { limit, before }))
+            let list = query(q, "list").and_then(|v| v.parse().ok());
+            let search = url::form_urlencoded::parse(q.as_bytes()).find(|(k, _)| k == "search").map(|(_, v)| v).unwrap_or_default();
+            reply(b.browse(BooksIn { limit, before }, list, &search))
         }
         (Post, p) if p.starts_with("/books/") && p.ends_with("/export") => {
             let Some(book_id) = p["/books/".len()..p.len() - "/export".len()].parse().ok() else {
