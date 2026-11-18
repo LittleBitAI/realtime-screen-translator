@@ -203,6 +203,21 @@ pub struct BookOut {
     pub started_at: i64,
     pub ended_at: Option<i64>,
     pub pictures: Vec<PictureOut>,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub imported: bool,
+}
+
+#[derive(Serialize, Debug)]
+pub struct ChapterOut {
+    pub title: String,
+    pub pages: Vec<ChapterPageOut>,
+}
+
+#[derive(Serialize, Debug)]
+pub struct ChapterPageOut {
+    pub id: i64,
+    pub width: u32,
+    pub height: u32,
 }
 
 #[derive(Serialize, Debug)]

@@ -8,6 +8,7 @@ use realtime_screen_translator::api::{BooksIn, ExportIn, LangIn, PageIn};
 use realtime_screen_translator::platform::{Permissions, Platform};
 use realtime_screen_translator::Backend;
 use serde_json::{json, Value};
+use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use support::{Dirs, TEST_KEY};
@@ -58,10 +59,11 @@ impl PageGemini {
             for mut req in server.incoming_requests() {
                 let mut body = String::new();
                 let _ = req.as_reader().read_to_string(&mut body);
+                let ko = if body.contains("English dialogue") { "반가워" } else { "안녕" };
                 seen.lock().unwrap().push(serde_json::from_str(&body).unwrap_or(Value::Null));
                 std::thread::sleep(delay);
                 // The page's text at 20 %..30 % across, 15 %..25 % down, in a balloon around it.
-                let text = r#"{"box_2d":[150,200,250,300],"balloon_2d":[50,100,350,500],"src":"HELLO","ko":"안녕"}]}"#;
+                let text = json!({"box_2d":[150,200,250,300],"balloon_2d":[50,100,350,500],"src":"HELLO","ko":ko}).to_string() + "]}";
                 let answer = json!({"candidates": [{"content": {"role": "model", "parts": [{"text": text}]}}]});
                 let _ = req.respond(tiny_http::Response::from_string(answer.to_string()));
             }
@@ -146,6 +148,132 @@ fn keyed(gemini: &PageGemini, dirs: &Dirs) -> Arc<Backend> {
     let b = Backend::open(dirs.data.clone(), Some(gemini.url.clone()), Arc::new(Device(dirs.export.clone()))).unwrap();
     b.put_key(realtime_screen_translator::api::KeyIn { key: TEST_KEY.into() }).unwrap();
     Arc::new(b)
+}
+
+#[test]
+fn imported_chapter_survives_restart_and_shares_the_url_cache_by_language() {
+    let dirs = Dirs::new();
+    let gemini = PageGemini::start();
+    let b = keyed(&gemini, &dirs);
+    let folder = dirs.data.with_file_name("Fixture");
+    fs::create_dir_all(folder.join("nested")).unwrap();
+    fs::write(folder.join("nested/3.jpg"), page()).unwrap();
+    fs::write(folder.join("notes.txt"), "skip").unwrap();
+    let images: Vec<_> = [1, 2, 10].into_iter().map(|n| {
+        let mut bytes = page();
+        bytes.push(n);
+        fs::write(folder.join(format!("{n}.jpg")), &bytes).unwrap();
+        bytes
+    }).collect();
+
+    let book = b.import_folder(&folder).unwrap();
+    let pages = |b: &Backend| b.chapter(book).unwrap().pages.into_iter().map(|p| p.id).collect::<Vec<_>>();
+    let [one, two, ten] = pages(&b).try_into().unwrap();
+    assert_eq!(gemini.count(), 0, "import alone sends nothing");
+    assert_eq!(b.books(BooksIn { limit: 20, before: None }).unwrap().books[0].title, "Fixture");
+    let from_url = read(&b, images[1].clone()).unwrap();
+    assert_eq!(gemini.count(), 1);
+    drop(b);
+
+    fs::rename(&folder, folder.with_file_name("moved")).unwrap();
+    let b = keyed(&gemini, &dirs);
+    assert_eq!(pages(&b), [one, two, ten]);
+    for (id, bytes) in [one, two, ten].into_iter().zip(images) {
+        assert_eq!(b.chapter_image(id).unwrap(), bytes);
+    }
+    assert_eq!(gemini.count(), 1, "opening stored images sends nothing");
+    let first = b.read_chapter_page(one).unwrap();
+    assert_eq!((first.saved, first.boxes[0].ko.as_str()), (false, "안녕"));
+    assert_eq!(gemini.count(), 2);
+    let cached = b.read_chapter_page(two).unwrap();
+    assert!(cached.saved);
+    assert_eq!(cached.boxes, from_url.boxes);
+    assert_eq!(gemini.count(), 2, "cache hit from a site page");
+
+    b.put_source_lang(LangIn { lang: "en".into() }).unwrap();
+    assert_eq!(b.read_chapter_page(one).unwrap().boxes[0].ko, "반가워");
+    assert_eq!(gemini.count(), 3);
+    b.put_source_lang(LangIn { lang: "ja".into() }).unwrap();
+    drop(b);
+    let b = keyed(&gemini, &dirs);
+    assert_eq!(b.read_chapter_page(one).unwrap().boxes, first.boxes);
+    assert!(read(&b, b.chapter_image(one).unwrap()).unwrap().saved);
+    assert_eq!(gemini.count(), 3, "both readers reuse the imported page's persisted cache");
+
+    let out = b.export(ExportIn { book_id: book, format: "png".into() }).unwrap();
+    assert_eq!(out.count, 3);
+    let png = realtime_screen_translator::export::decode_png(&fs::read(&out.files[1]).unwrap()).unwrap();
+    let original = realtime_screen_translator::export::decode_strip(&page()).unwrap();
+    let pixel = |x, y| (y * 600usize + x) * 3;
+    assert!(png.px[pixel(150, 112)] > 200, "the cached dialogue is overlaid in the export");
+    assert_eq!(png.px[pixel(550, 400)], original.px[pixel(550, 400)]);
+}
+
+#[test]
+fn empty_and_failed_imports_leave_no_chapter_or_copied_files() {
+    let dirs = Dirs::new();
+    let gemini = PageGemini::start();
+    let b = keyed(&gemini, &dirs);
+    let folder = dirs.data.with_file_name("Fixture");
+    fs::create_dir(&folder).unwrap();
+    fs::write(folder.join("notes.txt"), "skip").unwrap();
+    assert_eq!(b.import_folder(&folder).unwrap_err().0, "empty_folder");
+
+    let pages: Vec<_> = ["1.jpg", "2.jpg"].into_iter().map(|name| {
+        let path = folder.join(name);
+        fs::write(&path, page()).unwrap();
+        (name.to_owned(), path)
+    }).collect();
+    let originals = pages.clone();
+    let err = b.import_chapter("Fixture", pages, |source, dest| {
+        fs::copy(&source, dest).unwrap();
+        if source.ends_with("2.jpg") {
+            return Err(realtime_screen_translator::api::ApiError("storage_full"));
+        }
+        Ok(())
+    }).unwrap_err();
+    assert_eq!(err.0, "storage_full");
+    assert!(b.books(BooksIn { limit: 20, before: None }).unwrap().books.is_empty());
+    assert_eq!(fs::read_dir(dirs.data.join("strips")).unwrap().count(), 0);
+    for (_, path) in originals {
+        assert_eq!(fs::read(path).unwrap(), page());
+    }
+    assert_eq!(gemini.count(), 0);
+}
+
+#[test]
+fn oversize_pages_are_rejected_across_formats_before_a_chapter_is_published() {
+    use realtime_screen_translator::export::{self, Rgb};
+
+    let gemini = PageGemini::start();
+    let small = Rgb::new(64, 64);
+    let cases = [
+        ("jpg", include_bytes!("fixtures/wide-page.jpg").as_slice(), page()),
+        ("png", include_bytes!("fixtures/wide-page.png").as_slice(), export::encode_png(&small).unwrap()),
+        ("webp", include_bytes!("fixtures/wide-page.webp").as_slice(), export::encode_webp(&small).unwrap()),
+    ];
+    for (ext, large, regular) in cases {
+        let dirs = Dirs::new();
+        let b = keyed(&gemini, &dirs);
+        let folder = dirs.data.with_file_name("Fixture");
+        let source = folder.join(ext);
+        fs::create_dir_all(&source).unwrap();
+        fs::write(source.join("1.jpg"), page()).unwrap();
+        let second = source.join(format!("2.{ext}"));
+        fs::write(&second, large).unwrap();
+        assert_eq!(b.import_folder(&source).unwrap_err().0, "image_dimensions_too_large", "{ext}");
+        assert_eq!(read(&b, large.to_vec()).unwrap_err(), "image_dimensions_too_large", "{ext}");
+        assert_eq!(fs::read(&second).unwrap(), large, "{ext} original");
+        assert!(b.books(BooksIn { limit: 20, before: None }).unwrap().books.is_empty());
+        assert_eq!(fs::read_dir(dirs.data.join("strips")).unwrap().count(), 0);
+
+        let regular_folder = folder.join(format!("regular-{ext}"));
+        fs::create_dir(&regular_folder).unwrap();
+        fs::write(regular_folder.join(format!("1.{ext}")), regular).unwrap();
+        let id = b.import_folder(&regular_folder).unwrap();
+        assert_eq!(b.chapter(id).unwrap().pages.len(), 1);
+    }
+    assert_eq!(gemini.count(), 0);
 }
 
 #[test]

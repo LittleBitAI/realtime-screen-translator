@@ -22,6 +22,9 @@ const MODEL_SETTING: &str = "gemini_model";
 
 #[path = "reader.rs"]
 mod reader;
+pub(crate) const MAX_PAGE_BYTES: u64 = 20 << 20;
+#[path = "chapter.rs"]
+mod chapter;
 
 #[derive(Clone)]
 struct Known {
@@ -1175,10 +1178,7 @@ impl Backend {
             return Err(ApiError("already_covered"));
         }
         // The strip must really be screen rows top..bottom, or the export is wrong.
-        let img = export::decode_png(&req.image).ok_or(ApiError("bad_image"))?;
-        if img.w != s.screen.0 || img.h != req.bottom - req.top {
-            return Err(ApiError("bad_image"));
-        }
+        let img = export::decode_capture_png(&req.image, s.screen.0, req.bottom - req.top).ok_or(ApiError("bad_image"))?;
         // E5: lossless WebP in the app's own folder, kept as a path relative to it.
         let rel_dir = format!("strips/{}", req.picture_id);
         std::fs::create_dir_all(self.data_dir.join(&rel_dir)).map_err(storage_error)?;
@@ -1246,7 +1246,8 @@ impl Backend {
                     preview_path: preview,
                 });
             }
-            books.push(BookOut { id: b.id, title: b.title, started_at: b.started_at, ended_at: b.ended_at, pictures });
+            let imported = store::is_chapter(&st.db, b.id)?;
+            books.push(BookOut { id: b.id, title: b.title, started_at: b.started_at, ended_at: b.ended_at, pictures, imported });
         }
         Ok(BooksOut { books, next_before })
     }
@@ -1263,7 +1264,10 @@ impl Backend {
             let mut pictures = vec![];
             for p in store::pictures(&st.db, book.id)? {
                 let strips = self.strips(&st.db, p.id)?;
-                let placements = store::placements(&st.db, p.id)?;
+                let placements = match store::chapter_translation(&st.db, p.id)? {
+                    Some(key) => store::reader_placements(&st.db, &key)?,
+                    None => store::placements(&st.db, p.id)?,
+                };
                 pictures.push((p, strips, placements));
             }
             (book, pictures)
@@ -1462,7 +1466,7 @@ fn take_crop(st: &mut State, picture_id: i64, c: CropIn, (seq, offset): (u64, i6
     }
     // The picture must be the text area it says it is, or it is not
     // the crop it claims (a whole screen sent as a small crop).
-    let Some(img) = export::decode_png(&c.image).filter(|i| (i.w, i.h) == (c.w, c.h)) else {
+    let Some(img) = export::decode_capture_png(&c.image, c.w, c.h) else {
         result.discarded += 1;
         return Ok(());
     };

@@ -1,0 +1,33 @@
+Windows: Microsoft Windows 11 Home 10.0.26200, x64
+Source commit: 39497f5a160100403b612b2fbdf4cf462f07505d
+NSIS debug isolated product: RST Folder Repair 0.1.0
+Installer SHA-256: BFE7CE86114027A535C7113E0BCF20565D287A56ADB37F5B5407939CE9E1E0A0
+Installed executable SHA-256: DAD6E4249E9D6E79756641319F45ACC26EF0B432F90CFD92A0A730B2F23A8C05
+Installer exit: 0
+NSIS installed executable matches the build except for the three-byte UNK to NSS bundle marker.
+Packaged with cargo tauri build --debug --bundles nsis --features app --ci --no-sign and an isolated application ID.
+
+The Win32 automation observed the system folder picker (window class #32770) and selected synthetic folders only.
+node artifacts/chapter-repair-native.mjs windows cancel
+node artifacts/chapter-repair-native.mjs windows empty
+windows: cancel returned to a responsive home screen with 0 chapters and 0 translation requests
+windows: empty returned to a responsive home screen with 0 chapters and 0 translation requests
+
+node artifacts/chapter-repair-native.mjs windows dimensions
+windows: dimensions returned to a responsive home screen with 0 chapters and 0 translation requests
+
+node artifacts/chapter-windows-prepare.mjs
+Windows installed library: 3 pages, 0 requests on import
+Windows URL entry: opened the controlled site, translated once, and denied chapter data to the site
+
+The app was closed, the synthetic source folder moved, and the same installed executable restarted.
+node artifacts/chapter-windows-verify.mjs
+python artifacts/chapter-export-verify.py
+{"actualPageHashes":["c1bda2f3c9ca4745ae55759efdfd5d7e9d60aecfe822bc1b50a99bd306a9ca76","87073f5a7000781fa681e73fdee74a422741bbd64460478bb2272426077ef159","028f919bc5cef9a2d4b22125738b7a1704b65273dca9012e797e91b1d484fe29"],"sourcePageHashes":["c1bda2f3c9ca4745ae55759efdfd5d7e9d60aecfe822bc1b50a99bd306a9ca76","87073f5a7000781fa681e73fdee74a422741bbd64460478bb2272426077ef159","028f919bc5cef9a2d4b22125738b7a1704b65273dca9012e797e91b1d484fe29"]}
+Windows restart: exact app-owned bytes in 1.jpg, 2.jpg, 10.jpg order; near unseen page translated and URL cache reused
+{"overlayBefore":{"left":0.21331018518518519,"top":0.13777006172839507,"width":0.2466435185185185,"scale":1,"y":0},"overlayAfter":{"left":0.21331018518518519,"top":0.13777006172839507,"width":0.2466435185185185,"scale":1.5,"y":160}}
+{"controlledTranslationRequests":[{"hash":"87073f5a7000781fa681e73fdee74a422741bbd64460478bb2272426077ef159","lang":"ja"},{"hash":"c1bda2f3c9ca4745ae55759efdfd5d7e9d60aecfe822bc1b50a99bd306a9ca76","lang":"ja"},{"hash":"028f919bc5cef9a2d4b22125738b7a1704b65273dca9012e797e91b1d484fe29","lang":"ja"},{"hash":"87073f5a7000781fa681e73fdee74a422741bbd64460478bb2272426077ef159","lang":"en"},{"hash":"c1bda2f3c9ca4745ae55759efdfd5d7e9d60aecfe822bc1b50a99bd306a9ca76","lang":"en"}],"exported":3}
+Windows reader: translations followed scroll and 1.5× zoom; 3 pages exported; reopening made 0 calls; English made 2 new calls
+Windows PNG export: all 3 pages retained the synthetic sound effect outside the translated dialogue
+
+windows-overlay.png SHA-256: 49FA2C2896FC04B7F00944BAE8D9923ADC6100EFB25C9020714AD3020AD06C30

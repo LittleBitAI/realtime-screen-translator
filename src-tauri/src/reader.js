@@ -2,7 +2,7 @@
 // pictures, has the app translate each one once (`post_reader_page`) and
 // draws the Korean on the picture itself: the shapes sit in the picture's own
 // box, so they scroll, slide and zoom with it, and nothing has to follow the
-// screen. The app's own screens carry <meta name="rst-app"> and are left alone.
+// screen. An imported chapter uses the same overlays on app-owned images.
 (() => {
   if (window.__rstReader || !window.__TAURI_INTERNALS__) return;
   window.__rstReader = true;
@@ -29,6 +29,7 @@
   let bar;
   let barText;
   let problem = null;
+  let chapter = false;
 
   const messages = {
     key_missing: '설정에서 Gemini API 키를 넣어 주세요.',
@@ -37,13 +38,18 @@
     gemini_unreadable: 'Gemini 답을 읽지 못했습니다. 그림을 눌러 다시 번역합니다.',
     image_unreachable: '이 사이트가 그림을 내주지 않습니다.',
     bad_image: '읽을 수 없는 그림입니다.',
+    image_dimensions_too_large: '이 그림은 가로와 세로를 곱해 8,388,608픽셀이 넘어서 번역할 수 없습니다.',
+    not_found: '저장된 만화나 그림을 찾지 못했습니다.',
     storage_full: '기기 저장 공간이 모자라 번역본에 담지 못했습니다. 공간을 비우고 그림 위 버튼을 눌러 주세요.',
     storage_denied: '앱이 저장 폴더에 쓰지 못해 번역본에 담지 못했습니다.',
     internal: '번역본에 담지 못했습니다. 그림 위 버튼을 눌러 다시 저장합니다.',
   };
 
   function start() {
-    if (document.querySelector('meta[name="rst-app"]')) return;
+    if (document.querySelector('meta[name="rst-app"]')) {
+      chapter = Boolean(document.querySelector('meta[name="rst-chapter"]'));
+      if (!chapter) return;
+    }
     const css = document.createElement('style');
     css.textContent = `
       .rst-layer{position:absolute;pointer-events:none;z-index:2147483000;transform-origin:0 0}
@@ -78,16 +84,60 @@
     back.type = 'button';
     back.textContent = '앱';
     back.setAttribute('aria-label', '앱으로 돌아가기');
-    back.onclick = () => invoke('post_reader_close', {}).catch(() => history.back());
+    back.onclick = () => chapter ? location.assign('/library') : invoke('post_reader_close', {}).catch(() => history.back());
     barText = document.createElement('span');
     barText.setAttribute('role', 'status');
+    barText.hidden = true;
     bar.append(back, toggle, barText);
     document.body.appendChild(bar);
     new MutationObserver(() => schedule()).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['src', 'srcset', 'style', 'class'] });
     addEventListener('scroll', schedule, { passive: true, capture: true });
     addEventListener('resize', schedule);
     setInterval(scan, 800);
-    scan();
+    if (chapter) loadChapter();
+    else scan();
+  }
+
+  async function loadChapter() {
+    const book_id = Number(new URLSearchParams(location.search).get('id'));
+    try {
+      if (!Number.isSafeInteger(book_id) || book_id <= 0) throw 'not_found';
+      const { title, pages } = await invoke('get_chapter', { book_id });
+      document.title = document.querySelector('h1').textContent = title;
+      const content = document.createDocumentFragment();
+      for (const [i, page] of pages.entries()) {
+        const frame = document.createElement('div');
+        frame.style.aspectRatio = `${page.width} / ${page.height}`;
+        const img = document.createElement('img');
+        img.dataset.pictureId = page.id;
+        img.alt = `${i + 1}쪽`;
+        img.addEventListener('load', schedule);
+        frame.appendChild(img);
+        content.appendChild(frame);
+      }
+      document.querySelector('main').appendChild(content);
+      scan();
+    } catch (e) {
+      document.querySelector('h1').textContent = messages[e] ?? messages.not_found;
+    }
+  }
+
+  async function loadPicture(img, p) {
+    p.loading = true;
+    try {
+      const bytes = await invoke('get_chapter_image', { picture_id: p.src });
+      if (pics.get(img) !== p || distance(img) > NEAR * 2) return;
+      img.src = URL.createObjectURL(new Blob([new Uint8Array(bytes)]));
+    } catch {
+      if (pics.get(img) !== p) return;
+      p.imageError = true;
+      chip(img, p, '그림을 읽을 수 없습니다 · 눌러서 다시', () => {
+        p.imageError = false;
+        schedule();
+      });
+    } finally {
+      p.loading = false;
+    }
   }
 
   let pending = false;
@@ -116,13 +166,14 @@
 
   function scan() {
     for (const [img, p] of pics) {
-      if (!img.isConnected || (img.currentSrc || img.src) !== p.src) forget(img);
+      if (!img.isConnected || (!chapter && (img.currentSrc || img.src) !== p.src)) forget(img);
     }
     status();
-    if (!on) return;
+    if (!on && !chapter) return;
     for (const img of document.images) {
-      if (!isPage(img)) continue;
-      const src = img.currentSrc || img.src;
+      if (chapter ? !img.dataset.pictureId : !isPage(img)) continue;
+      const src = chapter ? Number(img.dataset.pictureId) : img.currentSrc || img.src;
+      const near = distance(img);
       let p = pics.get(img);
       if (!p) {
         p = { src, layer: null, state: 'new' };
@@ -134,7 +185,13 @@
         }
       }
       if (p.layer) place(img, p.layer);
-      if (p.state === 'new' && distance(img) <= NEAR) queue.add(img);
+      if (chapter) {
+        const loaded = img.hasAttribute('src');
+        if (near <= NEAR && !loaded && !p.loading && !p.imageError) loadPicture(img, p);
+        if (near > NEAR * 2 && loaded) unloadPicture(img);
+        if (!loaded || !img.complete || !img.naturalWidth) continue;
+      }
+      if (on && p.state === 'new' && near <= NEAR) queue.add(img);
     }
     pump();
   }
@@ -144,6 +201,12 @@
     p?.layer?.remove();
     pics.delete(img);
     queue.delete(img);
+    if (chapter && img.hasAttribute('src')) unloadPicture(img);
+  }
+
+  function unloadPicture(img) {
+    URL.revokeObjectURL(img.src);
+    img.removeAttribute('src');
   }
 
   function pump() {
@@ -152,7 +215,7 @@
       const img = [...queue].sort((a, b) => distance(a) - distance(b))[0];
       queue.delete(img);
       const p = pics.get(img);
-      if (!p || p.state !== 'new') continue;
+      if (!p || p.state !== 'new' || distance(img) > NEAR) continue;
       translate(img, p);
     }
     status();
@@ -195,8 +258,9 @@
     p.state = 'busy';
     chip(img, p, '번역 중…');
     try {
-      const image = await bytes(p.src);
-      const answer = await invoke('post_reader_page', { src: p.src, image, page_url: location.href, title: document.title, index: order(img) });
+      const answer = chapter
+        ? await invoke('post_chapter_page', { picture_id: p.src })
+        : await invoke('post_reader_page', { src: p.src, image: await bytes(p.src), page_url: location.href, title: document.title, index: order(img) });
       p.state = 'done';
       problem = answer.save_error ? messages[answer.save_error] ?? messages.storage_full : null;
       // Not kept in the library: drawn, but asked again so the app saves it.
@@ -327,8 +391,11 @@
   function status() {
     if (!barText) return;
     const busy = [...pics.values()].filter((p) => p.state === 'busy').length + queue.size;
-    barText.textContent = !on ? '' : problem ?? (busy ? `번역 중 ${busy}` : '');
-    barText.hidden = !barText.textContent;
+    const message = !on ? '' : problem ?? (busy ? `번역 중 ${busy}` : '');
+    if (barText.textContent !== message) {
+      barText.textContent = message;
+      barText.hidden = !message;
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });

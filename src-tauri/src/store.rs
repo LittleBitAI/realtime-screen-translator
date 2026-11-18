@@ -74,6 +74,12 @@ CREATE TABLE IF NOT EXISTS ReaderPage (
     picture_id INTEGER NOT NULL REFERENCES Picture(id),
     page_url TEXT NOT NULL
 );
+-- An imported picture exists before translation and can share a cached
+-- translation with a different picture. The link selects its export overlay.
+CREATE TABLE IF NOT EXISTS ChapterPage (
+    picture_id INTEGER PRIMARY KEY REFERENCES Picture(id),
+    translated_key TEXT REFERENCES ReaderPage(key)
+);
 CREATE INDEX IF NOT EXISTS ReaderPage_url ON ReaderPage(page_url);
 CREATE INDEX IF NOT EXISTS Picture_book ON Picture(book_id, seq);
 CREATE INDEX IF NOT EXISTS Strip_picture ON Strip(picture_id, y_start);
@@ -237,12 +243,16 @@ pub fn delete_placement(db: &Db, id: i64) -> Res<()> {
 }
 
 pub fn placements(db: &Db, picture_id: i64) -> Res<Vec<PlacementRow>> {
+    picture_placements(db, picture_id, None)
+}
+
+fn picture_placements(db: &Db, picture_id: i64, prefix: Option<&str>) -> Res<Vec<PlacementRow>> {
     let mut st = db.prepare(
         "SELECT p.id, p.fingerprint, p.x, p.y, p.w, p.h, p.radius, p.font_px, COALESCE(t.translation_ko, '')
          FROM Placement p JOIN Translation t ON t.fingerprint = p.fingerprint
-         WHERE p.picture_id = ?1 ORDER BY p.id",
+         WHERE p.picture_id = ?1 AND (?2 IS NULL OR p.fingerprint GLOB ?2) ORDER BY p.id",
     )?;
-    let rows = st.query_map([picture_id], |r| {
+    let rows = st.query_map(params![picture_id, prefix], |r| {
         Ok(PlacementRow {
             id: r.get(0)?,
             fingerprint: r.get(1)?,
@@ -265,10 +275,18 @@ pub fn reader_page(db: &Db, key: &str) -> Res<Option<i64>> {
     db.query_row("SELECT picture_id FROM ReaderPage WHERE key = ?1", [key], |r| r.get(0)).optional()
 }
 
+pub fn reader_placements(db: &Db, key: &str) -> Res<Vec<PlacementRow>> {
+    match reader_page(db, key)? {
+        Some(id) => picture_placements(db, id, Some(&format!("page:{key}:*"))),
+        None => Ok(vec![]),
+    }
+}
+
 /// The book of the site page `page_url`, if one of its pictures was saved.
 pub fn reader_book(db: &Db, page_url: &str) -> Res<Option<i64>> {
     db.query_row(
-        "SELECT p.book_id FROM ReaderPage r JOIN Picture p ON p.id = r.picture_id WHERE r.page_url = ?1 LIMIT 1",
+        "SELECT p.book_id FROM ReaderPage r JOIN Picture p ON p.id = r.picture_id
+         WHERE r.page_url = ?1 AND NOT EXISTS (SELECT 1 FROM ChapterPage c WHERE c.picture_id = p.id) LIMIT 1",
         [page_url],
         |r| r.get(0),
     )
@@ -277,6 +295,40 @@ pub fn reader_book(db: &Db, page_url: &str) -> Res<Option<i64>> {
 
 pub fn insert_reader_page(db: &Db, key: &str, picture_id: i64, page_url: &str) -> Res<()> {
     db.execute("INSERT INTO ReaderPage (key, picture_id, page_url) VALUES (?1, ?2, ?3)", params![key, picture_id, page_url])?;
+    Ok(())
+}
+
+pub fn insert_chapter_page(db: &Db, picture_id: i64) -> Res<()> {
+    db.execute("INSERT INTO ChapterPage (picture_id) VALUES (?1)", [picture_id])?;
+    Ok(())
+}
+
+pub fn is_chapter(db: &Db, book_id: i64) -> Res<bool> {
+    db.query_row(
+        "SELECT EXISTS (SELECT 1 FROM Picture p JOIN ChapterPage c ON c.picture_id = p.id WHERE p.book_id = ?1)",
+        [book_id],
+        |r| r.get(0),
+    )
+}
+
+pub fn chapter_page(db: &Db, picture_id: i64) -> Res<Option<(String, u32, u32)>> {
+    db.query_row(
+        "SELECT s.file_path, p.width, s.height FROM ChapterPage c JOIN Picture p ON p.id = c.picture_id
+         JOIN Strip s ON s.picture_id = p.id WHERE c.picture_id = ?1",
+        [picture_id],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+    )
+    .optional()
+}
+
+pub fn chapter_translation(db: &Db, picture_id: i64) -> Res<Option<String>> {
+    db.query_row("SELECT translated_key FROM ChapterPage WHERE picture_id = ?1", [picture_id], |r| r.get(0))
+        .optional()
+        .map(Option::flatten)
+}
+
+pub fn set_chapter_translation(db: &Db, picture_id: i64, key: &str) -> Res<()> {
+    db.execute("UPDATE ChapterPage SET translated_key = ?2 WHERE picture_id = ?1 AND translated_key IS NOT ?2", params![picture_id, key])?;
     Ok(())
 }
 

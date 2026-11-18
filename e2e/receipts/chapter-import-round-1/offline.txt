@@ -1,0 +1,54 @@
+Source commit: 39497f5a160100403b612b2fbdf4cf462f07505d
+Environment: Microsoft Windows 11 Home 10.0.26200, x86_64-pc-windows-msvc
+cargo 1.98.1 (797e8a9bc 2026-08-05), Node v24.18.0
+
+cargo test -p realtime-screen-translator --test reader_edges --test lifecycle_and_export_edges --test strip_file_and_shape_edges --test backend_edges
+running 7 tests
+test crop_of_a_forgotten_frame_is_refused ... ok
+test failed_translation_is_asked_again ... ok
+test strip_that_is_not_the_screen_rows_is_refused ... ok
+test same_hash_with_another_shape_keeps_both_translations ... ok
+test part_scrolled_past_without_stopping_is_saved_when_the_screen_rests_on_it ... ok
+test same_balloon_seen_in_several_places_while_waiting_is_placed_everywhere ... ok
+test no_retry_goes_out_after_stop ... ok
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.71s
+running 5 tests
+test a_black_capture_with_a_stray_lit_pixel_in_it_is_blocked ... ok
+test the_rounded_shape_covers_the_source_text_to_its_corners ... ok
+test a_stop_still_tearing_down_does_not_take_down_the_next_start ... ok
+test exports_at_the_same_time_write_separate_files ... ok
+test a_start_whose_book_cannot_be_made_takes_capture_and_overlay_down ... ok
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.81s
+running 6 tests
+test empty_and_failed_imports_leave_no_chapter_or_copied_files ... ok
+test a_page_whose_saving_fails_says_so_and_is_saved_by_the_next_call_without_gemini ... ok
+test copies_of_one_page_read_at_once_send_it_to_gemini_once ... ok
+test a_page_is_translated_once_per_language_and_kept_as_a_book ... ok
+test imported_chapter_survives_restart_and_shares_the_url_cache_by_language ... ok
+test oversize_pages_are_rejected_across_formats_before_a_chapter_is_published ... ok
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.77s
+running 2 tests
+test a_shape_grown_for_a_long_translation_does_not_cover_one_already_shown ... ok
+test a_strip_is_kept_as_lossless_webp_under_a_relative_path ... ok
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.42s
+
+corepack pnpm test src/lib/reader.test.js src/lib/text.test.js src/screens/screens.test.js
+ ✓ src/lib/text.test.js (4 tests) 3ms
+ ✓ src/lib/reader.test.js (2 tests) 279ms
+ ✓ src/screens/screens.test.js (18 tests) 1086ms
+ Test Files  3 passed (3)
+      Tests  24 passed (24)
+   Duration  3.74s (environment 65%, tests 21%, transform 7%, import 7%)
+Reporter output: vitest-junit.xml (machine hostname omitted).
+
+corepack pnpm exec vite build
+vite v8.3.8 building client environment for production...
+dist/chapter.html                0.67 kB │ gzip:  0.41 kB
+✓ built in 602ms
+
+cargo test -p realtime-screen-translator --lib export::tests
+running 3 tests
+test export::tests::too_tall_webp_is_refused ... ok
+test export::tests::placement_is_white_with_dark_text_and_leaves_the_rest ... ok
+test export::tests::long_picture_is_written_band_by_band ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.26s

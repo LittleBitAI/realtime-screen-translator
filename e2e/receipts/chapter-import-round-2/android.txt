@@ -1,0 +1,35 @@
+Physical Galaxy S21+ installation and folder-reader check, 2026-11-18.
+Source: 371e9c059782b02d2a98b43a15405926a1e8bc99. Later commits record evidence only.
+Device: SM-G996N, Android 15, build AP3A.240905.015.A2, incremental G996NKSSCHZA9, arm64-v8a.
+Build: 0.1.0 universalDebug, isolated package ai.littlebit.realtime_screen_translator.folderroundtwo.
+Cargo Tauri cross-build completed for aarch64. After the Windows symlink error,
+the newly built JNI library was copied to jniLibs and packaged by Gradle assembleUniversalDebug.
+BUILD SUCCESSFUL in 2m 6s
+Local APK and installed base.apk SHA-256: 918F7BCEEF80472D8C4FCB822FFCA238BE6D9498E477471A6EA042608A127FB1
+
+The owner reported uninstalling the preceding app and requested reinstallation.
+Direct observation: ADB identified SM_G996N and adb install -r reported Success.
+ADB pm path and sha256sum identified the installed APK. The activity cold-started successfully.
+
+The app's import button opened Android DocumentsUI, whose system controls selected the synthetic folders.
+node artifacts/chapter-repair-native.mjs android cancel
+android: cancel returned to a responsive home screen with 0 chapters and 0 translation requests
+node artifacts/chapter-repair-native.mjs android empty
+android: empty returned to a responsive home screen with 0 chapters and 0 translation requests
+node artifacts/chapter-android-verify.mjs imported
+Android installed app imported the synthetic chapter as 3 pages, 0 requests
+The selected folder had 1.jpg, 2.jpg, 10.jpg, notes.txt and a nested directory.
+
+ADB moved the synthetic source folder. Its original path was confirmed absent, and the three moved original images were hashed.
+After adb shell am force-stop, adb shell am start -W reported Status: ok and LaunchState: COLD.
+node artifacts/chapter-android-verify.mjs reopen
+Android restart: the app-owned chapter reopened with exact source bytes in 1.jpg, 2.jpg, 10.jpg order after the source moved
+SHA-256 of the moved originals and the three reopened app-owned pages, in reader order:
+c1bda2f3c9ca4745ae55759efdfd5d7e9d60aecfe822bc1b50a99bd306a9ca76
+87073f5a7000781fa681e73fdee74a422741bbd64460478bb2272426077ef159
+028f919bc5cef9a2d4b22125738b7a1704b65273dca9012e797e91b1d484fe29
+node artifacts/chapter-android-second-page.mjs
+The second app-owned page rendered after cold start: {"total":3,"width":600,"top":-0.17777778208255768}
+android-reopened-page-2.png is the native WebView capture of page two after that restart.
+Screenshot SHA-256: 9387D5207ED9E142DB5FB82DA591120AFA60E1B1B7E34224F6501DACC44D4656
+No Gemini API key was configured in this isolated Android installation. The screenshot therefore shows untranslated source art and the app's missing-key notice.

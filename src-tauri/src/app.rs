@@ -582,6 +582,108 @@ fn post_reader_page(b: B<'_>, src: String, image: Option<String>, page_url: Stri
     b.read_page(PageIn { src, image, page_url, title: title.unwrap_or_default(), index: index.unwrap_or(0) })
 }
 
+#[tauri::command(async, rename_all = "snake_case")]
+fn post_chapter_import(b: B<'_>, window: tauri::WebviewWindow) -> ApiResult<Option<i64>> {
+    #[cfg(windows)]
+    {
+        let folder = pick_chapter_folder(&window).map_err(|e| {
+            eprintln!("folder picker: {e}");
+            ApiError("folder_picker_failed")
+        })?;
+        folder.map(|path| b.import_folder(&path)).transpose()
+    }
+    #[cfg(target_os = "android")]
+    {
+        #[derive(serde::Deserialize)]
+        struct Folder {
+            title: String,
+            pages: Vec<Source>,
+        }
+        #[derive(serde::Deserialize)]
+        struct Source {
+            name: String,
+            uri: String,
+        }
+        #[derive(serde::Deserialize)]
+        struct CopyResult {
+            error: Option<String>,
+        }
+        let app = window.app_handle();
+        let folder: Option<Folder> = android::call::<Option<Folder>>(app, "pickChapterFolder", serde_json::json!({}))
+            .map_err(|e| {
+                eprintln!("folder picker: {e}");
+                ApiError("folder_picker_failed")
+            })?;
+        let Some(folder) = folder else { return Ok(None) };
+        let pages = folder.pages.into_iter().map(|p| (p.name, p.uri)).collect();
+        b.import_chapter(&folder.title, pages, |uri, path| {
+            let copy: CopyResult = android::call(app, "copyChapterPage", serde_json::json!({
+                "uri": uri, "path": path, "maxBytes": crate::backend::MAX_PAGE_BYTES,
+            })).map_err(|e| {
+                eprintln!("chapter copy: {e}");
+                ApiError("image_unreachable")
+            })?;
+            match copy.error.as_deref() {
+                None => Ok(()),
+                Some("storage_full") => Err(ApiError("storage_full")),
+                Some(_) => Err(ApiError("image_unreachable")),
+            }
+        }).map(Some)
+    }
+    #[cfg(not(any(windows, target_os = "android")))]
+    {
+        let _ = (b, window);
+        Err(ApiError("folder_picker_failed"))
+    }
+}
+
+#[cfg(windows)]
+fn pick_chapter_folder(window: &tauri::WebviewWindow) -> Result<Option<PathBuf>, Box<dyn std::error::Error>> {
+    use std::os::windows::ffi::OsStringExt;
+    use windows::Win32::{
+        Foundation::{ERROR_CANCELLED, HWND},
+        System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED},
+        UI::Shell::{FileOpenDialog, IFileOpenDialog, FOS_FORCEFILESYSTEM, FOS_PICKFOLDERS, SIGDN_FILESYSPATH},
+    };
+
+    let owner = HWND(window.hwnd()?.0);
+    // SAFETY: the dialog and its Shell item are used and released on this COM thread.
+    unsafe {
+        CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok()?;
+        let picked = (|| -> windows::core::Result<Option<PathBuf>> {
+            let dialog: IFileOpenDialog = CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER)?;
+            dialog.SetOptions(dialog.GetOptions()? | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM)?;
+            if let Err(e) = dialog.Show(Some(owner)) {
+                if e.code() == windows::core::HRESULT::from_win32(ERROR_CANCELLED.0) {
+                    return Ok(None);
+                }
+                return Err(e);
+            }
+            let path = dialog.GetResult()?.GetDisplayName(SIGDN_FILESYSPATH)?;
+            let result = PathBuf::from(std::ffi::OsString::from_wide(path.as_wide()));
+            CoTaskMemFree(Some(path.0.cast()));
+            Ok(Some(result))
+        })();
+        CoUninitialize();
+        Ok(picked?)
+    }
+}
+
+#[tauri::command(async, rename_all = "snake_case")]
+fn get_chapter(b: B<'_>, book_id: i64) -> ApiResult<ChapterOut> {
+    b.chapter(book_id)
+}
+
+#[tauri::command(async, rename_all = "snake_case")]
+fn get_chapter_image(b: B<'_>, picture_id: i64) -> ApiResult<tauri::ipc::Response> {
+    b.chapter_image(picture_id).map(tauri::ipc::Response::new)
+}
+
+#[tauri::command(async, rename_all = "snake_case")]
+fn post_chapter_page(b: B<'_>, picture_id: i64) -> ApiResult<PageOut> {
+    b.read_chapter_page(picture_id)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -638,7 +740,11 @@ pub fn run() {
             put_settings_source_lang,
             post_reader_open,
             post_reader_close,
-            post_reader_page
+            post_reader_page,
+            post_chapter_import,
+            get_chapter,
+            get_chapter_image,
+            post_chapter_page
         ])
         .run(tauri::generate_context!())
         .expect("the Tauri app failed to run");

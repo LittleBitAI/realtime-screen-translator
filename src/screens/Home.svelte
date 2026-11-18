@@ -2,8 +2,8 @@
   import { onMount } from 'svelte';
   import Shell from '../lib/Shell.svelte';
   import { api } from '../lib/api.js';
-  import { link } from '../lib/router.svelte.js';
-  import { langText, notices, openError, reachError, readerUnsupported } from '../lib/text.js';
+  import { link, navigate } from '../lib/router.svelte.js';
+  import { importError, langText, notices, openError, reachError, readerUnsupported } from '../lib/text.js';
 
   // S1: open a manga site in the reader, and see at a glance whether the
   // key and Gemini are all right. The translation is drawn on the site's
@@ -12,6 +12,8 @@
   let status = $state(null);
   let failed = $state(false);
   let busy = $state(false);
+  let importing = $state(false);
+  let mounted = false;
   let problem = $state(null);
   let recent = $state(readRecent());
   let url = $state(recent[0] ?? '');
@@ -35,9 +37,13 @@
   }
 
   onMount(() => {
+    mounted = true;
     refresh();
     const timer = setInterval(refresh, 2000);
-    return () => clearInterval(timer);
+    return () => {
+      mounted = false;
+      clearInterval(timer);
+    };
   });
 
   let unsupported = !api.canOpenSites();
@@ -45,7 +51,7 @@
 
   async function open(address = url) {
     const typed = address.trim();
-    if (busy || !typed) return;
+    if (busy || importing || !typed) return;
     problem = null;
     if (unsupported) {
       problem = { text: readerUnsupported };
@@ -71,6 +77,20 @@
     e.preventDefault();
     open();
   }
+
+  async function importFolder() {
+    if (busy || importing) return;
+    importing = true;
+    problem = null;
+    try {
+      const id = await api.importChapter();
+      if (mounted && id != null) navigate('/library');
+    } catch (e) {
+      if (mounted) problem = { text: importError(e.code) };
+    } finally {
+      if (mounted) importing = false;
+    }
+  }
 </script>
 
 {#snippet bar()}
@@ -78,8 +98,8 @@
     type="submit"
     form="open-site"
     data-feature="open-site"
-    disabled={busy || !url.trim()}
-    class={['h-[72px] w-full rounded-2xl text-xl font-bold', busy || !url.trim() ? 'bg-gray-400 text-white' : 'bg-primary text-white']}
+    disabled={busy || importing || !url.trim()}
+    class={['h-[72px] w-full rounded-2xl text-xl font-bold', busy || importing || !url.trim() ? 'bg-gray-400 text-white' : 'bg-primary text-white']}
   >
     {busy ? '여는 중' : '열기'}
   </button>
@@ -114,6 +134,14 @@
       </p>
       {#if unsupported}
         <p class="m-0 mt-4 rounded-lg bg-gray-200 px-4 py-2 text-sm">{readerUnsupported}</p>
+      {:else}
+        <button
+          type="button"
+          data-feature="import-chapter"
+          onclick={importFolder}
+          disabled={busy || importing}
+          class="mt-4 min-h-12 w-full rounded-lg border border-primary px-4 font-semibold text-primary disabled:opacity-50"
+        >{importing ? '가져오는 중' : '그림 폴더 가져오기'}</button>
       {/if}
       {#if recent.length}
         <h3 class="m-0 mt-4 text-base font-bold">최근 연 주소</h3>
@@ -126,7 +154,7 @@
                   url = r;
                   open(r);
                 }}
-                disabled={busy}
+                disabled={busy || importing}
                 class="box-border min-h-12 w-full truncate rounded-lg border border-gray-300 bg-gray-50 px-3 text-left text-sm"
               >{r}</button>
             </li>

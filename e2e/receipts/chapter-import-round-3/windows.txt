@@ -1,0 +1,25 @@
+Fresh installed Windows verification from 00c5e9e6f338ed5a2bfff6c4b28eb8fabc8ddc8a.
+Git tree: ef38a4193846373dfe5e10b97415c1419e8c34cd.
+Host: Windows 11 Home 10.0.26200 x64. Installed NSIS debug build: RST Folder Round 3, version 0.1.0.
+cargo tauri build --debug --bundles nsis --features app --ci --no-sign
+The build override set an isolated Windows product name and app identifier and reused the freshly built frontend. Tauri temporarily added empty optional feature lists to its dependencies during packaging.
+Installer exit: 0.
+Installer SHA-256: B00748E43EBC8693AE3317B93E2F0B7226EA7A72F7ECCEEF082D75E3B9B56F99
+Build EXE SHA-256: 70893366E088BB4920703D7940E0717EBB11BCCDA9E6C30CC55F3CC73CA4B6D9
+Installed EXE SHA-256: 87F7E432C8CDCCE8A745A5B2110BC4E4B5CCD93D829955F133ED63E22FB53BA3
+The two executables matched except for the three-byte NSIS bundle marker.
+
+The picker was a Win32 window of class #32770 owned by the installed app.
+Cancelling, picking an empty folder, and picking an oversized page each left a responsive home screen with zero chapters and zero translation requests.
+The native picker then imported only the three direct images in the synthetic folder. The library reported 3 pages and 0 requests.
+The app was closed, the synthetic source was moved, its original path was confirmed absent, and the installed executable was launched again.
+The reopened app-owned pages matched the moved originals. SHA-256 in reader order:
+c1bda2f3c9ca4745ae55759efdfd5d7e9d60aecfe822bc1b50a99bd306a9ca76
+87073f5a7000781fa681e73fdee74a422741bbd64460478bb2272426077ef159
+028f919bc5cef9a2d4b22125738b7a1704b65273dca9012e797e91b1d484fe29
+
+The normal URL entry opened a controlled local site and translated its page once. Reading the same imported page reused that Japanese cache entry. Another unseen page translated near the viewport. The far page had no image source until scrolled into view. Reopening made zero more calls, and switching to English made two new calls for the pages in range.
+Overlay relative left/top/width were 0.2133101852, 0.1377700617, 0.2466435185 both before and after scrolling 160 CSS pixels and zooming to 1.5x.
+Export wrote three 600×1800 PNGs. Pixel checks showed each retained the sound effect outside the translated dialogue.
+windows-overlay.png captures the fresh installed WebView after scroll and zoom.
+Screenshot SHA-256: 59497CE4A6B15FA127AB36B72670A556B6D47F383F6C110A226A9782A1C000EB

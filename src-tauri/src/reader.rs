@@ -12,8 +12,6 @@ use crate::layout::{self, PAD};
 use sha2::{Digest, Sha256};
 
 const LANG_SETTING: &str = "source_lang";
-/// A page picture larger than this is not a manga page.
-const MAX_PAGE_BYTES: u64 = 20 << 20;
 /// How far into a balloon, from its centre, the shape may grow: a balloon is
 /// about an ellipse, and a rectangle spanning 0.6 of it keeps its corners
 /// well inside the outline (0.6² + 0.6² < 1), spiky outlines included.
@@ -27,6 +25,12 @@ const SLACK: f64 = 0.35;
 /// by at least `GROW_MIN_PX`, before the shape is made.
 const GROW: f64 = 0.06;
 const GROW_MIN_PX: f64 = 4.0;
+
+#[derive(Clone, Copy)]
+pub(super) enum ReaderSource<'a> {
+    Site(&'a PageIn),
+    Chapter(i64),
+}
 
 impl Backend {
     /// The language the reader translates from: `ja` unless set to `en`.
@@ -49,32 +53,48 @@ impl Backend {
     /// The Korean shapes of one page picture: saved ones when this picture
     /// was read before in this language, otherwise one Gemini request.
     pub fn read_page(&self, req: PageIn) -> ApiResult<PageOut> {
-        let lang = self.source_lang();
-        let key = self.lock().key.clone().ok_or(ApiError("key_missing"))?;
-        let bytes = match req.image {
-            Some(ref b) if !b.is_empty() => b.clone(),
+        if self.lock().key.is_none() {
+            return Err(ApiError("key_missing"));
+        }
+        let bytes = match &req.image {
+            Some(b) if !b.is_empty() => b.clone(),
             _ => fetch(&req.src, &req.page_url)?,
         };
-        let mime = export::mime(&bytes).ok_or(ApiError("bad_image"))?;
-        let img = export::decode_strip(&bytes).ok_or(ApiError("bad_image"))?;
-        let (w, h) = (img.w, img.h);
-        drop(img);
-        let hash: String = Sha256::digest(&bytes).iter().map(|b| format!("{b:02x}")).collect();
+        let page = export::decode_page(&bytes)?;
+        let (w, h) = (page.w, page.h);
+        drop(page);
+        self.read_picture(ReaderSource::Site(&req), &bytes, w, h)
+    }
+
+    pub(super) fn read_picture(&self, source: ReaderSource<'_>, bytes: &[u8], w: u32, h: u32) -> ApiResult<PageOut> {
+        let lang = self.source_lang();
+        let mime = export::mime(bytes).ok_or(ApiError("bad_image"))?;
+        let hash: String = Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect();
         let page_key = format!("{hash}:{lang}");
         // Two copies of one picture read at once: the second waits here for
         // the first's answer instead of sending the page again.
         let _turn = self.pages.turn(&page_key);
-        // Bound first: an `if let` would hold the lock through `saved_page`.
-        let known = store::reader_page(&self.lock().db, &page_key)?;
-        if let Some(id) = known {
-            return self.saved_page(id, w, h);
+        {
+            let st = self.lock();
+            if store::reader_page(&st.db, &page_key)?.is_some() {
+                let rows = store::reader_placements(&st.db, &page_key)?;
+                let boxes = rows.into_iter().map(|p| PageBox { x: p.x, y: p.y, w: p.w, h: p.h, radius: p.radius, font_px: p.font_px, ko: p.ko }).collect();
+                let save_error = match source {
+                    ReaderSource::Chapter(pic) => store::set_chapter_translation(&st.db, pic, &page_key).err().map(|e| ApiError::from(e).0),
+                    ReaderSource::Site(_) => None,
+                };
+                return Ok(PageOut { width: w, height: h, saved: true, boxes, save_error });
+            }
         }
 
         let model = self.lock().model.clone();
         let items = match self.pages.unsaved(&page_key) {
             // Read before, but not kept: only the saving is tried again.
             Some(items) => items,
-            None => self.ask_page(&bytes, mime, &lang, &model, &key)?,
+            None => {
+                let key = self.lock().key.clone().ok_or(ApiError("key_missing"))?;
+                self.ask_page(bytes, mime, &lang, &model, &key)?
+            }
         };
         let boxes: Vec<PageBox> = items.iter().map(|it| shape(it, w, h)).collect();
 
@@ -85,23 +105,28 @@ impl Backend {
         let mut written = None;
         let saved = (|| -> ApiResult<()> {
             let tx = st.db.unchecked_transaction()?;
-            let book = match store::reader_book(&tx, &req.page_url)? {
-                Some(b) => b,
-                None => store::create_book(&tx, &title(&req), now)?,
+            let (pic, url) = match source {
+                ReaderSource::Chapter(pic) => (pic, ""),
+                ReaderSource::Site(req) => {
+                    let book = match store::reader_book(&tx, &req.page_url)? {
+                        Some(b) => b,
+                        None => store::create_book(&tx, &title(req), now)?,
+                    };
+                    let pic = store::create_picture(&tx, book, "page", w)?;
+                    store::set_picture_seq(&tx, pic, req.index)?;
+                    store::set_covered(&tx, pic, 0, h as i64)?;
+                    store::close_picture(&tx, pic, now)?;
+                    let rel_dir = format!("strips/{pic}");
+                    std::fs::create_dir_all(self.data_dir.join(&rel_dir)).map_err(storage_error)?;
+                    // A picture id freed by a failed save can be reused.
+                    let rel = format!("{rel_dir}/page-{}-{lang}.{ext}", &hash[..16]);
+                    written = Some(self.data_dir.join(&rel));
+                    std::fs::write(self.data_dir.join(&rel), bytes).map_err(storage_error)?;
+                    store::insert_strip(&tx, pic, 0, h, &rel, now)?;
+                    store::end_book(&tx, book, now)?;
+                    (pic, req.page_url.as_str())
+                }
             };
-            let pic = store::create_picture(&tx, book, "page", w)?;
-            store::set_picture_seq(&tx, pic, req.index)?;
-            store::set_covered(&tx, pic, 0, h as i64)?;
-            store::close_picture(&tx, pic, now)?;
-            // The picture as the site sent it, in the app's own folder (E5).
-            let rel_dir = format!("strips/{pic}");
-            std::fs::create_dir_all(self.data_dir.join(&rel_dir)).map_err(storage_error)?;
-            // Named after the page itself: a picture id freed by a failed save
-            // and taken by another page never leads two pages to one file.
-            let rel = format!("{rel_dir}/page-{}-{lang}.{ext}", &hash[..16]);
-            written = Some(self.data_dir.join(&rel));
-            std::fs::write(self.data_dir.join(&rel), &bytes).map_err(storage_error)?;
-            store::insert_strip(&tx, pic, 0, h, &rel, now)?;
             for (i, (it, b)) in items.iter().zip(&boxes).enumerate() {
                 // Not a balloon fingerprint (no hex): screen capture never matches it.
                 let fingerprint = format!("page:{page_key}:{i}");
@@ -110,8 +135,10 @@ impl Backend {
                 let row = store::PlacementRow { id: 0, fingerprint, x: b.x, y: b.y, w: b.w, h: b.h, radius: b.radius, font_px: b.font_px, ko: b.ko.clone() };
                 store::insert_placement(&tx, pic, &row)?;
             }
-            store::insert_reader_page(&tx, &page_key, pic, &req.page_url)?;
-            store::end_book(&tx, book, now)?;
+            store::insert_reader_page(&tx, &page_key, pic, url)?;
+            if let ReaderSource::Chapter(pic) = source {
+                store::set_chapter_translation(&tx, pic, &page_key)?;
+            }
             tx.commit()?;
             Ok(())
         })();
@@ -175,11 +202,6 @@ impl Backend {
         }
     }
 
-    fn saved_page(&self, picture_id: i64, width: u32, height: u32) -> ApiResult<PageOut> {
-        let rows = store::placements(&self.lock().db, picture_id)?;
-        let boxes = rows.into_iter().map(|p| PageBox { x: p.x, y: p.y, w: p.w, h: p.h, radius: p.radius, font_px: p.font_px, ko: p.ko }).collect();
-        Ok(PageOut { width, height, saved: true, boxes, save_error: None })
-    }
 }
 
 /// P12's pages in flight: one read per page key at a time, and the answers

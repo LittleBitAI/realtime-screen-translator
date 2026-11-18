@@ -9,6 +9,7 @@ import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Base64
@@ -68,6 +69,13 @@ class PublishArgs {
 }
 
 @InvokeArg
+class CopyChapterPageArgs {
+    var uri: String = ""
+    var path: String = ""
+    var maxBytes: Long = 0
+}
+
+@InvokeArg
 class BytesArgs {
     var data: String = ""
 }
@@ -123,6 +131,77 @@ class ScreenPlugin(private val activity: Activity) : Plugin(activity) {
     private fun resumedNow(): Boolean =
         (activity as? androidx.lifecycle.LifecycleOwner)?.lifecycle?.currentState
             ?.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) == true
+
+    @Command
+    fun pickChapterFolder(invoke: Invoke) {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        startActivityForResult(invoke, intent, "chapterFolderAnswered")
+    }
+
+    @ActivityCallback
+    fun chapterFolderAnswered(invoke: Invoke, result: ActivityResult) {
+        val tree = result.data?.data
+        if (result.resultCode != Activity.RESULT_OK || tree == null) {
+            invoke.resolve()
+            return
+        }
+        worker.execute {
+            try {
+                val resolver = activity.contentResolver
+                val id = DocumentsContract.getTreeDocumentId(tree)
+                val folder = DocumentsContract.buildDocumentUriUsingTree(tree, id)
+                val name = DocumentsContract.Document.COLUMN_DISPLAY_NAME
+                val title = resolver.query(folder, arrayOf(name), null, null, null)?.use {
+                    if (it.moveToFirst()) it.getString(0) else null
+                }
+                val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, id)
+                val cols = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, name, DocumentsContract.Document.COLUMN_MIME_TYPE)
+                val pages = JSArray()
+                requireNotNull(resolver.query(children, cols, null, null, null)).use {
+                    while (it.moveToNext()) {
+                        if (it.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR) continue
+                        val uri = DocumentsContract.buildDocumentUriUsingTree(tree, it.getString(0))
+                        pages.put(JSObject().apply {
+                            put("name", it.getString(1))
+                            put("uri", uri.toString())
+                        })
+                    }
+                }
+                invoke.resolve(JSObject().apply {
+                    put("title", title ?: "가져온 폴더")
+                    put("pages", pages)
+                })
+            } catch (e: Exception) {
+                invoke.reject("image_unreachable")
+            }
+        }
+    }
+
+    @Command
+    fun copyChapterPage(invoke: Invoke) {
+        val args = invoke.parseArgs(CopyChapterPageArgs::class.java)
+        worker.execute {
+            val code = try {
+                val stream = requireNotNull(activity.contentResolver.openInputStream(Uri.parse(args.uri)))
+                stream.use { input ->
+                    File(args.path).outputStream().use { output ->
+                        val buffer = ByteArray(64 * 1024)
+                        var remaining = args.maxBytes + 1
+                        while (remaining > 0) {
+                            val count = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
+                            if (count < 0) break
+                            output.write(buffer, 0, count)
+                            remaining -= count
+                        }
+                    }
+                }
+                null
+            } catch (e: Exception) {
+                if (noSpace(e)) "storage_full" else "image_unreachable"
+            }
+            invoke.resolve(JSObject().apply { put("error", code) })
+        }
+    }
 
     @Command
     fun permissions(invoke: Invoke) {

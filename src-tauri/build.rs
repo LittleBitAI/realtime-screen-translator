@@ -19,6 +19,10 @@ const COMMANDS: &[&str] = &[
     "post_reader_open",
     "post_reader_close",
     "post_reader_page",
+    "post_chapter_import",
+    "get_chapter",
+    "get_chapter_image",
+    "post_chapter_page",
 ];
 
 fn main() {

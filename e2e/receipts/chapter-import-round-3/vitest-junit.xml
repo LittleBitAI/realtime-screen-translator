@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="24" failures="0" errors="0" time="0.7103402">
+    <testsuite name="src/lib/reader.test.js" timestamp="2026-11-18T04:36:31.650Z" tests="2" failures="0" errors="0" skipped="0" time="0.3658537">
+        <testcase classname="src/lib/reader.test.js" name="reader page script &gt; shows a page it could not keep in the library, says so, and saves it on a tap" time="0.2338332">
+        </testcase>
+        <testcase classname="src/lib/reader.test.js" name="reader page script &gt; loads and translates a chapter picture only as it approaches the view" time="0.1307819">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/lib/text.test.js" timestamp="2026-11-18T04:36:31.654Z" tests="4" failures="0" errors="0" skipped="0" time="0.0245058">
+        <testcase classname="src/lib/text.test.js" name="text &gt; names the source language" time="0.0123429">
+        </testcase>
+        <testcase classname="src/lib/text.test.js" name="text &gt; names a book by its site page, or by when capture began" time="0.0047366">
+        </testcase>
+        <testcase classname="src/lib/text.test.js" name="text &gt; says where an export went" time="0.0034327">
+        </testcase>
+        <testcase classname="src/lib/text.test.js" name="text &gt; explains each error code" time="0.0004628">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/screens/screens.test.js" timestamp="2026-11-18T04:36:31.655Z" tests="18" failures="0" errors="0" skipped="0" time="0.3199807">
+        <testcase classname="src/screens/screens.test.js" name="S1 Home &gt; loading: grey bars, and nothing to open before an address" time="0.0545908">
+        </testcase>
+        <testcase classname="src/screens/screens.test.js" name="S1 Home &gt; empty: no key, asks for the key first and opens nothing" time="0.0708469">
+        </testcase>
+        <testcase classname="src/screens/screens.test.js" name="S1 Home &gt; error: a 500 says so and offers to read again" time="0.0193239">
+        </testcase>
+        <testcase classname="src/screens/screens.test.js" name="S1 Home &gt; error: a notice gives the reason and what to do" time="0.0124614">
+        </testcase>
+        <testcase classname="src/screens/screens.test.js" name="S1 Home &gt; full: opens the address in the reader and keeps it among the recent ones" time="0.0198322">
+        </testcase>
+        <testcase classname="src/screens/screens.test.js" name="S1 Home &gt; a wrong address is explained" time="0.0088466">
+        </testcase>
+        <testcase classname="src/screens/screens.test.js" name="S1 Home &gt; in a browser, opening says it needs the app and asks for nothing" time="0.0066935">
+        </testcase>
+        <testcase classname="src/screens/screens.test.js" name="S2 Library &gt; loading: three grey boxes" time="0.0044159">
+        </testcase>
+        <testcase classname="src/screens/screens.test.js" name="S2 Library &gt; empty: guidance and a way back to the first screen" time="0.0047875">
+        </testcase>
+        <testcase classname="src/screens/screens.test.js" name="S2 Library &gt; error: a 500 says so" time="0.003927">
+        </testcase>
+        <testcase classname="src/screens/screens.test.js" name="S2 Library &gt; full: exports a book, a failure offers to export again" time="0.0266847">
+        </testcase>
+        <testcase classname="src/screens/screens.test.js" name="S2 Library &gt; full, in a browser: each exported picture is offered as a download" time="0.0102939">
+        </testcase>
+        <testcase classname="src/screens/screens.test.js" name="S3 Options &gt; empty: no key, delete locked" time="0.0168926">
+        </testcase>
+        <testcase classname="src/screens/screens.test.js" name="S3 Options &gt; error: a 500 says so" time="0.0106963">
+        </testcase>
+        <testcase classname="src/screens/screens.test.js" name="S3 Options &gt; loading: the input is locked while reading and while saving" time="0.0162061">
+        </testcase>
+        <testcase classname="src/screens/screens.test.js" name="S3 Options &gt; a bad key is explained under the input and the text kept" time="0.011402">
+        </testcase>
+        <testcase classname="src/screens/screens.test.js" name="S3 Options &gt; chooses the language the manga is written in, and keeps the old one if saving fails" time="0.0096666">
+        </testcase>
+        <testcase classname="src/screens/screens.test.js" name="S3 Options &gt; full: saves, then shows only the tail and can delete" time="0.0108503">
+        </testcase>
+    </testsuite>
+</testsuites>

@@ -80,6 +80,43 @@ fn a_strip_is_kept_as_lossless_webp_under_a_relative_path() {
 }
 
 #[test]
+fn a_large_capture_is_saved_and_reopened_for_export_in_both_strip_formats() {
+    let dirs = Dirs::new();
+    let gemini = Gemini::start();
+    let backend = on(&dirs, &gemini);
+    let (width, height) = (5120, 2880);
+    let thumb = Scene::new(1203).thumb(0, width, height);
+    backend.frame(FrameIn { seq: 1, width, height, thumb: thumb.clone(), captured_at: 100 }).unwrap();
+    let frame = backend.frame(FrameIn { seq: 2, width, height, thumb, captured_at: 200 }).unwrap();
+    let range = frame.save.expect("capture asked for no strip");
+    assert_eq!((range.top, range.bottom), (0, height));
+
+    let pixel = |x, y| [if x < width / 2 { 30 } else { 60 }, if y < export::BAND as u32 { 100 } else { 140 }, 200];
+    let png = png_rgb(width, height, pixel);
+    backend.strip(StripIn { picture_id: frame.picture_id, frame_seq: 2, top: range.top, bottom: range.bottom, image: png.clone() }).unwrap();
+    let book = backend.stop().unwrap().book_id.unwrap();
+    drop(backend);
+
+    let db = rusqlite::Connection::open(dirs.data.join("translator.sqlite3")).unwrap();
+    let webp: String = db.query_row("SELECT file_path FROM Strip", [], |row| row.get(0)).unwrap();
+    assert!(webp.ends_with(".webp"));
+    let legacy = "legacy.png";
+    std::fs::write(dirs.data.join(legacy), png).unwrap();
+    for path in [webp.as_str(), legacy] {
+        // Older versions saved PNG strips in the same database.
+        assert_eq!(db.execute("UPDATE Strip SET file_path = ?1", [path]).unwrap(), 1);
+        let reopened = Backend::open(dirs.data.clone(), Some(gemini.url.clone()), Arc::new(Device(dirs.export.clone()))).unwrap();
+        let out = reopened.export(ExportIn { book_id: book, format: "png".into() }).unwrap();
+        assert_eq!(out.files.len(), 1);
+        let image = decode_png(&std::fs::read(&out.files[0]).unwrap());
+        assert_eq!((image.w, image.h), (width, height));
+        for (x, y) in [(0, 0), (width / 2, 0), (0, export::BAND as u32), (width - 1, height - 1)] {
+            assert_eq!(image.at(x.into(), y.into()), pixel(x, y), "{path} at {x},{y}");
+        }
+    }
+}
+
+#[test]
 fn a_shape_grown_for_a_long_translation_does_not_cover_one_already_shown() {
     let dirs = Dirs::new();
     let gemini = Gemini::start();
