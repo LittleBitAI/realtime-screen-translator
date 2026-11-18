@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- R29: the overlay and the on/off button over other apps. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- MediaProjection capture runs in a foreground service (Android 10+, typed on 14+). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Exports into the gallery on Android 8 and 9; from 10 MediaStore needs nothing. -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+
+    <application>
+        <service
+            android:name="ai.littlebit.rst.screen.CaptureService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+        <!-- Part of the overlay permission on Android 12+: lets the overlay be fully opaque while touches pass (Overlay.kt). -->
+        <service
+            android:name="ai.littlebit.rst.screen.OverlayService"
+            android:exported="false"
+            android:label="@string/rst_overlay_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/rst_overlay_service" />
+        </service>
+    </application>
+</manifest>

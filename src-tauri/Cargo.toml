@@ -1,0 +1,74 @@
+[package]
+name = "realtime-screen-translator"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+name = "realtime_screen_translator"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "realtime-screen-translator"
+path = "src/main.rs"
+required-features = ["app"]
+
+[[bin]]
+name = "contract-host"
+path = "src/bin/contract-host.rs"
+
+[dependencies]
+ab_glyph = "0.2.32"
+base64 = "0.23"
+image-webp = "0.2.4"
+png = "0.18"
+rusqlite = { version = "0.43", features = ["bundled"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha2 = "0.10"
+tauri = { version = "2.12.5", optional = true }
+tiny_http = "0.12"
+ureq = "3.5.2"
+zune-jpeg = "0.5"
+
+[target."cfg(windows)".dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Security_Cryptography", "Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+# A7: Windows Graphics Capture through Direct3D 11.
+windows = { version = "0.62.2", optional = true, features = [
+    "Foundation",
+    "Graphics_Capture",
+    "Graphics_DirectX",
+    "Graphics_DirectX_Direct3D11",
+    "Win32_Foundation",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D11",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_Graphics_Gdi",
+    "Win32_System_WinRT",
+    "Win32_System_WinRT_Direct3D11",
+    "Win32_System_WinRT_Graphics_Capture",
+] }
+
+[target."cfg(not(windows))".dependencies]
+chacha20poly1305 = "0.10"
+getrandom = "0.2"
+
+# R25 where Rust runs the local model (A7: Windows); Android runs it in the plugin.
+[target."cfg(not(target_os = \"android\"))".dependencies]
+ort = { version = "2.0.0-rc.15", optional = true }
+
+# A1: the Kotlin plugin that captures, detects and draws on Android (a no-op
+# elsewhere, built everywhere so its Rust side is checked on desktop too).
+[dependencies.tauri-plugin-rst-screen]
+path = "plugins/screen"
+optional = true
+
+[features]
+# The Tauri app shell (`cargo tauri build --features app`). The contract tests
+# drive the same backend through `contract-host` and do not need it.
+app = ["dep:tauri", "dep:tauri-build", "dep:windows", "dep:ort", "dep:tauri-plugin-rst-screen"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.4", optional = true }

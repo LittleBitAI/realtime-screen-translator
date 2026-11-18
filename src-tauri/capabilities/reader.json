@@ -1,0 +1,9 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "reader",
+  "description": "Sites opened in the reader: hand over a page picture and go back to the app. Never the key, the settings or the library.",
+  "local": false,
+  "remote": { "urls": ["https://*", "http://*", "https://*:*", "http://*:*"] },
+  "windows": ["main", "site"],
+  "permissions": ["allow-post-reader-page", "allow-post-reader-close"]
+}

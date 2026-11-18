@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-put-settings-source-lang"
+description = "Enables the put_settings_source_lang command without any pre-configured scope."
+commands.allow = ["put_settings_source_lang"]
+
+[[permission]]
+identifier = "deny-put-settings-source-lang"
+description = "Denies the put_settings_source_lang command without any pre-configured scope."
+commands.deny = ["put_settings_source_lang"]

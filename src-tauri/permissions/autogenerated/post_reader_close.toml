@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-post-reader-close"
+description = "Enables the post_reader_close command without any pre-configured scope."
+commands.allow = ["post_reader_close"]
+
+[[permission]]
+identifier = "deny-post-reader-close"
+description = "Denies the post_reader_close command without any pre-configured scope."
+commands.deny = ["post_reader_close"]

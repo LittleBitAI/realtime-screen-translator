@@ -9,8 +9,8 @@ node_modules/
 dist/
 build/
 target/
-bin/
-obj/
+/bin/
+/obj/
 coverage/
 .next/
 .nuxt/

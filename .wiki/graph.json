@@ -2,15 +2,118 @@
  "ns": "repo",
  "repo": "realtime-screen-translator",
  "nodes_from": ".wiki/corpus.json",
- "edges": [],
- "orphans": [],
+ "edges": [
+  {
+   "a": "README.md",
+   "b": "docs/design/backend.md",
+   "kind": "link"
+  },
+  {
+   "a": "README.md",
+   "b": "docs/design/frontend.md",
+   "kind": "link"
+  },
+  {
+   "a": "docs/design/frontend.md",
+   "b": "docs/design/backend.md",
+   "kind": "link"
+  },
+  {
+   "a": ".wiki/gate",
+   "b": "README.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/live-web-host",
+   "b": "README.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/mobile-first",
+   "b": "README.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/mobile-first",
+   "b": "docs/design/backend.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/no-repeat-translation",
+   "b": "README.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/no-repeat-translation",
+   "b": "docs/design/backend.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/page-turn-tracking",
+   "b": "README.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/page-turn-tracking",
+   "b": "docs/design/backend.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/project",
+   "b": "README.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/project",
+   "b": "docs/design/backend.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/skip-sound-effects",
+   "b": "README.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/skip-sound-effects",
+   "b": "docs/design/backend.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/translation-model",
+   "b": "README.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/translation-model",
+   "b": "docs/design/backend.md",
+   "kind": "reads",
+   "cross": true
+  }
+ ],
+ "orphans": [
+  "docs/research/review-oneshot-initial-f1-1.md",
+  "docs/research/review-oneshot-initial-f1-2.md"
+ ],
  "counts": {
-  "docs": 1,
-  "linked": 0,
-  "read": 0,
-  "orphans": 0,
-  "pages": 0,
-  "decisions": 0,
-  "injectable_decisions": 0
+  "docs": 5,
+  "linked": 1,
+  "read": 2,
+  "orphans": 2,
+  "pages": 8,
+  "decisions": 6,
+  "injectable_decisions": 2
  }
 }

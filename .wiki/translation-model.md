@@ -2,27 +2,33 @@
 scope: project
 severity: contract
 repeat: rule
-triggers: ["번역 ?모델", "gemini", "제미나이", "flash ?lite", "가드레일", "안전 ?설정", "safety", "프리필", "prefill", "LLM", "모델을? (바꾸|교체|변경)"]
+triggers: ["번역 ?모델", "gemini", "제미나이", "flash ?lite", "가드레일", "안전 ?설정", "safety", "safetySettings", "프리필", "prefill", "LLM", "모델을? (바꾸|교체|변경)"]
 slots: []
-sources: [README.md]
-links: [project, skip-sound-effects]
+sources: [README.md, docs/design/backend.md, src-tauri/src/gemini.rs]
+links: [project, no-repeat-translation, skip-sound-effects]
 ---
 
-# Translation runs on Gemini 3.1 Flash Lite with safety guardrails off and a prefill
+# Gemini 3.1 Flash Lite, every safety setting OFF, and a JSON prefill on every request
 
-Rule. The translation call uses Gemini 3.1 Flash Lite. Every safety
-category the API exposes is set to its least restrictive threshold, and the
-request carries a prefill that starts the model's answer in the expected
-output shape. Do not swap the model, re-enable a guardrail, or drop the
-prefill as a "fix" for a refusal, a blocked response, latency or cost;
-raise that with the person instead, since the README fixes all three.
+Rule. Gemini requests go out from Rust (`src-tauri/src/gemini.rs`), with
+`gemini-3.1-flash-lite` as the default model. Every `safetySettings` entry
+is sent as `OFF`; if the model refuses `OFF`, the request is resent with
+`BLOCK_NONE`. Every request ends with a `model` turn holding a prefill:
+`{"items":[` for the reader's one request per page, and `{"ja":["` for
+reading and `{"ko":["` for translating in the capture path. In the capture
+path, reading and translating stay two separate requests (R27 in
+`docs/design/backend.md`). Do not change the model, turn a guardrail back
+on, drop a prefill, or merge the two capture requests to get past a
+refusal, latency or cost. Raise it with the person instead.
 
-Why. `README.md` names the model and asks for the default guardrails off
-"plus a prefill". Manga dialogue routinely contains violence and crude
-language, and a blocked response leaves a speech bubble untranslated on
-screen.
+Why. The original request in `README.md` fixes the model and asks for the
+guardrails off plus a prefill. `docs/design/backend.md` (A5 and the
+"In-app reader" section) explains that a JSON prefill makes the model
+continue with values instead of refusal text. In
+`src-tauri/tests/contract.rs`, `test_gemini_requests_turn_guardrails_off`
+and `test_gemini_requests_carry_prefill` pin this.
 
-What goes wrong. A different model changes latency and quality on the
-reference phone; a guardrail left at default silently blanks pages; a
-missing prefill lets the model answer in prose instead of the format the
-overlay parses.
+What goes wrong. Manga dialogue often has crude or violent lines; with a
+default guardrail, the model blocks them and leaves balloons blank. Without
+the prefill, answers stop parsing as JSON, so the translation is stored as
+`failed` and never drawn.
