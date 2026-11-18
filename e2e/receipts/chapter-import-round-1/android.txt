@@ -1,0 +1,21 @@
+Reused Android native observations from the original acceptance run.
+Tested source: eeb470f684c6227e8f553ec64be04f339d505216
+Host: connected Galaxy S21+ (SM-G996N), isolated debug package ai.littlebit.realtime_screen_translator.foldertest, version 0.1.0, aarch64.
+The same phone reported Android 15, firmware AP3A.240905.015.A2.G996NKSSCHZA9, before disconnecting during the repair.
+The owner accepted the handset model. The picker and restart observations below were measured on the handset.
+
+Android DocumentsUI selected the synthetic folder via its Use this folder and Allow controls.
+node artifacts/chapter-android-verify.mjs imported
+Android installed app imported the synthetic chapter as 3 pages, 0 requests
+The source folder was moved and the test package was force-stopped and cold-started.
+node artifacts/chapter-android-verify.mjs reopen
+Android restart: the app-owned chapter reopened with exact source bytes in 1.jpg, 2.jpg, 10.jpg order after the source moved
+android-prior-reopen.png is the in-app WebView capture from that original restart.
+
+Repair source: 39497f5a160100403b612b2fbdf4cf462f07505d
+Repair package: ai.littlebit.realtime_screen_translator.folderrepair, version 0.1.0, debug aarch64.
+Repair APK SHA-256: 446E7BB041679D72099B5EC6B271208F74002EEA33340C4B57A0D21DCD535ABB
+The Rust cross-build completed. The documented JNI copy and Gradle assembleUniversalDebug fallback packaged the APK.
+BUILD SUCCESSFUL in 3m 23s
+Current APK installation attempt: adb.exe: no devices/emulators found
+The repaired APK was built but did not run on the S21+ during this round. The picker implementation and library reopening entry points are unchanged from the original device run. The repair changes the shared decoder used after the picker returns.
