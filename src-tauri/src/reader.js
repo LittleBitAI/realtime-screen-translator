@@ -38,6 +38,7 @@
     gemini_unreadable: 'Gemini 답을 읽지 못했습니다. 그림을 눌러 다시 번역합니다.',
     image_unreachable: '이 사이트가 그림을 내주지 않습니다.',
     bad_image: '읽을 수 없는 그림입니다.',
+    image_dimensions_too_large: '이 그림은 가로와 세로를 곱해 8,388,608픽셀이 넘어서 번역할 수 없습니다.',
     not_found: '저장된 만화나 그림을 찾지 못했습니다.',
     storage_full: '기기 저장 공간이 모자라 번역본에 담지 못했습니다. 공간을 비우고 그림 위 버튼을 눌러 주세요.',
     storage_denied: '앱이 저장 폴더에 쓰지 못해 번역본에 담지 못했습니다.',

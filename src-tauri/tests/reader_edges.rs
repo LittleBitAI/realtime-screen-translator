@@ -242,6 +242,41 @@ fn empty_and_failed_imports_leave_no_chapter_or_copied_files() {
 }
 
 #[test]
+fn oversize_pages_are_rejected_across_formats_before_a_chapter_is_published() {
+    use realtime_screen_translator::export::{self, Rgb};
+
+    let gemini = PageGemini::start();
+    let small = Rgb::new(64, 64);
+    let cases = [
+        ("jpg", include_bytes!("fixtures/wide-page.jpg").as_slice(), page()),
+        ("png", include_bytes!("fixtures/wide-page.png").as_slice(), export::encode_png(&small).unwrap()),
+        ("webp", include_bytes!("fixtures/wide-page.webp").as_slice(), export::encode_webp(&small).unwrap()),
+    ];
+    for (ext, large, regular) in cases {
+        let dirs = Dirs::new();
+        let b = keyed(&gemini, &dirs);
+        let folder = dirs.data.with_file_name("Fixture");
+        let source = folder.join(ext);
+        fs::create_dir_all(&source).unwrap();
+        fs::write(source.join("1.jpg"), page()).unwrap();
+        let second = source.join(format!("2.{ext}"));
+        fs::write(&second, large).unwrap();
+        assert_eq!(b.import_folder(&source).unwrap_err().0, "image_dimensions_too_large", "{ext}");
+        assert_eq!(read(&b, large.to_vec()).unwrap_err(), "image_dimensions_too_large", "{ext}");
+        assert_eq!(fs::read(&second).unwrap(), large, "{ext} original");
+        assert!(b.books(BooksIn { limit: 20, before: None }).unwrap().books.is_empty());
+        assert_eq!(fs::read_dir(dirs.data.join("strips")).unwrap().count(), 0);
+
+        let regular_folder = folder.join(format!("regular-{ext}"));
+        fs::create_dir(&regular_folder).unwrap();
+        fs::write(regular_folder.join(format!("1.{ext}")), regular).unwrap();
+        let id = b.import_folder(&regular_folder).unwrap();
+        assert_eq!(b.chapter(id).unwrap().pages.len(), 1);
+    }
+    assert_eq!(gemini.count(), 0);
+}
+
+#[test]
 fn copies_of_one_page_read_at_once_send_it_to_gemini_once() {
     // Each answer takes long enough that every copy is asked for while the
     // first is still with Gemini.

@@ -2,6 +2,7 @@
 //! strips, and bake each placement in as a white rounded shape holding the
 //! Korean text (R20).
 
+use crate::api::{ApiError, ApiResult};
 use crate::layout::{self, PAD};
 use crate::store::{PlacementRow, StripRow};
 use ab_glyph::{Font, FontVec, PxScale, ScaleFont};
@@ -42,12 +43,29 @@ impl Rgb {
     }
 }
 
+// Decoders can hold both their output and its RGB copy on the phone.
+const MAX_IMAGE_PIXELS: u64 = 8 * 1024 * 1024;
+const BAD_IMAGE: ApiError = ApiError("bad_image");
+
+fn check_image_size(width: u32, height: u32) -> ApiResult<()> {
+    if u64::from(width) * u64::from(height) > MAX_IMAGE_PIXELS {
+        return Err(ApiError("image_dimensions_too_large"));
+    }
+    Ok(())
+}
+
 pub fn decode_png(bytes: &[u8]) -> Option<Rgb> {
+    decode_png_checked(bytes).ok()
+}
+
+fn decode_png_checked(bytes: &[u8]) -> ApiResult<Rgb> {
     let mut dec = png::Decoder::new(std::io::Cursor::new(bytes));
     dec.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
-    let mut reader = dec.read_info().ok()?;
-    let mut buf = vec![0; reader.output_buffer_size()?];
-    let info = reader.next_frame(&mut buf).ok()?;
+    let header = dec.read_header_info().map_err(|_| BAD_IMAGE)?;
+    check_image_size(header.width, header.height)?;
+    let mut reader = dec.read_info().map_err(|_| BAD_IMAGE)?;
+    let mut buf = vec![0; reader.output_buffer_size().ok_or(BAD_IMAGE)?];
+    let info = reader.next_frame(&mut buf).map_err(|_| BAD_IMAGE)?;
     let ch = info.color_type.samples();
     let px = buf[..info.buffer_size()]
         .chunks(ch)
@@ -56,7 +74,7 @@ pub fn decode_png(bytes: &[u8]) -> Option<Rgb> {
             _ => [p[0], p[1], p[2]],
         })
         .collect();
-    Some(Rgb { w: info.width, h: info.height, px })
+    Ok(Rgb { w: info.width, h: info.height, px })
 }
 
 pub fn encode_png(img: &Rgb) -> Result<Vec<u8>, String> {
@@ -81,21 +99,30 @@ pub fn encode_webp(img: &Rgb) -> Result<Vec<u8>, String> {
 
 /// A lossless WebP (how strips are kept, E5) as RGB.
 pub fn decode_webp(bytes: &[u8]) -> Option<Rgb> {
-    let mut d = image_webp::WebPDecoder::new(std::io::Cursor::new(bytes)).ok()?;
+    decode_webp_checked(bytes).ok()
+}
+
+fn decode_webp_checked(bytes: &[u8]) -> ApiResult<Rgb> {
+    let mut d = image_webp::WebPDecoder::new(std::io::Cursor::new(bytes)).map_err(|_| BAD_IMAGE)?;
     let (w, h) = d.dimensions();
-    let mut buf = vec![0; d.output_buffer_size()?];
-    d.read_image(&mut buf).ok()?;
+    check_image_size(w, h)?;
+    let mut buf = vec![0; d.output_buffer_size().ok_or(BAD_IMAGE)?];
+    d.read_image(&mut buf).map_err(|_| BAD_IMAGE)?;
     let px = if d.has_alpha() { buf.chunks(4).flat_map(|p| [p[0], p[1], p[2]]).collect() } else { buf };
-    Some(Rgb { w, h, px })
+    Ok(Rgb { w, h, px })
 }
 
 /// A strip file: lossless WebP, PNG as strips were kept before, or a
 /// reader page kept as the site sent it (JPEG too).
 pub fn decode_strip(bytes: &[u8]) -> Option<Rgb> {
-    match mime(bytes)? {
-        "image/webp" => decode_webp(bytes),
-        "image/jpeg" => decode_jpeg(bytes),
-        _ => decode_png(bytes),
+    decode_page(bytes).ok()
+}
+
+pub(crate) fn decode_page(bytes: &[u8]) -> ApiResult<Rgb> {
+    match mime(bytes).ok_or(BAD_IMAGE)? {
+        "image/webp" => decode_webp_checked(bytes),
+        "image/jpeg" => decode_jpeg_checked(bytes),
+        _ => decode_png_checked(bytes),
     }
 }
 
@@ -113,13 +140,19 @@ pub fn mime(bytes: &[u8]) -> Option<&'static str> {
 }
 
 pub fn decode_jpeg(bytes: &[u8]) -> Option<Rgb> {
+    decode_jpeg_checked(bytes).ok()
+}
+
+fn decode_jpeg_checked(bytes: &[u8]) -> ApiResult<Rgb> {
     use zune_jpeg::zune_core::{bytestream::ZCursor, colorspace::ColorSpace, options::DecoderOptions};
     let options = DecoderOptions::default().jpeg_set_out_colorspace(ColorSpace::RGB);
     let mut d = zune_jpeg::JpegDecoder::new_with_options(ZCursor::new(bytes), options);
-    let px = d.decode().ok()?;
-    let info = d.info()?;
+    d.decode_headers().map_err(|_| BAD_IMAGE)?;
+    let info = d.info().ok_or(BAD_IMAGE)?;
     let (w, h) = (info.width as u32, info.height as u32);
-    (px.len() == w as usize * h as usize * 3).then_some(Rgb { w, h, px })
+    check_image_size(w, h)?;
+    let px = d.decode().map_err(|_| BAD_IMAGE)?;
+    (px.len() == w as usize * h as usize * 3).then_some(Rgb { w, h, px }).ok_or(BAD_IMAGE)
 }
 
 /// The `w` x `h` area of `img` at (`x`, `y`), clipped to the picture.

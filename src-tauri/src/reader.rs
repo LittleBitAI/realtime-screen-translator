@@ -60,7 +60,9 @@ impl Backend {
             Some(b) if !b.is_empty() => b.clone(),
             _ => fetch(&req.src, &req.page_url)?,
         };
-        let (w, h) = export::decode_strip(&bytes).map(|img| (img.w, img.h)).ok_or(ApiError("bad_image"))?;
+        let page = export::decode_page(&bytes)?;
+        let (w, h) = (page.w, page.h);
+        drop(page);
         self.read_picture(ReaderSource::Site(&req), &bytes, w, h)
     }
 

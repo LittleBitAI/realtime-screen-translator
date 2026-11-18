@@ -46,7 +46,7 @@ impl Backend {
             let dest = staged.path().join(&name);
             copy(source, &dest)?;
             let bytes = read_image(&dest)?;
-            let img = export::decode_strip(&bytes).ok_or(ApiError("bad_image"))?;
+            let img = export::decode_page(&bytes)?;
             // Surface deferred space errors before the database can publish the chapter.
             File::options().write(true).open(&dest).and_then(|file| file.sync_all()).map_err(storage_error)?;
             images.push((img.w, img.h, format!("strips/{dir}/{name}")));
