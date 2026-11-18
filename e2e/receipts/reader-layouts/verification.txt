@@ -8,10 +8,11 @@ Current candidate binding
   Use the exact reviewed commit in place of HEAD when verifying a
   detached candidate. This check covers tracked inputs to the frontend,
   both native packages and the browser host. Its exact exclusions are
-  documentation, generated wiki indexes, this evidence, and the Rust
+  documentation, generated wiki metadata, this evidence, and the Rust
   integration test, which is compiled and run separately.
 
   git diff --exit-code --no-renames f6061d9c7f0a26932ee5fc9d8aaa6ff8080f09fe HEAD -- . `
+    ':(exclude,literal).wiki/.sync' `
     ':(exclude,literal).wiki/corpus.json' ':(exclude,literal).wiki/graph.json' `
     ':(exclude,literal)DESIGN.md' ':(exclude,literal)README.md' `
     ':(exclude,literal)docs/design/frontend.md' `
