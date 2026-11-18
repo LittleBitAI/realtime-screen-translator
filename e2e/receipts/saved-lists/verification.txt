@@ -1,5 +1,42 @@
-Application and test source: cbae6c9d60e944ec1ed064f1e370453ce7dc0953
-Date: 2026-11-18
+Saved-list runtime evidence, 2026-11-18
+
+Candidate identity
+  The exact candidate for the round-one replay is the commit that introduced
+  this version of verification.txt. Resolve it from Git at the reviewed head:
+    git log -1 --format=%H HEAD -- e2e/receipts/saved-lists/verification.txt
+  Compare the result with git rev-parse HEAD. The round disposition records
+  the resolved SHA beside the post-commit observations and hosted gate run.
+
+Build identity and limits of reuse
+  The executable and APK hashes below identify the packages built from
+  cbae6c9d60e944ec1ed064f1e370453ce7dc0953. The previously reviewed head
+  c32cadad4872ac8433492afea554ec9e9dd2698c added four evidence files.
+  This repair adds an HTTP integration test and updates this receipt. Check
+  every other tracked input before reusing either package:
+    git diff --exit-code cbae6c9 HEAD -- . ":(exclude)e2e/receipts/saved-lists/**" ":(exclude)src-tauri/tests/web_host_files.rs"
+  The integration test is independently pinned and run from the candidate:
+    git rev-parse HEAD:src-tauri/tests/web_host_files.rs
+    dd552e6835c61f9591ee61a48065b5ced6a19491
+  The three screenshots below are from the original run. The native replay
+  uses the same isolated installations and their persisted fixture data.
+
+Isolated HTTP evidence
+  cargo test -p realtime-screen-translator --test web_host_files saved_list_memberships_preserve_the_book_through_the_http_api -- --exact
+  saved_list_memberships_preserve_the_book_through_the_http_api: 1 passed.
+  The test launches the compiled web-host process on an ephemeral loopback
+  port with an empty temporary data directory. It saves a link, puts its
+  book ID into two lists, removes it from one and deletes that list. An HTTP
+  read returns one surviving list containing the original ID. Title and
+  encoded address searches both return the original book and exact address.
+  The HTTP status response reports zero Gemini requests.
+
+Gate ownership
+  The owner reported that the pre-publication gate passed. GitHub Actions
+  independently records successful gate jobs for c32cadad4872ac8433492afea554ec9e9dd2698c
+  in push run 44250422091 and pull request run 44250433777. Those runs
+  cover the preceding commit. The new head has its own push-triggered check.
+
+Original fixture and runtime observations
 
 The three hosts started with separate copies of a synthetic library created
 from the SQLite schema at d76c692. It held one site book with a ReaderPage
