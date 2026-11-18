@@ -1,0 +1,74 @@
+Application and test source: cbae6c9d60e944ec1ed064f1e370453ce7dc0953
+Date: 2026-11-18
+
+The three hosts started with separate copies of a synthetic library created
+from the SQLite schema at d76c692. It held one site book with a ReaderPage
+address, an imported chapter pointing to its cached translation, and a
+capture book with a saved strip and no address. Each held the repository's
+600 × 800 tests/fixtures/page.jpg. The Korean cache key was
+cba0b21ebd217e11628af58bce4580e4993657a77b23b4630100309c4e550250:ja.
+A loopback site served that same image under two different chapter addresses.
+The native checks used a fixture key.
+
+The organizer runs drove the rendered library controls. They saved Ink Trail,
+put Lantern Chapter in Queue and a second list, renamed and moved the second
+list, removed the chapter from it, and deleted the list. They moved Lantern
+Chapter ahead of Ink Trail in Queue, searched for the imported title, and
+found the link by its address including the query string.
+All three hosts reported zero Gemini requests.
+
+The final builds ran the edits again against the persisted fixture library.
+The native apps were then closed and cold-started. Queue still contained the
+four works in the chosen order. Tapping Read opened each of these sources
+and the reader displayed the cached Korean overlay on the page.
+  Lantern Chapter: /chapter.html?id=2
+  Ink Trail: http://127.0.0.1:18825/saved?q=ink
+  Paper Harbor: http://127.0.0.1:18825/legacy (recovered from ReaderPage)
+
+Windows 11 Home 10.0.26200, x64, native debug executable
+  cargo build -p realtime-screen-translator --bin realtime-screen-translator --features app,tauri/custom-protocol
+  The build override used the isolated identifier ai.littlebit.rst-saved-lists.
+  Executable SHA-256: 02C3979C6D89486D29FD998B5F6D33ADD77E901130811E3E8C303FFEFC436503
+  node artifacts/saved-lists-flow.mjs windows recheck
+  windows: final assets; saved link, both searches, membership and list edits persisted; Gemini requests 0
+  node artifacts/saved-lists-flow.mjs windows final
+  windows: cold restart, both reader sources and legacy address passed; Gemini requests 0
+  windows.png is the library WebView with Queue selected.
+
+Android 15, physical Galaxy S21+ SM-G996N, arm64
+  cargo tauri android build --debug --apk --target aarch64 --features app --ci
+  Rust cross-compilation completed. After the Windows JNI symlink error,
+  Gradle assembleUniversalDebug packaged the cross-built library under
+  ai.littlebit.realtime_screen_translator.savedlists. The packaged JNI library
+  matched the cross-built file, and the installed APK matched the local APK.
+  APK SHA-256: EC5C5D6A49FD347729DB380AB01D68E2DF99FB513CC506AA65D706404B0DE966
+  node artifacts/saved-lists-flow.mjs android recheck
+  android: final assets; saved link, both searches, membership and list edits persisted; Gemini requests 0
+  adb shell am force-stop followed by am start -W reported LaunchState: COLD.
+  node artifacts/saved-lists-flow.mjs android final
+  android: cold restart, both reader sources and legacy address passed; Gemini requests 0
+  android.png is the library WebView with Queue selected.
+
+Browser, Edge, live web-host, isolated data directory
+  PORT=18821, node scripts/live.mjs
+  node artifacts/saved-lists-flow.mjs browser recheck
+  browser: final assets; saved link, both searches, membership and list edits persisted; Gemini requests 0
+  Station Archive showed its unavailable original address, a preview, and
+  export controls. Its downloaded-file link pointed to a decodable 600 × 800 PNG.
+  Viewport widths 400 and 960 had 385 and 945 px of available width after
+  the vertical scrollbar. The content matched those widths, with a 48 px
+  search field on both. browser.png shows the wide layout.
+
+The local UI driver and isolated test packages were generated for this run.
+The final JavaScript asset in all three hosts was index-DN2AXO52.js, SHA-256
+9BCA4CFB48D359B261F84DB5A27BC9D89AE0E3D5E0EFB8025AD14CEEE444B099.
+
+Focused automated checks
+  cargo test -p realtime-screen-translator --test reader_edges --test web_host_files --test overlay_and_storage_edges
+  7 reader tests, 3 web-host tests and 4 storage/overlay tests passed.
+  cargo test -p realtime-screen-translator --test contract test_books_remain_after_restart -- --exact
+  1 passed, 36 filtered out.
+  corepack pnpm exec vitest run src/lib/api.test.js src/lib/text.test.js src/lib/reader.test.js src/screens/screens.test.js
+  4 test files, 31 tests passed.
+  corepack pnpm exec vite build
+  Built in 295 ms.
