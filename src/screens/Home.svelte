@@ -15,8 +15,9 @@
   let importing = $state(false);
   let mounted = false;
   let problem = $state(null);
-  let recent = $state(readRecent());
-  let url = $state(recent[0] ?? '');
+  const initialRecent = readRecent();
+  let recent = $state(initialRecent);
+  let url = $state(initialRecent[0] ?? '');
 
   function readRecent() {
     try {
@@ -29,10 +30,12 @@
 
   async function refresh() {
     try {
-      status = await api.status();
+      const current = await api.status();
+      if (!mounted) return;
+      status = current;
       failed = false;
     } catch {
-      failed = true;
+      if (mounted) failed = true;
     }
   }
 
@@ -67,9 +70,9 @@
       recent = [typed, ...recent.filter((u) => u !== typed)].slice(0, 5);
       localStorage.setItem(RECENT, JSON.stringify(recent));
     } catch (e) {
-      problem = { text: openError(e.code) };
+      if (mounted) problem = { text: openError(e.code) };
     } finally {
-      busy = false;
+      if (mounted) busy = false;
     }
   }
 
@@ -93,58 +96,59 @@
   }
 </script>
 
-{#snippet bar()}
-  <button
-    type="submit"
-    form="open-site"
-    data-feature="open-site"
-    disabled={busy || importing || !url.trim()}
-    class={['h-[72px] w-full rounded-2xl text-xl font-bold', busy || importing || !url.trim() ? 'bg-gray-400 text-white' : 'bg-primary text-white']}
-  >
-    {busy ? '여는 중' : '열기'}
-  </button>
-{/snippet}
-
 <!-- A value not read yet: a grey bar while loading, a dash once the read failed. -->
 {#snippet blank(width)}
-  {#if failed}<span class="text-gray-500">—</span>{:else}<span class={['inline-block h-4 rounded bg-gray-300', width]} aria-hidden="true"></span>{/if}
+  {#if failed}<span class="text-muted">—</span>{:else}<span class={['inline-block h-4 rounded bg-gray-300', width]} aria-hidden="true"></span>{/if}
 {/snippet}
 
-<Shell title="만화 번역" note="{status ? langText(status.source_lang) : '원문'} → 한국어" current="/" {bar}>
-  <div class="flex flex-wrap content-start items-start gap-4">
-    <section class="box-border min-w-0 flex-[1_1_300px] rounded-xl border border-gray-300 bg-white p-4">
-      <h2 class="m-0 text-xl font-bold">만화 페이지 열기</h2>
+<Shell title="만화 열기" current="/">
+  <div class="grid max-w-[72rem] items-start gap-4 min-[62rem]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] min-[62rem]:gap-6">
+    <section class="min-w-0 rounded-xl border border-gray-300 bg-white p-4 min-[62rem]:p-6">
+      <h2 class="m-0 text-xl leading-[1.3] font-bold">만화 페이지</h2>
       <!-- novalidate: an address typed without https:// is fine (the app adds it). -->
-      <form id="open-site" onsubmit={submit} novalidate class="mt-4">
-        <label for="site-url" class="block font-semibold">주소</label>
-        <input
-          id="site-url"
-          type="url"
-          inputmode="url"
-          autocomplete="url"
-          enterkeyhint="go"
-          placeholder="https://"
-          bind:value={url}
-          class="mt-2 box-border min-h-12 w-full rounded-lg border border-gray-500 px-3 text-base"
-        />
+      <form onsubmit={submit} novalidate class="mt-4">
+        <label for="site-url" class="block text-sm font-semibold">주소</label>
+        <div class="mt-2 grid gap-2 min-[62rem]:grid-cols-[minmax(0,1fr)_auto]">
+          <input
+            id="site-url"
+            type="url"
+            inputmode="url"
+            autocomplete="url"
+            enterkeyhint="go"
+            placeholder="https://"
+            bind:value={url}
+            class="min-h-12 w-full rounded-lg border border-control px-3 text-base"
+          />
+          <button
+            type="submit"
+            data-feature="open-site"
+            disabled={busy || importing || !url.trim()}
+            class="min-h-12 rounded-lg bg-primary px-6 font-semibold text-white disabled:bg-gray-400"
+          >
+            {busy ? '여는 중' : '열기'}
+          </button>
+        </div>
       </form>
-      <p class="m-0 mt-2 text-sm text-gray-500">
-        열린 페이지의 말풍선 위에 한국어가 붙고, 스크롤하거나 페이지를 넘겨도 그림과 함께 움직입니다. 한 번 번역한 페이지는 다시 번역하지 않습니다.
-        페이지 아래 <b>앱</b> 버튼이나 뒤로 가기로 돌아옵니다.
-      </p>
       {#if unsupported}
-        <p class="m-0 mt-4 rounded-lg bg-gray-200 px-4 py-2 text-sm">{readerUnsupported}</p>
+        {#if !problem}<p class="m-0 mt-4 rounded-lg bg-gray-200 px-4 py-2 text-sm">{readerUnsupported}</p>{/if}
       {:else}
         <button
           type="button"
           data-feature="import-chapter"
           onclick={importFolder}
           disabled={busy || importing}
-          class="mt-4 min-h-12 w-full rounded-lg border border-primary px-4 font-semibold text-primary disabled:opacity-50"
+          class="mt-4 min-h-12 w-full rounded-lg border border-primary px-4 font-semibold text-primary disabled:opacity-50 min-[62rem]:w-auto"
         >{importing ? '가져오는 중' : '그림 폴더 가져오기'}</button>
+        <p class="m-0 mt-3 text-sm text-muted">리더 아래의 ‘앱으로 돌아가기’ 버튼으로 돌아올 수 있습니다.</p>
+      {/if}
+      {#if problem}
+        <div role="alert" class="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm">
+          <p class="m-0">{problem.text}</p>
+          {#if problem.options}<a href="/options" onclick={link} class="mt-2 inline-flex min-h-12 items-center text-primary">설정으로 가기</a>{/if}
+        </div>
       {/if}
       {#if recent.length}
-        <h3 class="m-0 mt-4 text-base font-bold">최근 연 주소</h3>
+        <h3 class="m-0 mt-6 text-base font-semibold">최근 연 주소</h3>
         <ul class="m-0 mt-2 flex list-none flex-col gap-2 p-0">
           {#each recent as r (r)}
             <li>
@@ -155,7 +159,7 @@
                   open(r);
                 }}
                 disabled={busy || importing}
-                class="box-border min-h-12 w-full truncate rounded-lg border border-gray-300 bg-gray-50 px-3 text-left text-sm"
+                class="min-h-12 w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-start text-sm wrap-anywhere"
               >{r}</button>
             </li>
           {/each}
@@ -166,16 +170,13 @@
     <section
       data-feature="translation-status"
       aria-busy={!status && !failed}
-      class="box-border min-w-0 flex-[1_1_300px] rounded-xl border border-gray-300 bg-white p-4"
+      class="min-w-0 rounded-xl border border-gray-300 bg-white p-4 min-[62rem]:p-6"
     >
-      <h2 class="m-0 text-xl font-bold">번역 상태</h2>
-      <div role="status" class="mt-4 rounded-lg px-4 py-2 text-sm" class:bg-red-50={failed || problem || notice} class:bg-gray-200={!(failed || problem || notice)}>
+      <h2 class="m-0 text-xl leading-[1.3] font-bold">번역 상태</h2>
+      <div role="status" class="mt-4 rounded-lg px-4 py-2 text-sm" class:bg-red-50={failed || notice} class:bg-gray-200={!(failed || notice)}>
         {#if failed}
           <p class="m-0">상태를 읽지 못했습니다. {reachError()}</p>
-          <button type="button" onclick={refresh} class="mt-2 min-h-12 rounded-lg border border-gray-500 bg-white px-4">다시 읽기</button>
-        {:else if problem}
-          <p class="m-0">{problem.text}</p>
-          {#if problem.options}<a href="/options" onclick={link} class="mt-2 inline-flex min-h-12 items-center rounded-lg bg-primary px-4 text-white no-underline">설정으로 가기</a>{/if}
+          <button type="button" onclick={refresh} class="mt-2 min-h-12 rounded-lg border border-control bg-white px-4">다시 읽기</button>
         {:else if notice}
           <p class="m-0 font-semibold">{notice.why}</p>
           <p class="m-0">{notice.todo}</p>
@@ -186,7 +187,7 @@
           <p class="m-0">번역하려면 Gemini API 키를 먼저 넣어 주세요.</p>
           <a href="/options" onclick={link} class="mt-2 inline-flex min-h-12 items-center rounded-lg bg-primary px-4 text-white no-underline">설정으로 가기</a>
         {:else}
-          <p class="m-0">키나 Gemini 연결에 문제가 생기면 여기와 열린 페이지 아래에 알려 드립니다.</p>
+          <p class="m-0">번역 준비 완료</p>
         {/if}
       </div>
 
@@ -204,7 +205,7 @@
         </div>
         <div class="flex items-center justify-between gap-2">
           <dt>앱을 연 뒤 Gemini 요청</dt>
-          <dd class="m-0 text-right">{#if status}{status.gemini_requests}번{:else}{@render blank('w-12')}{/if}</dd>
+          <dd class="m-0 text-right tabular-nums">{#if status}{status.gemini_requests}번{:else}{@render blank('w-12')}{/if}</dd>
         </div>
       </dl>
     </section>

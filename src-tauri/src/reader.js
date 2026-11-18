@@ -60,12 +60,14 @@
       .rst-box.rst-peek{opacity:.12}
       .rst-chip{position:absolute;left:6px;top:6px;padding:4px 8px;border-radius:12px;background:rgba(17,24,39,.85);
         color:#fff;font:600 12px system-ui,sans-serif;pointer-events:auto}
-      .rst-bar{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:2147483646;display:flex;
-        gap:6px;align-items:center;padding:6px;border-radius:24px;background:rgba(17,24,39,.88);color:#fff;
+      .rst-bar{position:fixed;left:calc(12px + env(safe-area-inset-left));bottom:calc(12px + env(safe-area-inset-bottom));
+        max-width:calc(100% - 24px - env(safe-area-inset-left) - env(safe-area-inset-right));box-sizing:border-box;
+        z-index:2147483646;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px;border-radius:16px;background:#111827;color:#fff;
         font:600 14px system-ui,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.3)}
-      .rst-bar button{min-height:44px;min-width:44px;padding:0 14px;border:0;border-radius:20px;background:#fff;color:#111;font:inherit}
+      .rst-bar button{min-height:48px;min-width:48px;padding:0 12px;border:0;border-radius:8px;background:#fff;color:#111;font:inherit}
+      .rst-bar button:focus-visible{outline:2px solid #93c5fd;outline-offset:2px}
       .rst-bar button[aria-pressed=false]{background:#4b5563;color:#fff}
-      .rst-bar span{padding:0 6px;max-width:46vw;font-size:12px;font-weight:500}`;
+      .rst-bar span{padding:0 6px;max-width:26rem;font-size:14px;font-weight:500;overflow-wrap:anywhere}`;
     document.head.appendChild(css);
     bar = document.createElement('div');
     bar.className = 'rst-bar';
@@ -82,8 +84,7 @@
     };
     const back = document.createElement('button');
     back.type = 'button';
-    back.textContent = '앱';
-    back.setAttribute('aria-label', '앱으로 돌아가기');
+    back.textContent = '앱으로 돌아가기';
     back.onclick = () => chapter ? location.assign('/library') : invoke('post_reader_close', {}).catch(() => history.back());
     barText = document.createElement('span');
     barText.setAttribute('role', 'status');

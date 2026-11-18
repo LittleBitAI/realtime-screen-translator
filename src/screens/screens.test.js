@@ -15,6 +15,7 @@ vi.mock('../lib/api.js', async (real) => {
       putSourceLang: vi.fn(),
       canOpenSites: vi.fn(() => true),
       openSite: vi.fn(),
+      importChapter: vi.fn(),
       books: vi.fn(),
       lists: vi.fn(async () => []),
       exportBook: vi.fn(),
@@ -47,12 +48,12 @@ afterEach(cleanup);
 
 describe('S1 Home', () => {
   const typeUrl = (value) => fireEvent.input(screen.getByLabelText('주소'), { target: { value } });
-  const openBar = () => feature('open-site')[0];
+  const openButton = () => feature('open-site')[0];
 
   it('loading: grey bars, and nothing to open before an address', () => {
     api.status.mockImplementation(never);
     render(Home);
-    expect(openBar().disabled).toBe(true);
+    expect(openButton().disabled).toBe(true);
     expect(screen.getByText('상태를 읽는 중입니다.')).toBeTruthy();
   });
 
@@ -64,7 +65,7 @@ describe('S1 Home', () => {
     const optionsLink = screen.getByText('설정으로 가기', { selector: 'a[href]' });
     expect(optionsLink.getAttribute('href')).toBe('/options');
     await typeUrl('https://example.com/manga/1');
-    await fireEvent.click(openBar());
+    await fireEvent.click(openButton());
     expect(screen.getByText(/키가 없습니다/)).toBeTruthy();
     expect(api.openSite).not.toHaveBeenCalled();
   });
@@ -93,7 +94,7 @@ describe('S1 Home', () => {
     expect(screen.getByText('영어')).toBeTruthy();
     expect(screen.getByText('3번')).toBeTruthy();
     await typeUrl('https://example.com/manga/1');
-    await fireEvent.click(openBar());
+    await fireEvent.click(openButton());
     await screen.findByRole('button', { name: 'https://example.com/manga/1' });
     expect(api.openSite).toHaveBeenCalledWith('https://example.com/manga/1');
     expect(JSON.parse(localStorage.getItem('rst-recent-sites'))).toEqual(['https://example.com/manga/1']);
@@ -105,7 +106,7 @@ describe('S1 Home', () => {
     render(Home);
     await screen.findByText('끝 abcd');
     await typeUrl('not a site');
-    await fireEvent.click(openBar());
+    await fireEvent.click(openButton());
     await screen.findByText(/주소가 맞지 않습니다/);
   });
 
@@ -116,9 +117,22 @@ describe('S1 Home', () => {
     const why = /브라우저에서는 다른 사이트를 이 화면 안에 열 수 없습니다/;
     await screen.findByText(why);
     await typeUrl('https://example.com/manga/1');
-    await fireEvent.click(openBar());
-    expect(screen.getAllByText(why).length).toBe(2);
+    await fireEvent.click(openButton());
+    expect(screen.getByRole('alert').textContent).toMatch(why);
     expect(api.openSite).not.toHaveBeenCalled();
+  });
+
+  it('shows folder import errors with the source controls and lets the reader retry', async () => {
+    api.status.mockResolvedValue(off);
+    api.importChapter.mockRejectedValueOnce(new ApiError('empty_folder'));
+    render(Home);
+    const importButton = screen.getByRole('button', { name: '그림 폴더 가져오기' });
+    await fireEvent.click(importButton);
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('JPG, PNG 또는 WebP');
+    expect(alert.closest('section')).toBe(importButton.closest('section'));
+    expect(importButton.disabled).toBe(false);
+    expect(api.importChapter).toHaveBeenCalledOnce();
   });
 });
 
@@ -134,12 +148,11 @@ const book = (id, pictures) => ({
 });
 
 describe('S2 Library', () => {
-  it('loading: three grey boxes', () => {
+  it('marks the title pane busy while loading', () => {
     api.books.mockImplementation(never);
     render(Library);
     const list = feature('list-books')[0];
     expect(list.getAttribute('aria-busy')).toBe('true');
-    expect(list.querySelectorAll('[aria-hidden="true"]').length).toBe(3);
   });
 
   it('empty: guidance and a way back to the first screen', async () => {
@@ -176,6 +189,23 @@ describe('S2 Library', () => {
     expect(api.openSite).toHaveBeenCalledWith(link.url);
   });
 
+  it('opens a named list directly below its button and collapses it in place', async () => {
+    const saved = { ...book(3, 0), title: '달빛 우체국' };
+    api.lists.mockResolvedValueOnce([{ id: 7, name: '읽는 중', entries: [3] }]);
+    api.books.mockResolvedValueOnce({ books: [], next_before: null })
+      .mockResolvedValueOnce({ books: [saved], next_before: null });
+    render(Library);
+    const list = await screen.findByRole('button', { name: '읽는 중 1' });
+    await fireEvent.click(list);
+    const title = await screen.findByRole('heading', { name: saved.title });
+    expect(list.getAttribute('aria-expanded')).toBe('true');
+    expect(title.closest('li')).toBe(list.closest('li'));
+    expect(api.books).toHaveBeenLastCalledWith(null, 7, '');
+    await fireEvent.click(list);
+    expect(list.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('heading', { name: saved.title })).toBeNull();
+  });
+
   it('full: exports a book, a failure offers to export again', async () => {
     api.books.mockResolvedValue({ books: [book(2, 2), book(1, 0)], next_before: null });
     api.exportBook.mockRejectedValueOnce(new ApiError('storage_full', 507));
@@ -183,6 +213,7 @@ describe('S2 Library', () => {
     render(Library);
     await screen.findByText('2장');
     expect(screen.getByText('아직 담긴 그림이 없어 내보낼 것이 없습니다.')).toBeTruthy();
+    await fireEvent.click(screen.getByText('그림 내보내기'));
     await fireEvent.click(screen.getByLabelText('WebP'));
     await fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
     await screen.findByText(/저장 공간이 모자랍니다/);
@@ -201,7 +232,8 @@ describe('S2 Library', () => {
       { href: '/files/export/b.png', name: 'b.png' },
     ]);
     render(Library);
-    await fireEvent.click(await screen.findByRole('button', { name: '내보내기' }));
+    await fireEvent.click(await screen.findByText('그림 내보내기'));
+    await fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
     await screen.findByText('그림 2장을 만들었습니다. 아래를 눌러 이 기기에 내려받으세요.');
     expect(api.exportLinks).toHaveBeenCalledWith(out);
     const links = screen.getAllByRole('link', { name: /내려받기/ });

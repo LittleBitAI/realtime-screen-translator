@@ -710,7 +710,7 @@ pub fn run() {
                 .initialization_script(READER_JS)
                 .on_navigation(may_navigate);
             #[cfg(desktop)]
-            let main = main.title("실시간 화면 번역").inner_size(420.0, 760.0);
+            let main = main.title("실시간 화면 번역").inner_size(1100.0, 760.0);
             main.build()?;
             // The capture loop: frames, detection and strips while translation is on.
             #[cfg(any(windows, target_os = "android"))]
