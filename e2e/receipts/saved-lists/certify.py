@@ -10,6 +10,7 @@ from pathlib import Path
 
 RECEIPT = "e2e/receipts/saved-lists/verification.txt"
 REPORT_FILES = ("e2e/receipts/saved-lists/**", ".github/workflows/ci.yml")
+WIKI_INDEXES = (".wiki/corpus.json", ".wiki/graph.json")
 
 
 def git(*args):
@@ -18,6 +19,7 @@ def git(*args):
 
 def fingerprint(revision, exclusions):
     digest = hashlib.sha256()
+    exclusions = (*WIKI_INDEXES, *exclusions)
     for entry in git("ls-tree", "-r", "-z", revision).split(b"\0"):
         if entry:
             path = entry.split(b"\t", 1)[1]

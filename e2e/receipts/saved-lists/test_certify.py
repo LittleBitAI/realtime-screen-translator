@@ -17,6 +17,9 @@ class ReceiptBinding(unittest.TestCase):
                 "src-tauri/src/library.rs": "Runtime inputs",
                 "src-tauri/tests/library.rs": "Runtime inputs",
                 "Cargo.lock": "Runtime inputs",
+                ".wiki/adapter.toml": "Runtime inputs",
+                ".wiki/corpus.json": None,
+                ".wiki/graph.json": None,
                 "e2e/receipts/saved-lists/android.png": "Evidence inputs",
                 ".github/workflows/ci.yml": "Evidence inputs",
             }
@@ -42,10 +45,16 @@ class ReceiptBinding(unittest.TestCase):
                     git("add", name)
                     tree = git("write-tree").decode().strip()
                     changed = git("commit-tree", tree, "-m", "Changed input").decode().strip()
-                    with self.assertRaisesRegex(ValueError, expected_error):
-                        certify(changed)
                     Path(name).write_bytes(b"fixture")
                     git("add", name)
+                    if expected_error is None:
+                        self.assertIn(
+                            f"Certified checkout: {changed}\nreceipt_matches_reviewed_head: PASS",
+                            certify(changed),
+                        )
+                    else:
+                        with self.assertRaisesRegex(ValueError, expected_error):
+                            certify(changed)
 
 
 if __name__ == "__main__":

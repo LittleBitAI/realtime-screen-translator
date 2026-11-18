@@ -1,8 +1,8 @@
 Saved-list verification, 2026-11-18
 
 Tested revision: 060cd20e9d4fff74bd2989d991a9f74760c68014
-Runtime inputs SHA-256: f281a215208fa86fc2aad32ddd5450b9758ca312e4bde3033403dd81aa1d8fee
-Evidence inputs SHA-256: 58b86e781283f4ef0e0e629fa258034ead73846c0f23007903a4f8cdcc495401
+Runtime inputs SHA-256: 0d60f59b6fb32521aa34f42c4ae3cd9a1949fe68dd56eb8ee989a4e5f3d4ff96
+Evidence inputs SHA-256: 2556b0811e07f073383b4e7b2a19d4de6b52c396c6be6a40dc223850b386d0f9
 
 Binding and gate results
   receipt_matches_reviewed_head: PASS on 060cd20e9d4fff74bd2989d991a9f74760c68014.
@@ -19,13 +19,19 @@ Binding and gate results
   The owner's earlier gate report concerned the previous head. The results
   above were read from the hosted runs.
 
-  The measurements below are from new builds and observations on 060cd20.
-  runtime_inputs_equal: PASS. The tested commit and the staged repair tree
-  independently yielded the runtime digest above. The comparison covered
-  every tracked path except this receipt directory and the CI workflow.
-  The workflow diff adds a receipt step after the existing Gate command.
-  The evidence digest covers every tracked path, including the workflow,
-  certificate checker, tests and screenshots, except verification.txt itself.
+  The measurements below came from builds at 060cd20. The reader, browser,
+  API and offline checks were repeated on d73c765. The exact-head certificate
+  and passing gate for that run are available here:
+    https://github.com/LittleBitAI/realtime-screen-translator/actions/runs/44257936775
+  Round four reuses those observations. Commit 03ea755 changed only the
+  generated wiki corpus. Neither it nor the wiki graph feeds a build or test.
+  runtime_inputs_equal: PASS. The measured source 060cd20, certified d73c765,
+  reviewed 03ea755 and staged repair tree yielded the same runtime digest above.
+  Both fingerprints omit only two shared metadata files: .wiki/corpus.json
+  and .wiki/graph.json. The runtime digest also omits this receipt directory
+  and the CI workflow. The evidence digest also omits verification.txt itself.
+  It covers the workflow, certificate checker, tests and screenshots.
+  Both cover the wiki adapter that specifies the gate.
   Both digests use SHA-256 over Git's recursive NUL-terminated tree records,
   including paths, modes and object IDs.
 
