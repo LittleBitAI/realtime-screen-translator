@@ -15,7 +15,7 @@
   },
   {
    "a": "docs/design/frontend.md",
-   "b": "docs/design/backend.md",
+   "b": "DESIGN.md",
    "kind": "link"
   },
   {
@@ -108,8 +108,8 @@
   "docs/research/review-oneshot-initial-f1-2.md"
  ],
  "counts": {
-  "docs": 5,
-  "linked": 1,
+  "docs": 6,
+  "linked": 2,
   "read": 2,
   "orphans": 2,
   "pages": 8,

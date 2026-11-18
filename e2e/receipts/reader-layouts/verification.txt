@@ -1,0 +1,130 @@
+Reader layout verification, 2026-11-18
+
+Native package build source f6061d9c7f0a26932ee5fc9d8aaa6ff8080f09fe
+Selected palette Slate and blue
+Physical phone approved for acceptance Galaxy S21+ (SM-G996N), Android 15
+
+Current candidate binding
+  Use the exact reviewed commit in place of HEAD when verifying a
+  detached candidate. This check covers tracked inputs to the frontend,
+  both native packages and the browser host. Its exact exclusions are
+  documentation, generated wiki metadata, this evidence, and the Rust
+  integration test, which is compiled and run separately.
+
+  git diff --exit-code --no-renames f6061d9c7f0a26932ee5fc9d8aaa6ff8080f09fe HEAD -- . `
+    ':(exclude,literal).wiki/.sync' `
+    ':(exclude,literal).wiki/corpus.json' ':(exclude,literal).wiki/graph.json' `
+    ':(exclude,literal)DESIGN.md' ':(exclude,literal)README.md' `
+    ':(exclude,literal)docs/design/frontend.md' `
+    ':(exclude,literal)docs/design/shots/library-windows.png' `
+    ':(exclude,literal)docs/design/shots/library-galaxy-s21-plus.png' `
+    ':(exclude,literal)e2e/receipts/reader-layouts/verification.txt' `
+    ':(exclude,literal)src-tauri/tests/web_host_files.rs'
+
+  Exit 0 permits reuse of the native packages after checking their hashes
+  below. The review-round report identifies the commit and records the
+  fresh browser, device and integration-test observations made against
+  it. The palette measurements, native picker checks and finished
+  screenshots below are retained from the package-build run.
+
+Browser
+  node scripts/live.mjs served an isolated data directory on port 18841.
+  node artifacts/layout-browser.mjs final
+  Chrome 157.0.8103.79 rendered 1920 × 1080 and 384 × 854 viewports. It also reflowed
+  at 800 × 720, 960 × 540 and 320 × 650 without horizontal overflow.
+  The 1920-wide viewport showed a 272px list pane, a 24px gap and a
+  1080px title pane. The 384-wide viewport used 16px side gutters, a
+  352px search field and inline results directly beneath the list button.
+  The sampled long Korean title wrapped to two and three lines respectively.
+  The shortest measured search, list and navigation targets were 48px.
+  Desktop Tab followed the skip link, navigation, search, library actions
+  and list buttons with visible 2px focus outlines. Enter selected the
+  focused list. The accessibility tree exposed its pressed state and the
+  search input's label. Empty and populated lists and title search worked.
+  node artifacts/layout-browser-actions.mjs
+  Browser UI saved and found a URL, added a list membership, exported a
+  real WebP and made 0 Gemini requests.
+
+Isolated API
+  cargo test -p realtime-screen-translator --test web_host_files saved_list_memberships_preserve_the_book_through_the_http_api -- --exact --nocapture
+  cargo test -p realtime-screen-translator --test web_host_files a_browser_export_can_be_fetched_by_the_reader_in_each_format -- --exact --nocapture
+  Each scenario starts its own compiled browser host, sends requests to
+  an ephemeral port on 127.0.0.1, uses a fresh app-data and frontend
+  directory, and points the model endpoint at loopback.
+
+  GET /lists and GET /books expected HTTP 200 and empty arrays on a
+  fresh store. Both returned 200 with empty arrays. POST /library/edit
+  saved a title and URL with a query string and returned 200. GET /books
+  searching by title returned one row with the exact title and URL.
+  A new list returned no books. The original book appeared in each
+  selected list after being added to both. Removing its first membership
+  returned that list to empty. Deleting the empty list left the other
+  membership in place. Filtering by the title
+  or by the encoded address each returned the original book ID and URL.
+  An unmatched query returned no books. GET /status reported 0 model
+  requests.
+
+  The export scenario used two synthetic books. POST /books/1/export
+  returned 200 for PNG and WebP, with one file matching the response
+  count for each. GET of each returned file yielded 200, the expected
+  format signature, bytes equal to the file written, and an attachment
+  header. GET /status reported 0 model requests.
+
+Contrast
+  node artifacts/layout-palettes.mjs
+  Slate and blue had minimum ratios of 16.96:1 for body text, 6.96:1
+  for supporting text, 4.75:1 for the accent and 4.55:1 for control
+  borders. The owner selected it after comparing it with Paper and plum.
+
+Installed Windows app
+  cargo tauri build --debug --bundles nsis --features app --ci -c artifacts/layout-win.conf.json
+  The isolated NSIS installation ran on Windows 11 Home at 1920 × 1080.
+  Its maximized WebView measured 1920 × 1017 CSS pixels inside the
+  window chrome. The list pane measured 272px, the gap 24px and the
+  search input 48px high, with zero horizontal overflow. The narrowed
+  WebView measured 784 × 701 and fit inline results with zero overflow.
+  Installer SHA-256 ae8ba897c0b922726be7b6244d0c3c32cc912386bce80c39041cc96148fc9890
+  Installed executable SHA-256 bce975729d7e3fdd501057a151d61cae231459c13aacae0a37e871a2d6448e80
+  node artifacts/layout-native.mjs windows
+  node artifacts/layout-native.mjs windows empty-folder
+  node artifacts/layout-native.mjs windows import-check
+  The installed app opened the fixture URL, returned to source entry,
+  saved the URL, found it by title and reopened it. The return control
+  measured 127 × 48 CSS pixels. List membership, an empty list and the
+  export disclosure worked. The Windows folder picker produced a
+  retryable empty-folder error and successfully imported a one-image
+  folder whose chapter reopened and returned to the library.
+
+Installed Android app
+  cargo tauri android build --debug --apk --target aarch64 --features app --ci -c artifacts/layout-android.conf.json
+  The Rust cross-build succeeded. Windows denied the JNI symlink, so
+  the documented copy-and-Gradle path packaged the compiled library.
+  Gradle assembled an isolated debug APK, and its packaged JNI matched
+  the cross-built bytes. The installed APK matched the local file.
+  APK SHA-256 1511113e0e57f38324e0edb47be4d55762ed5dac84843d1824a4d38c6d548354
+  node artifacts/layout-native.mjs android
+  The same URL journey passed with touch input. The installed WebView
+  measured 384 × 778 CSS pixels on the 1080 × 2400 display. Search and
+  list targets measured 48px high. The long Korean title occupied three
+  lines, titles expanded within the selected list, and the bottom
+  navigation left the scrolled-to membership control reachable. The
+  reader's return control measured 112 × 48 CSS pixels.
+  node artifacts/layout-native.mjs android empty-folder
+  node artifacts/layout-native.mjs android import-check
+  DocumentsUI produced the same retryable empty-folder error. Importing
+  a one-image folder opened its app-owned chapter and returned to the
+  library.
+
+Both devices rendered the seeded Korean translation when opening and
+reopening the URL. Neither made a Gemini request.
+
+Finished library captures
+  docs/design/shots/library-windows.png (1920 × 1017)
+  docs/design/shots/library-galaxy-s21-plus.png (1080 × 2191)
+
+Focused repository checks
+  corepack pnpm exec vitest run src/screens/screens.test.js src/lib/reader.test.js
+  23 tests passed across two files.
+  corepack pnpm exec vite build
+  Production frontend built successfully.
+  The repository gate and final hosted verification are server-owned.

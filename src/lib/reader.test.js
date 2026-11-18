@@ -38,7 +38,7 @@ describe('reader page script', () => {
   it('shows a page it could not keep in the library, says so, and saves it on a tap', async () => {
     // The site does not hand over the bytes: the app fetches them itself.
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('cors'); }));
-    const invoke = vi.fn().mockResolvedValueOnce(page('storage_full')).mockResolvedValueOnce(page(null));
+    const invoke = vi.fn().mockResolvedValue(null).mockResolvedValueOnce(page('storage_full')).mockResolvedValueOnce(page(null));
     window.__TAURI_INTERNALS__ = { invoke };
     pagePicture('https://cdn.example/1.jpg');
 
@@ -59,6 +59,8 @@ describe('reader page script', () => {
     await vi.waitFor(() => expect(document.querySelector('.rst-chip')).toBeNull());
     expect(document.querySelector('.rst-box').textContent).toBe('안녕');
     expect(document.querySelector('.rst-bar [role=status]').hidden).toBe(true);
+    [...document.querySelectorAll('.rst-bar button')].find((button) => button.textContent === '앱으로 돌아가기').click();
+    expect(invoke).toHaveBeenLastCalledWith('post_reader_close', {});
   });
 
   it('loads and translates a chapter picture only as it approaches the view', async () => {

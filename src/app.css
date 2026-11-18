@@ -1,13 +1,15 @@
 @import 'tailwindcss';
 
-/* The approved palette C1 (먹색 종이) and type scale 14 / 16 / 20 / 28 px.
-   Spacing keeps to Tailwind's 1 / 2 / 4 / 6 steps: 4 / 8 / 16 / 24 px. */
 @theme {
   --color-primary: #1f2937;
   --color-surface: #f8fafc;
   --color-ink: #111827;
   --color-accent: #2563eb;
+  --color-selection: #eff6ff;
+  --color-control: #64748b;
+  --color-muted: #475569;
   --text-sm: 14px;
+  --text-sm--line-height: 1.5;
   --text-base: 16px;
   --text-xl: 20px;
   --text-title: 28px;
@@ -17,7 +19,7 @@
 html,
 body {
   margin: 0;
-  background: #e5e7eb;
+  background: var(--color-surface);
   color: var(--color-ink);
   font-family: var(--font-sans);
   font-size: 16px;
@@ -25,6 +27,16 @@ body {
   /* Korean wraps between words, not inside them. */
   word-break: keep-all;
   overflow-wrap: anywhere;
+}
+
+html {
+  scroll-padding-block-end: calc(4.5rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 62rem) {
+  html {
+    scroll-padding-block: 4.5rem 0;
+  }
 }
 
 :focus-visible {
