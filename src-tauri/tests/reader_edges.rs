@@ -4,7 +4,7 @@
 
 mod support;
 
-use realtime_screen_translator::api::{BooksIn, ExportIn, LangIn, PageIn};
+use realtime_screen_translator::api::{BooksIn, ExportIn, LangIn, LibraryEdit, PageIn};
 use realtime_screen_translator::platform::{Permissions, Platform};
 use realtime_screen_translator::Backend;
 use serde_json::{json, Value};
@@ -131,6 +131,7 @@ fn a_page_is_translated_once_per_language_and_kept_as_a_book() {
     let books = b.books(BooksIn { limit: 20, before: None }).unwrap().books;
     assert_eq!(books.len(), 1, "both readings belong to the page's one book");
     assert_eq!(books[0].title, "Kurumi - Chapter 54");
+    assert_eq!(books[0].url.as_deref(), Some("https://manga.example/c/1"));
     assert_eq!(books[0].pictures.len(), 2);
     let out = b.export(ExportIn { book_id: books[0].id, format: "png".into() }).unwrap();
     assert_eq!(out.count, 2);
@@ -190,6 +191,19 @@ fn imported_chapter_survives_restart_and_shares_the_url_cache_by_language() {
     assert_eq!(cached.boxes, from_url.boxes);
     assert_eq!(gemini.count(), 2, "cache hit from a site page");
 
+    for name in ["Read later", "Favorites"] {
+        b.edit_library(LibraryEdit::Create { name: name.into() }).unwrap();
+    }
+    let lists = b.lists().unwrap();
+    for list in &lists {
+        b.edit_library(LibraryEdit::Add { list: list.id, book }).unwrap();
+    }
+    b.edit_library(LibraryEdit::Remove { list: lists[0].id, book }).unwrap();
+    b.edit_library(LibraryEdit::Delete { list: lists[0].id }).unwrap();
+    let kept = b.browse(BooksIn { limit: 1, before: None }, Some(lists[1].id), "fix").unwrap();
+    assert_eq!(kept.books[0].id, book);
+    assert_eq!(gemini.count(), 2);
+
     b.put_source_lang(LangIn { lang: "en".into() }).unwrap();
     assert_eq!(b.read_chapter_page(one).unwrap().boxes[0].ko, "반가워");
     assert_eq!(gemini.count(), 3);
@@ -207,6 +221,52 @@ fn imported_chapter_survives_restart_and_shares_the_url_cache_by_language() {
     let pixel = |x, y| (y * 600usize + x) * 3;
     assert!(png.px[pixel(150, 112)] > 200, "the cached dialogue is overlaid in the export");
     assert_eq!(png.px[pixel(550, 400)], original.px[pixel(550, 400)]);
+}
+
+#[test]
+fn saved_links_share_book_identity_with_the_reader_and_lists_keep_their_order() {
+    use LibraryEdit::*;
+    let dirs = Dirs::new();
+    let gemini = PageGemini::start();
+    let b = keyed(&gemini, &dirs);
+    let first = "https://manga.example/c/1";
+    for (url, title) in [(first, "One"), ("manga.example/c/2?q=50%25", "Two"), (first, "One")] {
+        b.edit_library(SaveLink { url: url.into(), title: title.into() }).unwrap();
+    }
+    let cursor = |before| BooksIn { limit: 1, before };
+    let one = b.browse(cursor(None), None, "ONE").unwrap().books[0].id;
+    let two = b.browse(cursor(None), None, "50%25").unwrap().books[0].id;
+    assert_ne!(one, two);
+    for name in ["A", "B"] {
+        b.edit_library(Create { name: name.into() }).unwrap();
+    }
+    let lists = b.lists().unwrap();
+    let (a, b_id) = (lists[0].id, lists[1].id);
+    for book in [one, two, two] {
+        b.edit_library(Add { list: a, book }).unwrap();
+    }
+    b.edit_library(MoveEntry { list: a, book: two, up: true }).unwrap();
+    b.edit_library(MoveList { list: b_id, up: true }).unwrap();
+    b.edit_library(Rename { list: a, name: "Queue".into() }).unwrap();
+    assert_eq!(gemini.count(), 0);
+    drop(b);
+    let b = keyed(&gemini, &dirs);
+    let lists = b.lists().unwrap();
+    assert_eq!((lists[0].id, lists[1].name.as_str()), (b_id, "Queue"));
+    assert_eq!(lists[1].entries, [two, one]);
+    let next = b.browse(cursor(None), Some(a), "").unwrap();
+    assert_eq!(next.books[0].id, two);
+    let last = b.browse(cursor(next.next_before), Some(a), "").unwrap();
+    assert_eq!((last.books[0].url.as_deref(), last.next_before), (Some(first), None));
+    assert_eq!(gemini.count(), 0);
+
+    read(&b, page()).unwrap();
+    let books = b.books(BooksIn { limit: 20, before: None }).unwrap().books;
+    assert_eq!(books.len(), 2);
+    let translated = books.iter().find(|book| book.id == one).unwrap();
+    assert_eq!((translated.title.as_str(), translated.pictures.len()), ("One", 1));
+    assert!(read(&b, page()).unwrap().saved);
+    assert_eq!(gemini.count(), 1);
 }
 
 #[test]

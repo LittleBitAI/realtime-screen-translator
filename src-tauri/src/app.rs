@@ -47,17 +47,6 @@ fn may_navigate(url: &tauri::Url) -> bool {
     matches!(url.scheme(), "http" | "https" | "tauri" | "asset" | "about")
 }
 
-/// A site address as typed: `https://` when no scheme is given; only web pages.
-fn site_url(typed: &str) -> ApiResult<tauri::Url> {
-    let typed = typed.trim();
-    let full = if typed.contains("://") { typed.to_string() } else { format!("https://{typed}") };
-    let url: tauri::Url = full.parse().map_err(|_| ApiError("bad_url"))?;
-    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
-        return Err(ApiError("bad_url"));
-    }
-    Ok(url)
-}
-
 /// The script that drew the overlay last, run again once its page loads.
 #[cfg(desktop)]
 fn last_drawn() -> std::sync::MutexGuard<'static, String> {
@@ -487,8 +476,18 @@ fn post_strips(b: B<'_>, picture_id: i64, frame_seq: u64, top: u32, bottom: u32,
 }
 
 #[tauri::command(async, rename_all = "snake_case")]
-fn get_books(b: B<'_>, limit: Option<u32>, before: Option<i64>) -> ApiResult<BooksOut> {
-    b.books(BooksIn { limit: limit.unwrap_or(20), before })
+fn get_books(b: B<'_>, limit: Option<u32>, before: Option<i64>, list: Option<i64>, search: Option<String>) -> ApiResult<BooksOut> {
+    b.browse(BooksIn { limit: limit.unwrap_or(20), before }, list, search.as_deref().unwrap_or_default())
+}
+
+#[tauri::command(async, rename_all = "snake_case")]
+fn get_lists(b: B<'_>) -> ApiResult<Vec<ReadingList>> {
+    b.lists()
+}
+
+#[tauri::command(async, rename_all = "snake_case")]
+fn edit_library(b: B<'_>, edit: LibraryEdit) -> ApiResult<()> {
+    b.edit_library(edit)
 }
 
 #[tauri::command(async, rename_all = "snake_case")]
@@ -735,6 +734,8 @@ pub fn run() {
             get_placements,
             post_strips,
             get_books,
+            get_lists,
+            edit_library,
             post_books_export,
             get_preview,
             put_settings_source_lang,

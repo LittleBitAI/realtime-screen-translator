@@ -33,12 +33,18 @@ describe('api over HTTP', () => {
     vi.stubGlobal('fetch', f);
     await api.books();
     await api.books(7);
+    await api.books(3, 4, '50% & ink');
+    await api.lists();
+    await api.editLibrary({ action: 'remove', list: 4, book: 3 });
     await api.exportBook(3, 'webp');
     await api.putKey('k');
     await api.putSourceLang('en');
     expect(f.mock.calls.map(([p, o]) => [o.method, p, o.body])).toEqual([
       ['GET', '/books?limit=20', undefined],
       ['GET', '/books?limit=20&before=7', undefined],
+      ['GET', '/books?limit=20&before=3&list=4&search=50%25+%26+ink', undefined],
+      ['GET', '/lists', undefined],
+      ['POST', '/library/edit', '{"action":"remove","list":4,"book":3}'],
       ['POST', '/books/3/export', '{"format":"webp"}'],
       ['PUT', '/settings/gemini-key', '{"key":"k"}'],
       ['PUT', '/settings/source-lang', '{"lang":"en"}'],

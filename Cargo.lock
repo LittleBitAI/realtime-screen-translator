@@ -2871,6 +2871,7 @@ dependencies = [
  "tempfile",
  "tiny_http",
  "ureq",
+ "url",
  "windows",
  "windows-sys 0.61.2",
  "zune-jpeg",

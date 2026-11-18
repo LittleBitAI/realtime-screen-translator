@@ -80,6 +80,34 @@ CREATE TABLE IF NOT EXISTS ChapterPage (
     picture_id INTEGER PRIMARY KEY REFERENCES Picture(id),
     translated_key TEXT REFERENCES ReaderPage(key)
 );
+CREATE TABLE IF NOT EXISTS SavedLink (
+    book_id INTEGER PRIMARY KEY REFERENCES Book(id),
+    url TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ReadingList (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    position INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ListEntry (
+    list_id INTEGER NOT NULL REFERENCES ReadingList(id) ON DELETE CASCADE,
+    book_id INTEGER NOT NULL REFERENCES Book(id),
+    position INTEGER NOT NULL,
+    PRIMARY KEY (list_id, book_id)
+);
+CREATE INDEX IF NOT EXISTS ListEntry_order ON ListEntry(list_id, position);
+CREATE INDEX IF NOT EXISTS ReaderPage_picture ON ReaderPage(picture_id);
+CREATE VIEW IF NOT EXISTS LibraryBook AS
+    SELECT b.id, COALESCE(l.title, b.title) AS title, b.started_at, b.ended_at, COALESCE(l.url, (
+        SELECT r.page_url FROM Picture p JOIN ReaderPage r ON r.picture_id = p.id
+        WHERE p.book_id = b.id AND (r.page_url LIKE 'https://%' OR r.page_url LIKE 'http://%')
+        ORDER BY p.seq, p.id LIMIT 1
+    )) AS url
+    FROM Book b LEFT JOIN SavedLink l ON l.book_id = b.id
+    WHERE l.book_id IS NOT NULL OR EXISTS (
+        SELECT 1 FROM Picture p JOIN Strip s ON s.picture_id = p.id WHERE p.book_id = b.id
+    );
 CREATE INDEX IF NOT EXISTS ReaderPage_url ON ReaderPage(page_url);
 CREATE INDEX IF NOT EXISTS Picture_book ON Picture(book_id, seq);
 CREATE INDEX IF NOT EXISTS Strip_picture ON Strip(picture_id, y_start);
@@ -285,7 +313,8 @@ pub fn reader_placements(db: &Db, key: &str) -> Res<Vec<PlacementRow>> {
 /// The book of the site page `page_url`, if one of its pictures was saved.
 pub fn reader_book(db: &Db, page_url: &str) -> Res<Option<i64>> {
     db.query_row(
-        "SELECT p.book_id FROM ReaderPage r JOIN Picture p ON p.id = r.picture_id
+        "SELECT book_id FROM SavedLink WHERE url = ?1 UNION ALL
+         SELECT p.book_id FROM ReaderPage r JOIN Picture p ON p.id = r.picture_id
          WHERE r.page_url = ?1 AND NOT EXISTS (SELECT 1 FROM ChapterPage c WHERE c.picture_id = p.id) LIMIT 1",
         [page_url],
         |r| r.get(0),
@@ -370,15 +399,18 @@ pub fn book(db: &Db, id: i64) -> Res<Option<BookRow>> {
     db.query_row("SELECT id, title, started_at, ended_at FROM Book WHERE id = ?1", [id], book_row).optional()
 }
 
-/// Books that hold at least one saved strip, newest first.
-pub fn books(db: &Db, limit: u32, before: Option<i64>) -> Res<Vec<BookRow>> {
+/// The cursor is a book id in both the newest-first library and a manually ordered list.
+pub fn books(db: &Db, limit: u32, before: Option<i64>, list: Option<i64>, search: &str) -> Res<Vec<(BookRow, Option<String>)>> {
     let mut st = db.prepare(
-        "SELECT b.id, b.title, b.started_at, b.ended_at FROM Book b
-         WHERE (?1 IS NULL OR b.id < ?1)
-           AND EXISTS (SELECT 1 FROM Picture p JOIN Strip s ON s.picture_id = p.id WHERE p.book_id = b.id)
-         ORDER BY b.id DESC LIMIT ?2",
+        "SELECT b.id, b.title, b.started_at, b.ended_at, b.url FROM LibraryBook b
+         LEFT JOIN ListEntry e ON e.book_id = b.id AND e.list_id = ?3
+         WHERE (?3 IS NULL OR e.book_id IS NOT NULL)
+           AND (?1 IS NULL OR CASE WHEN ?3 IS NULL THEN b.id < ?1 ELSE
+               e.position > (SELECT position FROM ListEntry WHERE list_id = ?3 AND book_id = ?1) END)
+           AND (?4 = '' OR instr(lower(b.title), lower(?4)) > 0 OR instr(lower(b.url), lower(?4)) > 0)
+         ORDER BY CASE WHEN ?3 IS NULL THEN -b.id ELSE e.position END LIMIT ?2",
     )?;
-    let rows = st.query_map(params![before, limit], book_row)?;
+    let rows = st.query_map(params![before, limit, list, search], |r| Ok((book_row(r)?, r.get(4)?)))?;
     rows.collect()
 }
 

@@ -16,6 +16,7 @@ vi.mock('../lib/api.js', async (real) => {
       canOpenSites: vi.fn(() => true),
       openSite: vi.fn(),
       books: vi.fn(),
+      lists: vi.fn(async () => []),
       exportBook: vi.fn(),
       previewSrc: vi.fn(async (p) => `/files/${p}`),
       // Inside the app by default: exports are already in the gallery.
@@ -152,6 +153,27 @@ describe('S2 Library', () => {
     api.books.mockImplementation(failing);
     render(Library);
     await screen.findByText(/번역본 목록을 읽지 못했습니다/);
+  });
+
+  it('uses the latest search and opens each source through its reader', async () => {
+    let finishOldSearch;
+    const link = { ...book(3, 0), title: 'Harbor', url: 'https://example.org/harbor' };
+    const chapter = { ...book(4, 1), title: 'Harbor folder', imported: true };
+    api.books.mockResolvedValueOnce({ books: [], next_before: null })
+      .mockImplementationOnce(() => new Promise((resolve) => { finishOldSearch = resolve; }))
+      .mockResolvedValueOnce({ books: [link, chapter], next_before: null });
+    render(Library);
+    await screen.findByRole('link', { name: '첫 화면으로 가기' });
+    const search = screen.getByRole('searchbox');
+    await fireEvent.input(search, { target: { value: 'h' } });
+    await fireEvent.input(search, { target: { value: 'harbor' } });
+    await screen.findByText('Harbor folder');
+    await act(() => finishOldSearch({ books: [], next_before: null }));
+    expect(api.books).toHaveBeenLastCalledWith(null, null, 'harbor');
+    expect(screen.getByRole('link', { name: '읽기' }).getAttribute('href')).toBe('/chapter.html?id=4');
+    expect(screen.queryByText('링크 저장')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: '읽기' }));
+    expect(api.openSite).toHaveBeenCalledWith(link.url);
   });
 
   it('full: exports a book, a failure offers to export again', async () => {
