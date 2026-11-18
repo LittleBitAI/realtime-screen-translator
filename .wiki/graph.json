@@ -104,14 +104,15 @@
   }
  ],
  "orphans": [
+  "DESIGN.md",
   "docs/research/review-oneshot-initial-f1-1.md",
   "docs/research/review-oneshot-initial-f1-2.md"
  ],
  "counts": {
-  "docs": 5,
+  "docs": 6,
   "linked": 1,
   "read": 2,
-  "orphans": 2,
+  "orphans": 3,
   "pages": 8,
   "decisions": 6,
   "injectable_decisions": 2

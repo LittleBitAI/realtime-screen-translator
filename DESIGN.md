@@ -1,6 +1,13 @@
 ---
 name: Manga Reader Workspace
-colors: {}
+colors:
+  primary: "#1f2937"
+  surface: "#f8fafc"
+  ink: "#111827"
+  accent: "#2563eb"
+  selection: "#eff6ff"
+  control: "#64748b"
+  muted: "#475569"
 typography:
   page-title:
     fontSize: 28px
@@ -56,7 +63,7 @@ Translation status             Export formats    ›
 Open | Library | Settings   Open | Library | Settings
 ```
 
-The selected list expands beneath its button. Each named list shows its saved-title count. Navigation stays at the bottom. The reader's fixed toolbar includes the return action with the translation toggle.
+The selected list expands beneath its button. Each named list shows its saved-title count. Navigation stays at the bottom, with scroll padding that keeps focused and scrolled-to controls above the bar. The reader's fixed toolbar includes the return action with the translation toggle.
 
 ## Windows
 
@@ -78,3 +85,7 @@ The two panes start at 62rem, where the content area can fit a 272px list pane, 
 ## Data and interaction
 
 The installed app reads and writes its device-local library. The browser serves the same screens against its configured data folder. The mounted library owns its results, and its request generation drops results from previous selections or searches. Only explicit actions write to storage. Selecting a list or entering a query changes what the screen reads. A list edit preserves the underlying books and pictures.
+
+## Color
+
+The owner chose Slate and blue after reviewing the phone and desktop previews. The slate background leaves white cards distinct. A pale blue fill and a visible underline mark the current screen, and the selected list pairs its fill with an outline and an expanded or pressed state. The lowest checked contrast ratios were 16.96:1 for body text, 6.96:1 for supporting text, 4.75:1 for the focus accent and 4.55:1 for control borders. The tested pairs include white cards, the slate canvas and the blue selection where each color is used.
