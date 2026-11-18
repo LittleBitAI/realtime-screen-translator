@@ -1,0 +1,38 @@
+Source commit: 371e9c059782b02d2a98b43a15405926a1e8bc99
+Environment: Microsoft Windows 11 Home 10.0.26200, x86_64-pc-windows-msvc
+cargo 1.98.1 (797e8a9bc 2026-08-05)
+
+cargo test -p realtime-screen-translator --test strip_file_and_shape_edges --test reader_edges --test backend_edges --test lifecycle_and_export_edges
+running 7 tests
+test crop_of_a_forgotten_frame_is_refused ... ok
+test same_hash_with_another_shape_keeps_both_translations ... ok
+test strip_that_is_not_the_screen_rows_is_refused ... ok
+test failed_translation_is_asked_again ... ok
+test part_scrolled_past_without_stopping_is_saved_when_the_screen_rests_on_it ... ok
+test no_retry_goes_out_after_stop ... ok
+test same_balloon_seen_in_several_places_while_waiting_is_placed_everywhere ... ok
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.41s
+running 5 tests
+test a_black_capture_with_a_stray_lit_pixel_in_it_is_blocked ... ok
+test the_rounded_shape_covers_the_source_text_to_its_corners ... ok
+test a_stop_still_tearing_down_does_not_take_down_the_next_start ... ok
+test exports_at_the_same_time_write_separate_files ... ok
+test a_start_whose_book_cannot_be_made_takes_capture_and_overlay_down ... ok
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.69s
+running 6 tests
+test copies_of_one_page_read_at_once_send_it_to_gemini_once ... ok
+test a_page_whose_saving_fails_says_so_and_is_saved_by_the_next_call_without_gemini ... ok
+test a_page_is_translated_once_per_language_and_kept_as_a_book ... ok
+test empty_and_failed_imports_leave_no_chapter_or_copied_files ... ok
+test imported_chapter_survives_restart_and_shares_the_url_cache_by_language ... ok
+test oversize_pages_are_rejected_across_formats_before_a_chapter_is_published ... ok
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.36s
+running 3 tests
+test a_strip_is_kept_as_lossless_webp_under_a_relative_path ... ok
+test a_shape_grown_for_a_long_translation_does_not_cover_one_already_shown ... ok
+test a_large_capture_is_saved_and_reopened_for_export_in_both_strip_formats ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.90s
+
+Total: 21 passed, 0 failed.
+The new test saves a 5K capture via the backend, reopens the book for each stored strip format, and checks the exported dimensions and pixels on both sides of a render band boundary.
+The existing image-size regression still checks page rejection in JPEG, PNG and WebP and verifies that the folder import leaves no partial chapter.
