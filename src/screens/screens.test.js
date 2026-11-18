@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { api, ApiError } from '../lib/api.js';
 import Home from './Home.svelte';
 import Library from './Library.svelte';
@@ -57,13 +57,14 @@ describe('S1 Home', () => {
 
   it('empty: no key, asks for the key first and opens nothing', async () => {
     api.status.mockResolvedValue(off);
-    render(Home);
-    await screen.findByText('번역하려면 Gemini API 키를 먼저 넣어 주세요.');
+    await act(() => render(Home));
+    expect(screen.getByText('번역하려면 Gemini API 키를 먼저 넣어 주세요.')).toBeTruthy();
     expect(screen.getByText('없음')).toBeTruthy();
-    expect(screen.getByRole('link', { name: '설정으로 가기' }).getAttribute('href')).toBe('/options');
+    const optionsLink = screen.getByText('설정으로 가기', { selector: 'a[href]' });
+    expect(optionsLink.getAttribute('href')).toBe('/options');
     await typeUrl('https://example.com/manga/1');
     await fireEvent.click(openBar());
-    await screen.findByText(/키가 없습니다/);
+    expect(screen.getByText(/키가 없습니다/)).toBeTruthy();
     expect(api.openSite).not.toHaveBeenCalled();
   });
 
