@@ -15,7 +15,7 @@ const page = (save_error) => ({
   width: 600,
   height: 800,
   saved: false,
-  boxes: [{ x: 60, y: 80, w: 120, h: 60, radius: 6, font_px: 20, ko: '안녕' }],
+  boxes: [{ x: 60, y: 80, w: 120, h: 60, radius: 6, font_px: 20, ko: '안녕', outline: [], text: [66, 86, 108, 48] }],
   save_error,
 });
 
@@ -61,6 +61,29 @@ describe('reader page script', () => {
     expect(document.querySelector('.rst-bar [role=status]').hidden).toBe(true);
     [...document.querySelectorAll('.rst-bar button')].find((button) => button.textContent === '앱으로 돌아가기').click();
     expect(invoke).toHaveBeenLastCalledWith('post_reader_close', {});
+  });
+
+  it('shapes each cover to its balloon, sets the Korean in its text area, and draws nothing for a line kept without a shape', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('cors'); }));
+    const balloon = { x: 100, y: 200, w: 200, h: 100, radius: 0, font_px: 20, ko: '말풍선',
+      outline: [[300, 200], [300, 300], [100, 300], [100, 250], [150, 250], [150, 200]], text: [150, 220, 100, 60] };
+    const kept = { x: 400, y: 400, w: 0, h: 0, radius: 0, font_px: 0, ko: '요들레이히!', outline: [], text: [400, 400, 0, 0] };
+    const invoke = vi.fn().mockResolvedValue(null).mockResolvedValueOnce({ ...page(null), boxes: [balloon, kept] });
+    window.__TAURI_INTERNALS__ = { invoke };
+    pagePicture('https://cdn.example/2.jpg');
+
+    new Function(script)();
+
+    const box = await vi.waitFor(() => {
+      const b = document.querySelector('.rst-box');
+      expect(b).not.toBeNull();
+      return b;
+    });
+    expect([...document.querySelectorAll('.rst-box')].map((b) => b.textContent)).toEqual(['말풍선']);
+    expect(box.style.clipPath).toBe('polygon(100% 0%, 100% 100%, 0% 100%, 0% 50%, 25% 50%, 25% 0%)');
+    const text = box.querySelector('.rst-text');
+    expect([text.style.left, text.style.top, text.style.width, text.style.height]).toEqual(['25%', '20%', '50%', '60%']);
+    expect(text.textContent).toBe('말풍선');
   });
 
   it('loads and translates a chapter picture only as it approaches the view', async () => {

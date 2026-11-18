@@ -85,22 +85,13 @@ impl Client<'_> {
     }
 
     /// The dialogue balloons of one manga page (`mime` picture bytes) whose
-    /// text is in `lang` (`ja` or `en`), each with its Korean, in reading
-    /// order. Sound effects and text drawn into the art are left out.
-    pub fn read_page(&self, image: &[u8], mime: &str, lang: &str, may_send: &dyn Fn() -> bool) -> Result<Vec<PageItem>, GeminiError> {
-        let source = if lang == "en" { "English" } else { "Japanese" };
-        let order = if lang == "en" { "left to right, top to bottom" } else { "right to left, top to bottom" };
-        let text = format!(
-            "This is one manga page. Find every speech balloon, thought bubble and narration box that holds \
-             {source} dialogue. Leave out sound effects, onomatopoeia, signs, screens and any text drawn as \
-             part of the art. For each one give box_2d as [ymin, xmin, ymax, xmax] scaled to 0-1000 around all \
-             of its text, every line included, and balloon_2d the same way around the whole balloon or box up \
-             to its outline, the {source} text as src, and as ko a natural, casual Korean translation that fits \
-             the balloon, keeping the tone, rough language included. List them in reading order ({order}). \
-             Answer only with JSON {{\"items\": [{{\"box_2d\": [...], \"balloon_2d\": [...], \"src\": \"...\", \"ko\": \"...\"}}]}}."
-        );
+    /// text is in `lang` (`ja` or `en`), each with its speaker and Korean, in
+    /// reading order. Sound effects and text drawn into the art are left out.
+    /// `context` holds the lines of the pages read just before this one, so
+    /// each character keeps one voice across page turns.
+    pub fn read_page(&self, image: &[u8], mime: &str, lang: &str, context: &[PageItem], may_send: &dyn Fn() -> bool) -> Result<Vec<PageItem>, GeminiError> {
         let data = base64::engine::general_purpose::STANDARD.encode(image);
-        let parts = vec![json!({"text": text}), json!({"inline_data": {"mime_type": mime, "data": data}})];
+        let parts = vec![json!({"text": page_prompt(lang, context)}), json!({"inline_data": {"mime_type": mime, "data": data}})];
         let full = self.send(parts, PAGE_PREFILL, may_send)?;
         parse_page(&full).ok_or(GeminiError::Unreadable)
     }
@@ -157,6 +148,44 @@ impl Client<'_> {
     }
 }
 
+/// Earlier lines given to the model, at most: enough to carry names, speech
+/// levels and running jokes across a page turn, small next to the picture.
+pub const CONTEXT_LINES: usize = 40;
+
+/// The reader's request text for one page.
+pub fn page_prompt(lang: &str, context: &[PageItem]) -> String {
+    let source = if lang == "en" { "English" } else { "Japanese" };
+    let order = if lang == "en" { "left to right, top to bottom" } else { "right to left, top to bottom" };
+    let mut text = format!(
+        "This is one manga page. Find every speech balloon, thought bubble and narration box that holds \
+         {source} dialogue. Leave out sound effects, onomatopoeia, signs, screens and any text drawn as \
+         part of the art. Give exactly one item per balloon: never merge two balloons into one item, even \
+         when they touch or one character says both, and never split one balloon into two items. For each \
+         item give box_2d as [ymin, xmin, ymax, xmax] scaled to 0-1000 tightly around all of its text, from \
+         the first letter of the first line to the last letter of the last line, and balloon_2d the same way \
+         around the whole balloon or box up to its outline; speaker, the name of the character who says it \
+         (as named on earlier pages, or a short description when the name is not known); the {source} text \
+         as src; and as ko a natural, casual Korean translation that fits the balloon. Work out who speaks \
+         each balloon from its tail, the panel and the exchange, and keep every character's voice: the \
+         speech level (banmal or jondaetmal) and form of address each character uses toward each other one, \
+         their distinctive way of talking, and the tone, rough language included. List the items in reading \
+         order ({order}). Answer only with JSON {{\"items\": [{{\"box_2d\": [...], \"balloon_2d\": [...], \
+         \"speaker\": \"...\", \"src\": \"...\", \"ko\": \"...\"}}]}}."
+    );
+    let start = context.len().saturating_sub(CONTEXT_LINES);
+    if start < context.len() {
+        text.push_str(
+            "\nThe pages just before this one, in reading order, as speaker: source => Korean already shown \
+             to the reader. Keep the same names, speech levels and wording for recurring phrases:",
+        );
+        for it in &context[start..] {
+            let speaker = if it.speaker.is_empty() { "?" } else { it.speaker.as_str() };
+            text.push_str(&format!("\n{speaker}: {} => {}", it.src.replace('\n', " "), it.ko.replace('\n', " ")));
+        }
+    }
+    text
+}
+
 /// The text the model wrote after the prefill.
 fn continuation(body: &str) -> Option<String> {
     let v: Value = serde_json::from_str(body).ok()?;
@@ -174,10 +203,13 @@ fn with_prefill(prefill: &str, continuation: &str) -> String {
 }
 
 /// One balloon of a page: boxes as fractions (0..1) of the page, `[top, left, bottom, right]`.
-#[derive(Clone, Debug, PartialEq)]
+/// Kept as given with each saved page, so its shapes can be laid out again.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PageItem {
     pub text: [f64; 4],
     pub balloon: Option<[f64; 4]>,
+    #[serde(default)]
+    pub speaker: String,
     pub src: String,
     pub ko: String,
 }
@@ -196,8 +228,10 @@ fn frac_box(v: &Value) -> Option<[f64; 4]> {
 /// without a usable text box or translation is dropped, not the page.
 pub fn parse_page(full: &str) -> Option<Vec<PageItem>> {
     let full = with_prefill(PAGE_PREFILL, full);
-    let v: Value = serde_json::from_str(&full).ok()?;
-    let items = v["items"].as_array()?;
+    let items = match serde_json::from_str::<Value>(&full) {
+        Ok(v) => v["items"].as_array()?.clone(),
+        Err(_) => salvage(&full)?,
+    };
     Some(
         items
             .iter()
@@ -206,10 +240,99 @@ pub fn parse_page(full: &str) -> Option<Vec<PageItem>> {
                 if ko.is_empty() {
                     return None;
                 }
-                Some(PageItem { text: frac_box(&it["box_2d"])?, balloon: frac_box(&it["balloon_2d"]), src: it["src"].as_str().unwrap_or("").trim().to_string(), ko })
+                let field = |k: &str| it[k].as_str().unwrap_or("").trim().to_string();
+                Some(PageItem { text: frac_box(&it["box_2d"])?, balloon: frac_box(&it["balloon_2d"]), speaker: field("speaker"), src: field("src"), ko })
             })
             .collect(),
     )
+}
+
+/// The items of a whole answer (its list closed) that is not JSON as a
+/// whole: each item read on its own, a key left without a value before the
+/// next key dropped (`"label": "balloon_2d": [...]`, seen once), an item
+/// still unreadable left out. A cut-off answer (the model ran out of room)
+/// is not salvaged: it may be missing its last balloons.
+fn salvage(full: &str) -> Option<Vec<Value>> {
+    let body = full.trim_end().strip_suffix("]}")?;
+    let body = body.strip_prefix(PAGE_PREFILL)?;
+    let (mut items, mut depth, mut start, mut in_str, mut esc) = (vec![], 0, 0, false, false);
+    for (i, c) in body.char_indices() {
+        match c {
+            _ if esc => esc = false,
+            '\\' if in_str => esc = true,
+            '"' => in_str = !in_str,
+            '{' if !in_str => {
+                if depth == 0 {
+                    start = i;
+                }
+                depth += 1;
+            }
+            '}' if !in_str && depth > 0 => {
+                depth -= 1;
+                if depth == 0 {
+                    let obj = &body[start..=i];
+                    let fixed = serde_json::from_str(obj).ok().or_else(|| serde_json::from_str(&drop_bare_keys(obj)).ok());
+                    items.extend(fixed);
+                }
+            }
+            _ => {}
+        }
+    }
+    (!items.is_empty()).then_some(items)
+}
+
+/// `"a": "b": 1` as `"b": 1`: a key followed straight by another key.
+fn drop_bare_keys(obj: &str) -> String {
+    let mut out = obj.to_string();
+    while let Some((at, len)) = bare_key(&out) {
+        out.replace_range(at..at + len, "");
+    }
+    out
+}
+
+fn bare_key(s: &str) -> Option<(usize, usize)> {
+    let b = s.as_bytes();
+    // The index of the quote closing the string opened at `open`.
+    let close = |open: usize| {
+        let mut i = open + 1;
+        while i < b.len() {
+            match b[i] {
+                b'\\' => i += 2,
+                b'"' => return Some(i),
+                _ => i += 1,
+            }
+        }
+        None
+    };
+    let skip = |mut i: usize| {
+        while i < b.len() && b[i].is_ascii_whitespace() {
+            i += 1;
+        }
+        i
+    };
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] != b'"' {
+            i += 1;
+            continue;
+        }
+        // A string, a colon, then a string that is itself followed by a
+        // colon: the first is a key with no value.
+        let end = close(i)?;
+        let j = skip(end + 1);
+        if b.get(j) == Some(&b':') {
+            let k = skip(j + 1);
+            if b.get(k) == Some(&b'"') {
+                if let Some(e2) = close(k) {
+                    if b.get(skip(e2 + 1)) == Some(&b':') {
+                        return Some((i, k - i));
+                    }
+                }
+            }
+        }
+        i = end + 1;
+    }
+    None
 }
 
 /// Prefill + continuation must read as JSON `{key: [n strings]}`.
@@ -236,11 +359,28 @@ mod tests {
 
     #[test]
     fn a_page_answer_keeps_whole_balloons_only() {
-        let page = parse_page("{\"box_2d\":[100,200,300,400],\"balloon_2d\":[50,150,350,450],\"src\":\"HI\",\"ko\":\"안녕\"},{\"box_2d\":[1,2],\"ko\":\"x\"},{\"box_2d\":[0,0,9,9],\"ko\":\"\"}]}").unwrap();
-        assert_eq!(page, vec![PageItem { text: [0.1, 0.2, 0.3, 0.4], balloon: Some([0.05, 0.15, 0.35, 0.45]), src: "HI".into(), ko: "안녕".into() }]);
+        let page = parse_page("{\"box_2d\":[100,200,300,400],\"balloon_2d\":[50,150,350,450],\"speaker\":\"Rentaro\",\"src\":\"HI\",\"ko\":\"안녕\"},{\"box_2d\":[1,2],\"ko\":\"x\"},{\"box_2d\":[0,0,9,9],\"ko\":\"\"}]}").unwrap();
+        assert_eq!(page, vec![PageItem { text: [0.1, 0.2, 0.3, 0.4], balloon: Some([0.05, 0.15, 0.35, 0.45]), speaker: "Rentaro".into(), src: "HI".into(), ko: "안녕".into() }]);
         assert_eq!(parse_page("]}"), Some(vec![]));
         assert_eq!(parse_page("죄송합니다"), None);
         assert_eq!(parse(TRANSLATE_PREFILL, "안녕\"]}
 ", "ko", 1), Some(vec!["안녕".into()]));
+    }
+
+    /// A whole answer with one item written wrong (as Gemini once answered
+    /// chapter 258, page 6) keeps every balloon; a cut-off one keeps none.
+    #[test]
+    fn a_whole_answer_with_a_broken_item_is_read_item_by_item() {
+        let answer = r#"
+  {"box_2d": [266, 852, 383, 975], "balloon_2d": [243, 842, 413, 985], "speaker": "Rentarou", "src": "OH, RIGHT.", "ko": "아, 맞다."},
+  {"box_2d": [533, 852, 650, 975], "label": "balloon_2d": [510, 842, 680, 985], "speaker": "Nuremi", "src": "\"LIKE\" DOESN'T EVEN BEGIN TO COVER IT.", "ko": "좋아한다는 말로는 부족해."},
+  {"box_2d": [533, 142, 650, 275], "src": "IT'S MORE LIKE...", "ko": "오히려..."}
+]}"#;
+        let page = parse_page(answer).unwrap();
+        assert_eq!(page.iter().map(|p| p.ko.as_str()).collect::<Vec<_>>(), ["아, 맞다.", "좋아한다는 말로는 부족해.", "오히려..."]);
+        assert_eq!(page[1].src, "\"LIKE\" DOESN'T EVEN BEGIN TO COVER IT.");
+        assert_eq!(page[1].balloon, Some([0.51, 0.842, 0.68, 0.985]));
+        let cut = r#"{"box_2d": [256, 825, 285, 915], "src": "Do take care.", "ko": "조심히 다녀오세요."}, {"box_2d": [26, 540, 276, 725], "ko": "안녕, 하카아아아"#;
+        assert_eq!(parse_page(cut), None);
     }
 }

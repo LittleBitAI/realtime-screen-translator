@@ -8,6 +8,7 @@
 use super::*;
 use crate::api::{LangIn, PageBox, PageIn, PageOut};
 use crate::gemini::PageItem;
+use crate::balloon;
 use crate::layout::{self, PAD};
 use sha2::{Digest, Sha256};
 
@@ -25,6 +26,11 @@ const SLACK: f64 = 0.35;
 /// by at least `GROW_MIN_PX`, before the shape is made.
 const GROW: f64 = 0.06;
 const GROW_MIN_PX: f64 = 4.0;
+/// How far, in letters, a cover with no balloon around it may reach past
+/// the lettering found into Gemini's box: far enough for a trailing "?"
+/// the page shows apart (ch256 p21), not across the hair beside a shout
+/// Gemini boxed large (ch256 p7, "WH...?!").
+const WIDEN: f64 = 1.5;
 
 #[derive(Clone, Copy)]
 pub(super) enum ReaderSource<'a> {
@@ -60,31 +66,60 @@ impl Backend {
             Some(b) if !b.is_empty() => b.clone(),
             _ => fetch(&req.src, &req.page_url)?,
         };
-        let page = export::decode_page(&bytes)?;
-        let (w, h) = (page.w, page.h);
-        drop(page);
-        self.read_picture(ReaderSource::Site(&req), &bytes, w, h)
+        self.read_picture(ReaderSource::Site(&req), &bytes)
     }
 
-    pub(super) fn read_picture(&self, source: ReaderSource<'_>, bytes: &[u8], w: u32, h: u32) -> ApiResult<PageOut> {
+    pub(super) fn read_picture(&self, source: ReaderSource<'_>, bytes: &[u8]) -> ApiResult<PageOut> {
         let lang = self.source_lang();
         let mime = export::mime(bytes).ok_or(ApiError("bad_image"))?;
+        // The shapes are laid out on the page's own pixels, every time, so a
+        // page read again shows the layout of this version of the app.
+        let page = export::decode_page(bytes)?;
+        let (w, h) = (page.w, page.h);
         let hash: String = Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect();
         let page_key = format!("{hash}:{lang}");
         // Two copies of one picture read at once: the second waits here for
         // the first's answer instead of sending the page again.
         let _turn = self.pages.turn(&page_key);
-        {
+        let kept = {
             let st = self.lock();
-            if store::reader_page(&st.db, &page_key)?.is_some() {
-                let rows = store::reader_placements(&st.db, &page_key)?;
-                let boxes = rows.into_iter().map(|p| PageBox { x: p.x, y: p.y, w: p.w, h: p.h, radius: p.radius, font_px: p.font_px, ko: p.ko }).collect();
-                let save_error = match source {
-                    ReaderSource::Chapter(pic) => store::set_chapter_translation(&st.db, pic, &page_key).err().map(|e| ApiError::from(e).0),
-                    ReaderSource::Site(_) => None,
-                };
-                return Ok(PageOut { width: w, height: h, saved: true, boxes, save_error });
+            match store::reader_page(&st.db, &page_key)? {
+                Some(_) => Some(store::reader_items(&st.db, &page_key)?),
+                None => None,
             }
+        };
+        if let Some(items) = kept {
+            let items: Option<Vec<PageItem>> = items.and_then(|j| serde_json::from_str(&j).ok());
+            // Laid out outside the lock: other pages keep reading meanwhile.
+            let fresh = items.map(|items| shapes(&items, &page, &lang));
+            drop(page);
+            let st = self.lock();
+            let rows = store::reader_placements(&st.db, &page_key)?;
+            let boxes = match fresh {
+                Some(boxes) => {
+                    let stale = rows.iter().zip(&boxes).any(|(r, b)| page_box(r) != *b);
+                    if stale && rows.len() == boxes.len() {
+                        // Laid out by an earlier version: the library (and
+                        // its export) gets this one. A failure here costs
+                        // only the stale export, so the page is still shown.
+                        let new: Vec<_> = rows.iter().zip(&boxes).map(|(r, b)| row(r.fingerprint.clone(), b)).collect();
+                        {
+                            let tx = st.db.unchecked_transaction()?;
+                            if let Err(e) = store::replace_reader_placements(&tx, &page_key, &new).and_then(|()| tx.commit()) {
+                                eprintln!("reader: shapes not updated: {e}");
+                            }
+                        }
+                    }
+                    boxes
+                }
+                // Kept before its answer was: the shapes saved then.
+                None => rows.into_iter().map(|p| page_box(&p)).collect(),
+            };
+            let save_error = match source {
+                ReaderSource::Chapter(pic) => store::set_chapter_translation(&st.db, pic, &page_key).err().map(|e| ApiError::from(e).0),
+                ReaderSource::Site(_) => None,
+            };
+            return Ok(PageOut { width: w, height: h, saved: true, boxes, save_error });
         }
 
         let model = self.lock().model.clone();
@@ -93,10 +128,12 @@ impl Backend {
             Some(items) => items,
             None => {
                 let key = self.lock().key.clone().ok_or(ApiError("key_missing"))?;
-                self.ask_page(bytes, mime, &lang, &model, &key)?
+                let context = self.context(source)?;
+                self.ask_page(bytes, mime, &lang, &context, &model, &key)?
             }
         };
-        let boxes: Vec<PageBox> = items.iter().map(|it| shape(it, w, h)).collect();
+        let boxes = shapes(&items, &page, &lang);
+        drop(page);
 
         let mut guard = self.lock();
         let st = &mut *guard;
@@ -132,10 +169,10 @@ impl Backend {
                 let fingerprint = format!("page:{page_key}:{i}");
                 let t = store::Translation { fingerprint: fingerprint.clone(), aspect: b.w as f32 / b.h.max(1) as f32, source_ja: Some(it.src.clone()), translation_ko: Some(it.ko.clone()), status: "ready".into() };
                 store::put_translation(&tx, &t, &model, now)?;
-                let row = store::PlacementRow { id: 0, fingerprint, x: b.x, y: b.y, w: b.w, h: b.h, radius: b.radius, font_px: b.font_px, ko: b.ko.clone() };
-                store::insert_placement(&tx, pic, &row)?;
+                store::insert_placement(&tx, pic, &row(fingerprint, b))?;
             }
-            store::insert_reader_page(&tx, &page_key, pic, url)?;
+            let answer = serde_json::to_string(&items).map_err(|_| ApiError("internal"))?;
+            store::insert_reader_page(&tx, &page_key, pic, url, &answer)?;
             if let ReaderSource::Chapter(pic) = source {
                 store::set_chapter_translation(&tx, pic, &page_key)?;
             }
@@ -172,15 +209,28 @@ impl Backend {
         tests::after_let_go(self);
     }
 
+    /// The lines of the pages kept just before this one in its book, oldest
+    /// first, so the next request keeps names and voices as they were shown.
+    fn context(&self, source: ReaderSource<'_>) -> ApiResult<Vec<PageItem>> {
+        let st = self.lock();
+        let place = match source {
+            ReaderSource::Site(req) => store::reader_book(&st.db, &req.page_url)?.map(|b| (b, req.index)),
+            ReaderSource::Chapter(pic) => store::picture_place(&st.db, pic)?,
+        };
+        let Some((book, seq)) = place else { return Ok(vec![]) };
+        let pages = store::earlier_items(&st.db, book, seq, 3)?;
+        Ok(pages.iter().filter_map(|j| serde_json::from_str::<Vec<PageItem>>(j).ok()).flatten().collect())
+    }
+
     /// One Gemini request for the whole page (R9, R10 in `gemini::read_page`).
-    fn ask_page(&self, bytes: &[u8], mime: &str, lang: &str, model: &str, key: &str) -> ApiResult<Vec<PageItem>> {
+    fn ask_page(&self, bytes: &[u8], mime: &str, lang: &str, context: &[PageItem], model: &str, key: &str) -> ApiResult<Vec<PageItem>> {
         let agent = gemini::agent();
         let client = gemini::Client { agent: &agent, base: &self.gemini_base, model, key };
         let may_send = || {
             self.lock().gemini_requests += 1;
             true
         };
-        match client.read_page(bytes, mime, lang, &may_send) {
+        match client.read_page(bytes, mime, lang, context, &may_send) {
             Ok(items) => {
                 let mut st = self.lock();
                 if matches!(st.notice, Some("key_invalid" | "gemini_unreachable")) {
@@ -291,9 +341,211 @@ fn px(b: [f64; 4], w: u32, h: u32) -> [f64; 4] {
     [b[1] * w as f64, b[0] * h as f64, b[3] * w as f64, b[2] * h as f64]
 }
 
+/// The white shapes of a page's balloons. Each follows its balloon's printed
+/// outline where the page shows one (`balloon::find`); otherwise it is the
+/// rounded rectangle of [`shape`]. Either way the Korean is sized from the
+/// original lettering under it.
+pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<PageBox> {
+    let (w, h) = (page.w, page.h);
+    let gray = page.gray();
+    let pg = balloon::Page { w, h, px: &gray };
+    let vertical = lang == "ja";
+    // Gemini's boxes say roughly where; the lettering on the page says exactly.
+    let blocks = balloon::blocks(&pg, vertical);
+    let letters = |s: &str| s.chars().filter(|c| c.is_alphanumeric()).count();
+    let wanted: Vec<([f64; 4], usize)> = items.iter().map(|it| (px(it.text, w, h), letters(&it.src))).collect();
+    let on = balloon::assign(&wanted, &blocks, w);
+    let pieces = balloon::gather(&wanted, &blocks, &on);
+    let union = |p: &[[f64; 4]]| p.iter().fold([f64::MAX, f64::MAX, f64::MIN, f64::MIN], |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
+    let texts: Vec<[f64; 4]> = pieces.iter().zip(&wanted).map(|(p, &(t, _))| if p.is_empty() { t } else { union(p) }).collect();
+    items
+        .iter()
+        .enumerate()
+        .map(|(i, it)| {
+            let others: Vec<[f64; 4]> = texts.iter().enumerate().filter(|&(j, _)| j != i).map(|(_, &t)| t).collect();
+            // Each piece of lettering gathered from beside the item's own,
+            // under a rectangle of its own, cut back from other items'.
+            let beside = |cover: [f64; 4]| -> Vec<Vec<[i64; 2]>> {
+                pieces[i]
+                    .iter()
+                    .skip(1)
+                    .filter(|p| !(p[0] >= cover[0] && p[1] >= cover[1] && p[2] <= cover[2] && p[3] <= cover[3]))
+                    .map(|p| {
+                        let (mx, my) = (((p[2] - p[0]) * GROW).max(GROW_MIN_PX), ((p[3] - p[1]) * GROW).max(GROW_MIN_PX));
+                        let r = apart([p[0] - mx, p[1] - my, p[2] + mx, p[3] + my], *p, &others);
+                        rect_outline([r[0] as i64, r[1] as i64, r[2].ceil() as i64, r[3].ceil() as i64])
+                    })
+                    .collect()
+            };
+            let around = |t: [f64; 4], glyph: f64| balloon::find(&pg, t, glyph, &others).map(|f| balloon::Found { glyph: Some(glyph), ..f });
+            let found = on[i].and_then(|j| {
+                let (own, glyph) = (blocks[j].bounds, blocks[j].glyph);
+                if texts[i] == own {
+                    return around(own, glyph);
+                }
+                // Lettering gathered from beside its block goes under one
+                // cover only if one balloon holds it all; else the block's
+                // own balloon is covered, and the art beside it is not.
+                let t = texts[i];
+                around(t, glyph)
+                    .filter(|f| {
+                        let b = f.bounds;
+                        b[0] as f64 <= t[0] && b[1] as f64 <= t[1] && b[2] as f64 >= t[2] && b[3] as f64 >= t[3]
+                    })
+                    .or_else(|| around(own, glyph))
+            });
+            match found {
+                Some(f) => {
+                    let [x0, y0, x1, y1] = f.text;
+                    let (tw, th) = ((x1 - x0) as u32, (y1 - y0) as u32);
+                    let b = f.bounds;
+                    let (outline, b) = joined(std::iter::once(f.outline).chain(beside(b.map(|v| v as f64))).collect());
+                    PageBox {
+                        x: b[0],
+                        y: b[1],
+                        w: (b[2] - b[0]) as u32,
+                        h: (b[3] - b[1]) as u32,
+                        radius: 0,
+                        font_px: layout::font_for(&it.ko, tw, th, f.glyph),
+                        ko: it.ko.clone(),
+                        outline,
+                        text: [x0, y0, tw as i64, th as i64],
+                    }
+                }
+                // No closed balloon: a rounded rectangle over the lettering
+                // found, or over Gemini's box when none was.
+                // No lettering found for it, and none in Gemini's box either
+                // (a shout fused with the panel frame, the box on the hair
+                // below it): a white box there would wipe the art and leave
+                // the lettering. The line is kept, with nothing drawn.
+                None if on[i].is_none() && balloon::marks_in(&pg, wanted[i].0) < (wanted[i].1 / 2).max(1) => {
+                    let t = wanted[i].0;
+                    let (x, y) = (t[0].max(0.0) as i64, t[1].max(0.0) as i64);
+                    PageBox { x, y, w: 0, h: 0, radius: 0, font_px: 0, ko: it.ko.clone(), outline: vec![], text: [x, y, 0, 0] }
+                }
+                None => {
+                    // The lettering found, and as much of Gemini's box as lies
+                    // within a letter or two of it: lettering the page shows
+                    // faintly (white letters on a gray balloon, outlined on
+                    // foliage) or in pieces is still covered, and a box
+                    // Gemini put off to one side is not.
+                    let t = match on[i] {
+                        Some(j) => {
+                            let (t, g, r) = (blocks[j].bounds, WIDEN * blocks[j].glyph, wanted[i].0);
+                            let clip = [r[0].max(t[0] - g), r[1].max(t[1] - g), r[2].min(t[2] + g), r[3].min(t[3] + g)];
+                            if clip[0] < clip[2] && clip[1] < clip[3] {
+                                [t[0].min(clip[0]), t[1].min(clip[1]), t[2].max(clip[2]), t[3].max(clip[3])]
+                            } else {
+                                t
+                            }
+                        }
+                        None => texts[i],
+                    };
+                    let glyph = match on[i] {
+                        Some(j) => Some(blocks[j].glyph),
+                        None => {
+                            let strokes: Vec<(i64, i64)> = (t[1].max(0.0) as i64..(t[3] as i64).min(h as i64))
+                                .flat_map(|y| (t[0].max(0.0) as i64..(t[2] as i64).min(w as i64)).map(move |x| (x, y)))
+                                .filter(|&(x, y)| gray[y as usize * w as usize + x as usize] < 128)
+                                .collect();
+                            balloon::glyph(&strokes, vertical)
+                        }
+                    };
+                    let placed = match on[i] {
+                        Some(_) => PageItem { text: [t[1] / h as f64, t[0] / w as f64, t[3] / h as f64, t[2] / w as f64], balloon: None, ..it.clone() },
+                        None => it.clone(),
+                    };
+                    let mut s = shape(&placed, w, h);
+                    let r = apart([s.x as f64, s.y as f64, (s.x + s.w as i64) as f64, (s.y + s.h as i64) as f64], t, &others);
+                    (s.x, s.y, s.w, s.h) = (r[0] as i64, r[1] as i64, (r[2] - r[0]) as u32, (r[3] - r[1]) as u32);
+                    s.radius = s.radius.min((s.w.min(s.h) / 4) as u16);
+                    let pad = PAD as i64;
+                    s.text = [s.x + pad, s.y + pad, (s.w as i64 - 2 * pad).max(1), (s.h as i64 - 2 * pad).max(1)];
+                    s.font_px = layout::font_for(&it.ko, s.text[2] as u32, s.text[3] as u32, glyph);
+                    let own = [s.x, s.y, s.x + s.w as i64, s.y + s.h as i64];
+                    let more = beside(own.map(|v| v as f64));
+                    if !more.is_empty() {
+                        let (outline, b) = joined(std::iter::once(rect_outline(own)).chain(more).collect());
+                        (s.outline, s.radius) = (outline, 0);
+                        (s.x, s.y, s.w, s.h) = (b[0], b[1], (b[2] - b[0]) as u32, (b[3] - b[1]) as u32);
+                    }
+                    s
+                }
+            }
+        })
+        .collect()
+}
+
+/// A rectangle cover `c` over lettering `own`, cut back from the other
+/// items' lettering it reaches into, on whichever side gives up least: two
+/// captions side by side each keep their own and neither white box hides
+/// the other's Korean.
+fn apart(mut c: [f64; 4], own: [f64; 4], others: &[[f64; 4]]) -> [f64; 4] {
+    for o in others {
+        if c[0] >= o[2] || o[0] >= c[2] || c[1] >= o[3] || o[1] >= c[3] {
+            continue;
+        }
+        let cuts = [
+            (o[0] >= own[2]).then(|| [c[0], c[1], o[0], c[3]]),
+            (o[2] <= own[0]).then(|| [o[2], c[1], c[2], c[3]]),
+            (o[1] >= own[3]).then(|| [c[0], c[1], c[2], o[1]]),
+            (o[3] <= own[1]).then(|| [c[0], o[3], c[2], c[3]]),
+        ];
+        let area = |r: &[f64; 4]| (r[2] - r[0]) * (r[3] - r[1]);
+        if let Some(best) = cuts.into_iter().flatten().max_by(|a, b| area(a).total_cmp(&area(b))) {
+            c = best;
+        }
+    }
+    c
+}
+
+/// The outline of rectangle `r` (x0, y0, x1, y1), clockwise from its top left
+/// as [`balloon::find`]'s outlines run.
+fn rect_outline(r: [i64; 4]) -> Vec<[i64; 2]> {
+    vec![[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]]
+}
+
+/// One outline of several parts, and its bounds: each part after the first
+/// is reached from the first one's first corner along a bridge of no width,
+/// walked there and back, so the cover is just its parts (filled nonzero, as
+/// `clip-path` and the export fill it).
+fn joined(parts: Vec<Vec<[i64; 2]>>) -> (Vec<[i64; 2]>, [i64; 4]) {
+    let mut out: Vec<[i64; 2]> = vec![];
+    for p in parts.iter().filter(|p| !p.is_empty()) {
+        if let Some(&start) = out.first() {
+            out.push(start);
+            out.extend(p.iter().copied());
+            out.push(p[0]);
+        } else {
+            out.extend(p.iter().copied());
+        }
+    }
+    let b = out.iter().fold([i64::MAX, i64::MAX, i64::MIN, i64::MIN], |b, &[x, y]| [b[0].min(x), b[1].min(y), b[2].max(x), b[3].max(y)]);
+    (out, b)
+}
+
+/// The library row of a shape.
+fn row(fingerprint: String, b: &PageBox) -> store::PlacementRow {
+    let cover = layout::Cover { outline: b.outline.clone(), text: b.text };
+    let cover = serde_json::to_string(&cover).ok();
+    store::PlacementRow { id: 0, fingerprint, x: b.x, y: b.y, w: b.w, h: b.h, radius: b.radius, font_px: b.font_px, ko: b.ko.clone(), cover }
+}
+
+/// The shape of a library row: a rounded rectangle unless its cover says otherwise.
+fn page_box(p: &store::PlacementRow) -> PageBox {
+    let pad = PAD as i64;
+    let cover: Option<layout::Cover> = p.cover.as_deref().and_then(|c| serde_json::from_str(c).ok());
+    let (outline, text) = match cover {
+        Some(c) => (c.outline, c.text),
+        None => (vec![], [p.x + pad, p.y + pad, (p.w as i64 - 2 * pad).max(1), (p.h as i64 - 2 * pad).max(1)]),
+    };
+    PageBox { x: p.x, y: p.y, w: p.w, h: p.h, radius: p.radius, font_px: p.font_px, ko: p.ko.clone(), outline, text }
+}
+
 /// The white shape for one balloon: its text, grown towards the middle of
 /// the balloon so the source text is hidden even where the box Gemini gave
-/// is a little short, and never past the balloon's outline.
+/// is a little short, and never past the balloon's outline. Used where the
+/// page shows no closed balloon around the text.
 pub(crate) fn shape(it: &PageItem, w: u32, h: u32) -> PageBox {
     let t = px(it.text, w, h);
     let (mx, my) = (((t[2] - t[0]) * GROW).max(GROW_MIN_PX), ((t[3] - t[1]) * GROW).max(GROW_MIN_PX));
@@ -320,7 +572,7 @@ pub(crate) fn shape(it: &PageItem, w: u32, h: u32) -> PageBox {
     let (cw, ch) = (((cover[2] - cover[0]) - 2.0 * pad).max(1.0) as u32, ((cover[3] - cover[1]) - 2.0 * pad).max(1.0) as u32);
     let area = (area[0].max(0.0) as i64, area[1].max(0.0) as i64, (area[2].min(w as f64)) as i64, (area[3].min(h as f64)) as i64);
     let s = layout::fit_within(x0, y0, cw, ch, &it.ko, area);
-    PageBox { x: s.x, y: s.y, w: s.w, h: s.h, radius: s.radius, font_px: s.font_px, ko: it.ko.clone() }
+    PageBox { x: s.x, y: s.y, w: s.w, h: s.h, radius: s.radius, font_px: s.font_px, ko: it.ko.clone(), outline: vec![], text: [s.x, s.y, s.w as i64, s.h as i64] }
 }
 
 #[cfg(test)]
@@ -328,7 +580,7 @@ mod tests {
     use super::*;
 
     fn item(text: [f64; 4], balloon: Option<[f64; 4]>) -> PageItem {
-        PageItem { text, balloon, src: String::new(), ko: "안녕".into() }
+        PageItem { text, balloon, speaker: String::new(), src: String::new(), ko: "안녕".into() }
     }
 
     struct Quiet(PathBuf);
@@ -421,6 +673,36 @@ mod tests {
         let s = shape(&item([0.2, 0.2, 0.25, 0.3], Some([0.0, 0.0, 0.5, 1.0])), 1000, 2000);
         assert!(s.x <= 200 && s.y <= 400 && s.x + s.w as i64 >= 300 && s.y + s.h as i64 >= 500, "{s:?}");
         assert!(s.x >= 200 - 35 - 1 && s.x + s.w as i64 <= 300 + 35 + 1 && s.y >= 400 - 35 - 1 && s.y + s.h as i64 <= 500 + 35 + 1, "{s:?}");
+    }
+
+    /// ch256 p6: two captions lettered side by side on the art, each under
+    /// a rectangle; the first one's reached into the second's lettering and
+    /// the second's white box hid the end of the first's Korean.
+    #[test]
+    fn a_rectangle_cover_stops_short_of_the_next_caption() {
+        let (own, next) = ([620.0, 95.0, 840.0, 215.0],[845.0, 20.0, 1130.0, 175.0]);
+        let c = apart([610.0, 85.0, 860.0, 225.0], own, &[next]);
+        assert_eq!(c, [610.0, 85.0, 845.0, 225.0]);
+        // Lettering it does not reach leaves it as it was.
+        assert_eq!(apart(c, own, &[[0.0, 600.0, 100.0, 700.0]]), c);
+    }
+
+    /// ch257 p8: "WHAT DO I..." and "OH, I KNOW!" are one item lettered on
+    /// either side of Rentarou's face; one rectangle over both wiped the
+    /// face. Each is covered, and the art between them is not.
+    #[test]
+    fn lettering_in_two_places_is_covered_in_two_and_the_art_between_kept() {
+        let parts = vec![rect_outline([10, 10, 40, 40]), rect_outline([30, 30, 50, 50]), rect_outline([70, 20, 90, 60])];
+        let (outline, b) = joined(parts);
+        assert_eq!(b, [10, 10, 90, 60]);
+        let shape = PageBox { x: b[0], y: b[1], w: 80, h: 50, radius: 0, font_px: 10, ko: String::new(), outline, text: [12, 12, 26, 26] };
+        let mut img = export::Rgb { w: 100, h: 100, px: vec![0; 100 * 100 * 3] };
+        export::draw_placement(&mut img, &row(String::new(), &shape), 0);
+        let white = |x: usize, y: usize| img.px[(y * 100 + x) * 3] == 255;
+        // Both parts, and where two overlap.
+        assert!(white(20, 20) && white(45, 45) && white(35, 35) && white(80, 50));
+        // The face between them, and along the bridge.
+        assert!(!white(60, 30) && !white(20, 55) && !white(55, 15));
     }
 
     #[test]

@@ -118,10 +118,22 @@ pub fn open(dir: &Path, now: i64) -> Res<Db> {
     let _ = std::fs::create_dir_all(dir);
     let db = Connection::open(dir.join("translator.sqlite3"))?;
     db.execute_batch(SCHEMA)?;
+    // Added after the first libraries were made: Gemini's answer for a
+    // reader page, kept so the page's shapes can be laid out again.
+    if !column_exists(&db, "ReaderPage", "items")? {
+        db.execute_batch("ALTER TABLE ReaderPage ADD COLUMN items TEXT")?;
+    }
+    if !column_exists(&db, "Placement", "cover")? {
+        db.execute_batch("ALTER TABLE Placement ADD COLUMN cover TEXT")?;
+    }
     // A book left open by a crash or a kill ends where it stopped.
     db.execute("UPDATE Picture SET closed_at = ?1 WHERE closed_at IS NULL", [now])?;
     db.execute("UPDATE Book SET ended_at = ?1 WHERE ended_at IS NULL", [now])?;
     Ok(db)
+}
+
+fn column_exists(db: &Db, table: &str, column: &str) -> Res<bool> {
+    db.query_row(&format!("SELECT EXISTS (SELECT 1 FROM pragma_table_info('{table}') WHERE name = ?1)"), [column], |r| r.get(0))
 }
 
 // ---- Setting
@@ -255,12 +267,15 @@ pub struct PlacementRow {
     pub radius: u16,
     pub font_px: u16,
     pub ko: String,
+    /// A reader shape's outline and text area (JSON of `layout::Cover`);
+    /// none for a plain rounded rectangle.
+    pub cover: Option<String>,
 }
 
 pub fn insert_placement(db: &Db, picture_id: i64, p: &PlacementRow) -> Res<i64> {
     db.execute(
-        "INSERT INTO Placement (picture_id, fingerprint, x, y, w, h, radius, font_px) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-        params![picture_id, p.fingerprint, p.x, p.y, p.w, p.h, p.radius, p.font_px],
+        "INSERT INTO Placement (picture_id, fingerprint, x, y, w, h, radius, font_px, cover) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![picture_id, p.fingerprint, p.x, p.y, p.w, p.h, p.radius, p.font_px, p.cover],
     )?;
     Ok(db.last_insert_rowid())
 }
@@ -276,7 +291,7 @@ pub fn placements(db: &Db, picture_id: i64) -> Res<Vec<PlacementRow>> {
 
 fn picture_placements(db: &Db, picture_id: i64, prefix: Option<&str>) -> Res<Vec<PlacementRow>> {
     let mut st = db.prepare(
-        "SELECT p.id, p.fingerprint, p.x, p.y, p.w, p.h, p.radius, p.font_px, COALESCE(t.translation_ko, '')
+        "SELECT p.id, p.fingerprint, p.x, p.y, p.w, p.h, p.radius, p.font_px, COALESCE(t.translation_ko, ''), p.cover
          FROM Placement p JOIN Translation t ON t.fingerprint = p.fingerprint
          WHERE p.picture_id = ?1 AND (?2 IS NULL OR p.fingerprint GLOB ?2) ORDER BY p.id",
     )?;
@@ -291,6 +306,7 @@ fn picture_placements(db: &Db, picture_id: i64, prefix: Option<&str>) -> Res<Vec
             radius: r.get(6)?,
             font_px: r.get(7)?,
             ko: r.get(8)?,
+            cover: r.get(9)?,
         })
     })?;
     rows.collect()
@@ -322,8 +338,42 @@ pub fn reader_book(db: &Db, page_url: &str) -> Res<Option<i64>> {
     .optional()
 }
 
-pub fn insert_reader_page(db: &Db, key: &str, picture_id: i64, page_url: &str) -> Res<()> {
-    db.execute("INSERT INTO ReaderPage (key, picture_id, page_url) VALUES (?1, ?2, ?3)", params![key, picture_id, page_url])?;
+pub fn insert_reader_page(db: &Db, key: &str, picture_id: i64, page_url: &str, items: &str) -> Res<()> {
+    db.execute("INSERT INTO ReaderPage (key, picture_id, page_url, items) VALUES (?1, ?2, ?3, ?4)", params![key, picture_id, page_url, items])?;
+    Ok(())
+}
+
+/// Gemini's answer (JSON) kept for a reader page, if it was kept.
+pub fn reader_items(db: &Db, key: &str) -> Res<Option<String>> {
+    db.query_row("SELECT items FROM ReaderPage WHERE key = ?1", [key], |r| r.get(0)).optional().map(Option::flatten)
+}
+
+/// The kept answers (JSON) of the pages read just before `seq` in `book`,
+/// nearest last: a site page's own, or the page an imported picture shares.
+pub fn earlier_items(db: &Db, book: i64, seq: i64, pages: u32) -> Res<Vec<String>> {
+    let mut st = db.prepare(
+        "SELECT items FROM (
+             SELECT p.seq, r.items FROM Picture p LEFT JOIN ChapterPage c ON c.picture_id = p.id
+             JOIN ReaderPage r ON r.key = c.translated_key OR (c.picture_id IS NULL AND r.picture_id = p.id)
+             WHERE p.book_id = ?1 AND p.seq < ?2 AND r.items IS NOT NULL ORDER BY p.seq DESC LIMIT ?3
+         ) ORDER BY seq",
+    )?;
+    let rows = st.query_map(params![book, seq, pages], |r| r.get(0))?;
+    rows.collect()
+}
+
+/// The book and place of a picture.
+pub fn picture_place(db: &Db, picture_id: i64) -> Res<Option<(i64, i64)>> {
+    db.query_row("SELECT book_id, seq FROM Picture WHERE id = ?1", [picture_id], |r| Ok((r.get(0)?, r.get(1)?))).optional()
+}
+
+/// The reader page's shapes, laid out again: its placements are replaced.
+pub fn replace_reader_placements(db: &Db, key: &str, rows: &[PlacementRow]) -> Res<()> {
+    let Some(pic) = reader_page(db, key)? else { return Ok(()) };
+    db.execute("DELETE FROM Placement WHERE picture_id = ?1 AND fingerprint GLOB ?2", params![pic, format!("page:{key}:*")])?;
+    for row in rows {
+        insert_placement(db, pic, row)?;
+    }
     Ok(())
 }
 

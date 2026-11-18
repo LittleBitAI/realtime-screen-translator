@@ -54,9 +54,10 @@
     css.textContent = `
       .rst-layer{position:absolute;pointer-events:none;z-index:2147483000;transform-origin:0 0}
       html.rst-off .rst-layer{display:none}
-      .rst-box{position:absolute;box-sizing:border-box;display:flex;align-items:center;justify-content:center;
-        background:#fff;color:#111;text-align:center;line-height:1.2;font-family:system-ui,'Noto Sans KR',sans-serif;
-        font-weight:600;word-break:keep-all;overflow-wrap:anywhere;white-space:pre-line;overflow:hidden;pointer-events:auto}
+      .rst-box{position:absolute;box-sizing:border-box;background:#fff;pointer-events:auto}
+      .rst-text{position:absolute;display:flex;align-items:center;justify-content:center;color:#111;text-align:center;
+        line-height:1.2;font-family:system-ui,'Noto Sans KR',sans-serif;font-weight:600;word-break:keep-all;
+        white-space:pre-line;text-wrap:balance;overflow:hidden}
       .rst-box.rst-peek{opacity:.12}
       .rst-chip{position:absolute;left:6px;top:6px;padding:4px 8px;border-radius:12px;background:rgba(17,24,39,.85);
         color:#fff;font:600 12px system-ui,sans-serif;pointer-events:auto}
@@ -349,15 +350,29 @@
     layer.replaceChildren();
     const pct = (v, of) => `${(v / of) * 100}%`;
     for (const b of answer.boxes) {
+      // A line kept without a shape: no lettering was found for it.
+      if (!b.w || !b.h) continue;
       const box = document.createElement('div');
       box.className = 'rst-box';
       box.style.left = pct(b.x, answer.width);
       box.style.top = pct(b.y, answer.height);
       box.style.width = pct(b.w, answer.width);
-      box.style.height = box.dataset.h = pct(b.h, answer.height);
+      box.style.height = pct(b.h, answer.height);
       box.dataset.font = String(b.font_px / answer.width);
       box.dataset.radius = String(b.radius / answer.width);
-      box.textContent = b.ko;
+      // The shape follows the balloon's own outline where the app found it.
+      if (b.outline?.length) {
+        box.style.clipPath = `polygon(${b.outline.map(([x, y]) => `${pct(x - b.x, b.w)} ${pct(y - b.y, b.h)}`).join(',')})`;
+      }
+      const text = document.createElement('div');
+      text.className = 'rst-text';
+      const [tx, ty, tw, th] = b.text ?? [b.x, b.y, b.w, b.h];
+      text.style.left = pct(tx - b.x, b.w);
+      text.style.top = pct(ty - b.y, b.h);
+      text.style.width = pct(tw, b.w);
+      text.style.height = pct(th, b.h);
+      text.textContent = b.ko;
+      box.appendChild(text);
       // A tap shows the original under it for a moment.
       box.onclick = () => box.classList.toggle('rst-peek');
       layer.appendChild(box);
@@ -365,27 +380,32 @@
     }
   }
 
-  // The size the app fitted the Korean at, scaled to the picture as shown;
-  // never below a size a phone can still read. The browser breaks lines its
-  // own way, so where its lines overflow the shape the size steps down.
+  // The size the app chose from the original lettering, scaled to the
+  // picture as shown, and no smaller than a phone reads without zooming
+  // where the balloon has room. The browser breaks lines its own way, so
+  // where its lines overflow the text area the size steps down: the shape
+  // never grows past the balloon, and no line is cut off. Lines break
+  // between words while that costs at most a fifth of the size (and keeps
+  // it readable); a balloon narrower than that has words broken ("사과해야"
+  // / "겠구나") rather than the Korean set too small to read.
+  const READABLE = 7;
   function fitFont(box, shownWidth) {
     box.style.borderRadius = `${Number(box.dataset.radius) * shownWidth}px`;
-    box.style.height = box.dataset.h;
-    box.style.minHeight = '';
-    let px = Math.max(7, Number(box.dataset.font) * shownWidth);
-    for (;;) {
-      box.style.fontSize = `${px}px`;
-      box.style.padding = `${Math.max(1, px * 0.1)}px`;
-      const over = box.scrollHeight > box.clientHeight + 1 || box.scrollWidth > box.clientWidth + 1;
-      if (!over) break;
-      if (px <= 7) {
-        // Still too long at the smallest size: the shape grows down instead
-        // of cutting off the first line.
-        box.style.height = 'auto';
-        box.style.minHeight = box.dataset.h;
-        break;
+    const text = box.querySelector('.rst-text');
+    const start = Math.max(READABLE, Number(box.dataset.font) * shownWidth);
+    const shrink = (floor) => {
+      let px = start;
+      for (;;) {
+        text.style.fontSize = `${px}px`;
+        const over = text.scrollHeight > text.clientHeight + 1 || text.scrollWidth > text.clientWidth + 1;
+        if (!over || px <= floor) return over;
+        px = Math.max(floor, px * 0.92);
       }
-      px = Math.max(7, px * 0.9);
+    };
+    text.style.overflowWrap = 'normal';
+    if (shrink(Math.max(READABLE, start * 0.8))) {
+      text.style.overflowWrap = 'anywhere';
+      shrink(2);
     }
   }
 

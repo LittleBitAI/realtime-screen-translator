@@ -93,9 +93,9 @@ impl Backend {
     }
 
     pub fn read_chapter_page(&self, picture: i64) -> ApiResult<PageOut> {
-        let (path, width, height) = self.chapter_file(picture)?;
+        let (path, _, _) = self.chapter_file(picture)?;
         let bytes = read_image(&path)?;
-        self.read_picture(ReaderSource::Chapter(picture), &bytes, width, height)
+        self.read_picture(ReaderSource::Chapter(picture), &bytes)
     }
 }
 

@@ -1566,6 +1566,7 @@ fn place(db: &Db, picture_id: i64, fingerprint: &str, rect: Rect, area: (i64, i6
         radius: shape.radius,
         font_px: shape.font_px,
         ko: ko.to_string(),
+        cover: None,
     };
     row.id = store::insert_placement(db, picture_id, &row)?;
     Ok(Some(row))

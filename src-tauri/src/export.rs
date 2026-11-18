@@ -228,21 +228,50 @@ fn inside_rounded(x: i64, y: i64, p: &PlacementRow) -> bool {
     (dx - cx).pow(2) + (dy - cy).pow(2) <= r * r
 }
 
-/// White shape and Korean text of placement `p` (picture coordinates).
-pub fn draw_placement(img: &mut Rgb, p: &PlacementRow) {
+/// Whether `(x, y)` is inside the polygon `poly` (even-odd).
+fn inside_outline(poly: &[[i64; 2]], x: f64, y: f64) -> bool {
+    // Nonzero winding, as the reader's `clip-path` fills it: an outline made
+    // of several parts (a balloon and lettering beside it) joined by a
+    // zero-width bridge covers where its parts overlap too.
+    let mut winding = 0;
+    for (i, a) in poly.iter().enumerate() {
+        let b = poly[(i + 1) % poly.len()];
+        let (ax, ay, bx, by) = (a[0] as f64, a[1] as f64, b[0] as f64, b[1] as f64);
+        let left = (bx - ax) * (y - ay) - (x - ax) * (by - ay);
+        if ay <= y && by > y && left > 0.0 {
+            winding += 1;
+        } else if ay > y && by <= y && left < 0.0 {
+            winding -= 1;
+        }
+    }
+    winding != 0
+}
+
+/// White shape and Korean text of placement `p` (picture coordinates),
+/// into `img` whose first row is picture row `top`. The shape is the
+/// balloon's outline where the reader drew one, else a rounded rectangle;
+/// the Korean is wrapped in the text area the reader used.
+pub fn draw_placement(img: &mut Rgb, p: &PlacementRow, top: i64) {
+    // A line the reader keeps without drawing (no lettering found for it).
+    if p.w == 0 || p.h == 0 {
+        return;
+    }
+    let cover: Option<layout::Cover> = p.cover.as_deref().and_then(|c| serde_json::from_str(c).ok());
+    let outline = cover.as_ref().map_or(&[][..], |c| &c.outline[..]);
     for y in p.y..p.y + p.h as i64 {
         for x in p.x..p.x + p.w as i64 {
-            if inside_rounded(x, y, p) {
-                img.put(x, y, [255, 255, 255]);
+            let on = if outline.is_empty() { inside_rounded(x, y, p) } else { inside_outline(outline, x as f64 + 0.5, y as f64 + 0.5) };
+            if on {
+                img.put(x, y - top, [255, 255, 255]);
             }
         }
     }
+    let [tx, ty, tw, th] = cover.map_or([p.x + PAD as i64, p.y + PAD as i64, p.w.saturating_sub(2 * PAD) as i64, p.h.saturating_sub(2 * PAD) as i64], |c| c.text);
     let size = p.font_px.max(1) as u32;
-    let inner_w = p.w.saturating_sub(2 * PAD).max(1);
-    let lines = layout::lines(&p.ko, size, inner_w);
+    let lines = layout::lines(&p.ko, size, (tw.max(1)) as u32);
     let line_h = size as f32 * 1.2;
-    let top = p.y as f32 + (p.h as f32 - lines.len() as f32 * line_h) / 2.0;
-    let cx = p.x as f32 + p.w as f32 / 2.0;
+    let top = (ty - top) as f32 + (th as f32 - lines.len() as f32 * line_h) / 2.0;
+    let cx = tx as f32 + tw as f32 / 2.0;
     for (i, line) in lines.iter().enumerate() {
         let line_top = top + i as f32 * line_h + (line_h - size as f32) / 2.0;
         match font() {
@@ -320,9 +349,7 @@ pub fn render(width: u32, top: i64, bottom: i64, strips: &[StripRow], placements
         }
     }
     for p in placements.iter().filter(|p| p.y < top + height as i64 && p.y + p.h as i64 > top) {
-        let mut q = p.clone();
-        q.y -= top;
-        draw_placement(&mut img, &q);
+        draw_placement(&mut img, p, top);
     }
     Ok(img)
 }
@@ -348,13 +375,33 @@ mod tests {
     #[test]
     fn placement_is_white_with_dark_text_and_leaves_the_rest() {
         let mut img = Rgb { w: 200, h: 120, px: vec![90; 200 * 120 * 3] };
-        let p = PlacementRow { id: 1, fingerprint: String::new(), x: 40, y: 20, w: 120, h: 80, radius: 12, font_px: 20, ko: "안녕하세요".into() };
-        draw_placement(&mut img, &p);
+        let p = PlacementRow { id: 1, fingerprint: String::new(), x: 40, y: 20, w: 120, h: 80, radius: 12, font_px: 20, ko: "안녕하세요".into(), cover: None };
+        draw_placement(&mut img, &p, 0);
         let at = |x: u32, y: u32| img.px[((y * 200 + x) * 3) as usize];
         assert_eq!(at(100, 22), 255);
         assert_eq!(at(10, 10), 90);
         let dark = (24..96).flat_map(|y| (44..156).map(move |x| (x, y))).filter(|&(x, y)| at(x, y) < 128).count();
         assert!(dark > 0);
+    }
+
+    /// The export draws what the reader shows: the balloon's outline (a
+    /// staircase, here two steps) rather than its bounding box, in the band
+    /// it falls in; a line kept without a shape draws nothing.
+    #[test]
+    fn placement_follows_its_balloon_outline_in_its_band() {
+        let mut img = Rgb { w: 200, h: 120, px: vec![90; 200 * 120 * 3] };
+        // Picture rows 100..220: a wide step 120..160, a narrow one 160..200.
+        let outline = vec![[160, 120], [160, 160], [130, 160], [130, 200], [70, 200], [70, 160], [40, 160], [40, 120]];
+        let cover = serde_json::to_string(&layout::Cover { outline, text: [75, 125, 50, 70] }).unwrap();
+        let p = PlacementRow { id: 1, fingerprint: String::new(), x: 40, y: 120, w: 120, h: 80, radius: 0, font_px: 14, ko: "안녕".into(), cover: Some(cover) };
+        draw_placement(&mut img, &p, 100);
+        let at = |x: u32, y: u32| img.px[((y * 200 + x) * 3) as usize];
+        assert_eq!(at(45, 25), 255, "the wide step is white");
+        assert_eq!(at(45, 80), 90, "beside the narrow step the art stays");
+        assert_eq!(at(100, 90), 255, "the narrow step is white");
+        let mut blank = Rgb { w: 200, h: 120, px: vec![90; 200 * 120 * 3] };
+        draw_placement(&mut blank, &PlacementRow { w: 0, h: 0, cover: None, ..p }, 0);
+        assert!(blank.px.iter().all(|&v| v == 90));
     }
 
     #[test]

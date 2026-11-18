@@ -311,6 +311,11 @@ pub struct PageBox {
     pub radius: u16,
     pub font_px: u16,
     pub ko: String,
+    /// The shape's outline (picture pixels, clockwise) when it follows the
+    /// balloon; empty for the rounded rectangle `x, y, w, h, radius`.
+    pub outline: Vec<[i64; 2]>,
+    /// Where the Korean is set: `x, y, w, h`, inside the shape.
+    pub text: [i64; 4],
 }
 
 #[derive(Serialize, Debug)]
