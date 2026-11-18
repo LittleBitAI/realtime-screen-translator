@@ -15,5 +15,6 @@ chapter.html       992F0B7957FA04C3B2F1793417BBEE5EA41640F2152956118484D17901C08
 index-dy1Jv9Iw.js   8F9C5DEA192D7BA4401AD3F6BA33E408817E9137EAB3E740ABCEB5ADC57FA790
 index-mWoJK8hG.css  04DBEAC18FE0980799354D9CB19DB72877BA3C245031F14366BEC0BA834BB104
 
-The evidence commit adds files only in this directory. Compare the full tracked trees outside those files to verify that HEAD and the tested revision contain identical application and test inputs:
-git diff --exit-code 00c5e9e6f338ed5a2bfff6c4b28eb8fabc8ddc8a HEAD -- . ":(exclude)e2e/receipts/chapter-import-round-3/"
+The original round 3 evidence commit, 9c201ffed6555997fa3feab99eab21366c534750, adds only files in this directory. Compare it with the tested revision to verify identical application and test inputs at that point:
+git diff --exit-code 00c5e9e6f338ed5a2bfff6c4b28eb8fabc8ddc8a 9c201ffed6555997fa3feab99eab21366c534750 -- . ":(exclude)e2e/receipts/chapter-import-round-3/"
+Later verification of the screen test change is recorded in offline.txt.

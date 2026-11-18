@@ -33,3 +33,14 @@ cargo test -p realtime-screen-translator --lib export::tests
 Exit: 0. Total: 3 passed, 0 failed.
 corepack pnpm exec vitest run src/lib/api.test.js src/lib/reader.test.js src/lib/text.test.js src/screens/screens.test.js --reporter=default --reporter=junit --outputFile.junit=artifacts/chapter-round-3-cleanup-vitest.xml
 Exit: 0. Test Files: 4 passed. Tests: 30 passed.
+
+Screen test recheck at the round 5 reviewed revision 26828349e89bb938bc6d81f5b0b6fb7fc59a570b.
+Git tree: 3b3e0e4e6d0d324f342a8c0e6bd3ea85aef23368. Screen test blob: 2ee7c1396e9a47ebb10b0d6dca5584b7a69d4ffb.
+Host: Windows 11 Home 10.0.26200 x64, Node v24.18.0, Vitest 5.1.0.
+corepack pnpm exec vitest run src/screens/screens.test.js --reporter=verbose --reporter=junit --outputFile.junit=artifacts/screens-2682834-junit.xml
+Exit: 0. Test Files: 1 passed. Tests: 18 passed, 0 failed, 0 skipped.
+S1 Home > empty: no key, asks for the key first and opens nothing: passed in 17 ms.
+The test checks the missing-key guidance and settings link after the initial render. It enters an address and clicks Open, then checks the warning and asserts that no site-opening request was sent. screens-2682834-junit.xml is the run's report with the workstation hostname omitted.
+
+Since the cleanup recheck, the only application or test diff is in the screen suite above. The Rust, other frontend suites, and installed app observations are reused. The focused run remains applicable only while the evidence commit adds no changes outside this receipt directory:
+git diff --exit-code 26828349e89bb938bc6d81f5b0b6fb7fc59a570b HEAD -- . ":(exclude)e2e/receipts/chapter-import-round-3/"
