@@ -19,38 +19,53 @@ Build
   Installer SHA-256 4e276893d7efb91cf0e5fed9cf014287d2a00f9c9faaf4610d44677cbe9804d1
   Installed executable SHA-256 95f05efae1b56374193cd661b0ec1ce583a82aa3e1e4146cd9ee9bb32b4bf6a5
 
-Install and launch
+Build identity on the review branch
+  git diff --exit-code 4c3390cdeda0af426912cf789a8f0c9f0d4879e3 HEAD -- . ':(exclude,glob)e2e/receipts/windows-installer/**'
+
+  Exit 0 confirms that only this receipt and its desktop captures differ
+  from the build source. The review repair reused the installer and checked
+  both hashes above again. It reran the Windows journey and made fresh
+  captures. WebView2 Runtime 157.0.4341.60 was already installed.
+
+Desktop run for review
   Ran the handover copy with /S and /D=%TEMP%\RST-Installer-0.1.0\Installed
-  (the /D path was expanded before launch). Setup exited 0 and registered
-  display version 0.1.0 for the current user. Opened the installer-created
-  realtime-screen-translator.lnk in the Windows Start menu. It launched the
-  executable from the temporary installation and opened its native window
-  without any test environment variables or development server. WebView2
-  Runtime 157.0.4341.60 was already present on this machine.
+  (the /D path was expanded before launch). Setup exited 0. The Windows
+  Start menu entry installed by setup launched the executable in that
+  temporary directory. PID 40556 displayed the app's main window without
+  test environment overrides, with no listener on the development port.
+  The process exited on a normal window close. See installed-launch.png
+  (1116 by 799, Windows window capture).
 
-Installed reader journey
-  Relaunched from the same Start menu entry with WebView2 inspection enabled
-  and a loopback mock Gemini endpoint. The frontend loaded from
-  http://tauri.localhost/ while the Vite port was closed. Entered the local
-  manga URL http://127.0.0.1:18745/comic and the reader displayed the fixture
-  image and Korean overlay. The mock handled one request. No live Gemini
-  service was used.
+  Opened the same Start menu entry as PID 35040 with WebView2 inspection
+  and a loopback mock translation service. The development port was still
+  closed. Entered http://127.0.0.1:18975/comic in the app. The reader showed
+  the fixture page and its Korean overlay. See url-reader.png (1100 by 900,
+  installed WebView capture).
 
-  Returned to the app and selected Installer Sample Chapter in the native
-  Windows folder picker. Its one JPEG appeared as a chapter in the library.
-  Created Installer Reading List and added the imported chapter through
-  the library editor. Closed the app window and relaunched via the Start
-  menu. Selecting the list and clicking Read reopened the chapter, rendered
-  the 600 by 1800 image and reused its cached overlay. The mock request
-  count remained one.
+  The folder import button opened a Win32 dialog, class #32770, owned by
+  PID 35040. Selected North Pier Sample, a folder with one 600 by 1800 JPEG.
+  The app showed the imported chapter in the library and the editor saved
+  its membership in Weekend Reading. See native-folder-picker.png (960 by
+  540, Windows window capture).
 
-  The first instrumented close left a windowless process, which was stopped
-  before relaunch. The next run exited normally on window close. A further
-  Start menu launch reopened the same chapter from its saved list after
-  that normal exit. The initial uninstrumented launch also exited normally.
+  Closed the native window and confirmed PID 35040 exited before opening
+  the same Start menu entry again as PID 34148. The relaunched WebView
+  loaded its JavaScript and CSS from the bundled app origin, even though an
+  unrelated listener had since occupied port 5173. Weekend Reading still
+  contained North Pier Sample. Its Read button opened the 600 by 1800 page
+  with the saved Korean overlay. The local mock recorded one request across
+  the journey, matching the bytes of the synthetic JPEG. No live translation
+  service was used. See saved-list-after-restart.png (1100 by 760, installed
+  WebView capture) and reopened-chapter-native.png (1116 by 799, Windows
+  window capture).
 
-  Desktop captures are under artifacts/windows-installer-test/ on the build
-  machine: url-reader.png, saved-list-after-restart.png, reopened-chapter.png.
+  The temporary copy was uninstalled after clearing the synthetic key and
+  confirming the final process exited. The synthetic library remains in
+  this Windows profile.
 
-  Cleared the synthetic Gemini key and uninstalled the temporary copy.
-  The test library remains in this Windows user's app data.
+Earlier checks
+  The first instrumented close in the original run left a windowless
+  process and needed a stop. Subsequent closes, including the review run's
+  close after import and list save, exited normally. The 21 focused screen
+  tests passed during the original delivery. The owner reported the
+  repository gate passed before publication of that earlier revision.
