@@ -1,0 +1,56 @@
+Windows setup verification, 2026-11-18
+
+Build
+  Source commit 4c3390cdeda0af426912cf789a8f0c9f0d4879e3 contains folder
+  import (#3), saved lists (#4), and the desktop redesign (#6).
+  Windows 11 Home 10.0.26200 x64, Cargo 1.98.1, Tauri CLI 2.12.4,
+  Node 24.18.0, pnpm 12.21.0 via Corepack.
+
+  corepack pnpm install --frozen-lockfile
+  cargo tauri build --bundles nsis --features app --ci -c '{"build":{"beforeBuildCommand":"corepack pnpm build"}}'
+
+  The build used src-tauri/tauri.conf.json with a frontend command override
+  for Corepack. Tauri produced one release NSIS installer at
+  target/release/bundle/nsis/realtime-screen-translator_0.1.0_x64-setup.exe.
+  The installer and the handover copy have identical bytes.
+
+  Handover artifacts/windows-installer/realtime-screen-translator_0.1.0_x64-setup.exe
+  Product and file version 0.1.0, x64, 24,135,404 bytes, unsigned.
+  Installer SHA-256 4e276893d7efb91cf0e5fed9cf014287d2a00f9c9faaf4610d44677cbe9804d1
+  Installed executable SHA-256 95f05efae1b56374193cd661b0ec1ce583a82aa3e1e4146cd9ee9bb32b4bf6a5
+
+Install and launch
+  Ran the handover copy with /S and /D=%TEMP%\RST-Installer-0.1.0\Installed
+  (the /D path was expanded before launch). Setup exited 0 and registered
+  display version 0.1.0 for the current user. Opened the installer-created
+  realtime-screen-translator.lnk in the Windows Start menu. It launched the
+  executable from the temporary installation and opened its native window
+  without any test environment variables or development server. WebView2
+  Runtime 157.0.4341.60 was already present on this machine.
+
+Installed reader journey
+  Relaunched from the same Start menu entry with WebView2 inspection enabled
+  and a loopback mock Gemini endpoint. The frontend loaded from
+  http://tauri.localhost/ while the Vite port was closed. Entered the local
+  manga URL http://127.0.0.1:18745/comic and the reader displayed the fixture
+  image and Korean overlay. The mock handled one request. No live Gemini
+  service was used.
+
+  Returned to the app and selected Installer Sample Chapter in the native
+  Windows folder picker. Its one JPEG appeared as a chapter in the library.
+  Created Installer Reading List and added the imported chapter through
+  the library editor. Closed the app window and relaunched via the Start
+  menu. Selecting the list and clicking Read reopened the chapter, rendered
+  the 600 by 1800 image and reused its cached overlay. The mock request
+  count remained one.
+
+  The first instrumented close left a windowless process, which was stopped
+  before relaunch. The next run exited normally on window close. A further
+  Start menu launch reopened the same chapter from its saved list after
+  that normal exit. The initial uninstrumented launch also exited normally.
+
+  Desktop captures are under artifacts/windows-installer-test/ on the build
+  machine: url-reader.png, saved-list-after-restart.png, reopened-chapter.png.
+
+  Cleared the synthetic Gemini key and uninstalled the temporary copy.
+  The test library remains in this Windows user's app data.
