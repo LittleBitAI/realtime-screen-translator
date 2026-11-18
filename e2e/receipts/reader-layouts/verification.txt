@@ -56,9 +56,10 @@ Isolated API
   fresh store. Both returned 200 with empty arrays. POST /library/edit
   saved a title and URL with a query string and returned 200. GET /books
   searching by title returned one row with the exact title and URL.
-  A new list returned no books. After saving the same book in two lists,
-  removing its first membership returned that list to empty. Deleting
-  that list left the other membership in place. Filtering by the title
+  A new list returned no books. The original book appeared in each
+  selected list after being added to both. Removing its first membership
+  returned that list to empty. Deleting the empty list left the other
+  membership in place. Filtering by the title
   or by the encoded address each returned the original book ID and URL.
   An unmatched query returned no books. GET /status reported 0 model
   requests.

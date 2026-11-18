@@ -110,13 +110,13 @@ fn link(file: &str) -> String {
 #[test]
 fn a_browser_export_can_be_fetched_by_the_reader_in_each_format() {
     let host = Host::start("export");
-    println!("HTTP on 127.0.0.1:{} with fresh temporary data and a loopback model endpoint", host.port);
+    println!("Export HTTP on 127.0.0.1:{} with fresh temporary data and a loopback model endpoint", host.port);
     seed(&host);
     for (format, magic) in [("png", &b"\x89PNG"[..]), ("webp", &b"RIFF"[..])] {
         let out = host.call("POST", "/books/1/export", &serde_json::json!({ "format": format }));
         let files: Vec<&str> = out["files"].as_array().unwrap().iter().map(|f| f.as_str().unwrap()).collect();
-        assert_eq!(files.len() as u64, out["count"].as_u64().unwrap());
-        assert!(!files.is_empty());
+        assert_eq!(out["count"], 1, "{format} reported file count");
+        assert_eq!(files.len(), 1, "{format} returned file count");
         for f in &files {
             let r = host.get(&link(f));
             assert_eq!(r.status, 200, "{format} export not served");
@@ -138,7 +138,7 @@ fn saved_list_memberships_preserve_the_book_through_the_http_api() {
     use serde_json::{json, Value};
 
     let host = Host::start("saved-lists");
-    println!("HTTP on 127.0.0.1:{} with fresh temporary data and a loopback model endpoint", host.port);
+    println!("Saved-list HTTP on 127.0.0.1:{} with fresh temporary data and a loopback model endpoint", host.port);
     let get = |path: &str| host.call("GET", path, &Value::Null);
     let edit = |body| host.call("POST", "/library/edit", &body);
     assert_eq!(get("/lists"), json!([]));
@@ -164,6 +164,10 @@ fn saved_list_memberships_preserve_the_book_through_the_http_api() {
     for list in [later, favorites] {
         edit(json!({"action":"add", "list":list, "book":book}));
     }
+    for list in [later, favorites] {
+        assert_eq!(get(&format!("/books?list={list}"))["books"], json!(books));
+    }
+    println!("GET /books for each populated list: expected 200 and the saved book, observed 200 and the same book in both lists");
     edit(json!({"action":"remove", "list":later, "book":book}));
     assert_eq!(get(&format!("/books?list={later}"))["books"], json!([]));
     edit(json!({"action":"delete", "list":later}));
@@ -171,7 +175,6 @@ fn saved_list_memberships_preserve_the_book_through_the_http_api() {
     for term in ["Paper%20Moon", "q%3Dpaper%26part%3D2"] {
         let found = get(&format!("/books?list={favorites}&search={term}"));
         assert_eq!(found["books"], json!(books));
-        assert_eq!(found["books"][0]["url"], address);
     }
     println!("POST /library/edit (add, remove, delete), then GET /lists and /books by title and address: expected 200, one remaining membership and the original book, observed 200 and one exact match for both searches");
     assert_eq!(get("/books?search=unlisted")["books"], json!([]));
