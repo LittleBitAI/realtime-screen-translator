@@ -153,6 +153,7 @@ describe('S2 Library', () => {
     render(Library);
     const list = feature('list-books')[0];
     expect(list.getAttribute('aria-busy')).toBe('true');
+    expect(list.querySelectorAll('[aria-hidden="true"]').length).toBe(3);
   });
 
   it('empty: guidance and a way back to the first screen', async () => {
