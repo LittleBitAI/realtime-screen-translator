@@ -20,12 +20,15 @@ Build
   Installed executable SHA-256 95f05efae1b56374193cd661b0ec1ce583a82aa3e1e4146cd9ee9bb32b4bf6a5
 
 Build identity on the review branch
-  git diff --exit-code 4c3390cdeda0af426912cf789a8f0c9f0d4879e3 HEAD -- . ':(exclude,glob)e2e/receipts/windows-installer/**'
+  node --test e2e/receipts/windows-installer/check-evidence.mjs
 
-  Exit 0 confirms that only this receipt and its desktop captures differ
-  from the build source. The review repair reused the installer and checked
-  both hashes above again. It reran the Windows journey and made fresh
-  captures. WebView2 Runtime 157.0.4341.60 was already installed.
+  This command runs from the repository root. It checks that all five
+  capture references name files beside this receipt, verifies their hashes
+  directly from the committed tree, and compares the files outside this
+  receipt directory with the build source. The review repair reused the
+  installer and checked the two executable hashes above again. It reran
+  the Windows journey and made fresh captures. WebView2 Runtime
+  157.0.4341.60 was already installed.
 
 Desktop run for review
   Ran the handover copy with /S and /D=%TEMP%\RST-Installer-0.1.0\Installed
