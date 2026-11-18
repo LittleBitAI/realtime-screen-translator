@@ -19,7 +19,17 @@ The capture regression saves one 5K frame and checks dimensions and pixels after
 
 corepack pnpm exec vitest run src/lib/reader.test.js src/lib/text.test.js src/screens/screens.test.js --reporter=default --reporter=junit --outputFile.junit=artifacts/chapter-round-3-vitest.xml
 Exit: 0. Test Files: 3 passed. Tests: 24 passed.
-The reader check verifies that a chapter page loads and starts translation only as it approaches the viewport. The screen checks include cancellation, the library handoff and import errors. vitest-junit.xml is the run's report with the workstation hostname omitted.
+The reader check verifies that a chapter page loads and starts translation only as it approaches the viewport. The screen tests exercise URL opening and library export. The native receipts record picker cancellation, chapter import and import errors. vitest-junit.xml is the run's report with the workstation hostname omitted.
 
 corepack pnpm exec vite build
 Exit: 0. Vite 8.3.8 built the frontend in 342 ms for the native packages.
+
+Test cleanup recheck from 9c201ffed6555997fa3feab99eab21366c534750.
+The audit kept every existing test. The imported chapter restart and cache test, transactional import failures, oversized-image cases, and lazy reader check each assert separate behavior. The 5K regression checks old and new stored strip formats, while the existing strip and export tests cover lossless storage, multiple-strip rendering and missing strips. The relevant tests still target active paths. No obsolete cases, duplicate assertions at the same boundary, or stale skips were found.
+
+cargo test -p realtime-screen-translator --test strip_file_and_shape_edges --test reader_edges --test backend_edges --test lifecycle_and_export_edges
+Exit: 0. Total: 21 passed, 0 failed.
+cargo test -p realtime-screen-translator --lib export::tests
+Exit: 0. Total: 3 passed, 0 failed.
+corepack pnpm exec vitest run src/lib/api.test.js src/lib/reader.test.js src/lib/text.test.js src/screens/screens.test.js --reporter=default --reporter=junit --outputFile.junit=artifacts/chapter-round-3-cleanup-vitest.xml
+Exit: 0. Test Files: 4 passed. Tests: 30 passed.
