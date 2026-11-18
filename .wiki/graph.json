@@ -17,6 +17,90 @@
    "a": "docs/design/frontend.md",
    "b": "docs/design/backend.md",
    "kind": "link"
+  },
+  {
+   "a": ".wiki/gate",
+   "b": "README.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/live-web-host",
+   "b": "README.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/mobile-first",
+   "b": "README.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/mobile-first",
+   "b": "docs/design/backend.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/no-repeat-translation",
+   "b": "README.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/no-repeat-translation",
+   "b": "docs/design/backend.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/page-turn-tracking",
+   "b": "README.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/page-turn-tracking",
+   "b": "docs/design/backend.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/project",
+   "b": "README.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/project",
+   "b": "docs/design/backend.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/skip-sound-effects",
+   "b": "README.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/skip-sound-effects",
+   "b": "docs/design/backend.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/translation-model",
+   "b": "README.md",
+   "kind": "reads",
+   "cross": true
+  },
+  {
+   "a": ".wiki/translation-model",
+   "b": "docs/design/backend.md",
+   "kind": "reads",
+   "cross": true
   }
  ],
  "orphans": [
@@ -25,11 +109,11 @@
  ],
  "counts": {
   "docs": 5,
-  "linked": 2,
-  "read": 0,
+  "linked": 1,
+  "read": 2,
   "orphans": 2,
-  "pages": 0,
-  "decisions": 0,
-  "injectable_decisions": 0
+  "pages": 8,
+  "decisions": 6,
+  "injectable_decisions": 2
  }
 }
