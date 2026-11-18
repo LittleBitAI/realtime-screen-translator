@@ -1,0 +1,25 @@
+Focused checks run from 00c5e9e6f338ed5a2bfff6c4b28eb8fabc8ddc8a.
+Git tree: ef38a4193846373dfe5e10b97415c1419e8c34cd.
+Host: Windows 11 Home 10.0.26200 x64, Rust and Cargo 1.98.1, Node v24.18.0.
+
+cargo test -p realtime-screen-translator --test strip_file_and_shape_edges --test reader_edges --test backend_edges --test lifecycle_and_export_edges
+Exit: 0. Total: 21 passed, 0 failed.
+backend_edges: 7 passed, 0 failed.
+lifecycle_and_export_edges: 5 passed, 0 failed.
+reader_edges: 6 passed, 0 failed.
+strip_file_and_shape_edges: 3 passed, 0 failed.
+test a_large_capture_is_saved_and_reopened_for_export_in_both_strip_formats ... ok
+test strip_that_is_not_the_screen_rows_is_refused ... ok
+test empty_and_failed_imports_leave_no_chapter_or_copied_files ... ok
+test imported_chapter_survives_restart_and_shares_the_url_cache_by_language ... ok
+test oversize_pages_are_rejected_across_formats_before_a_chapter_is_published ... ok
+test copies_of_one_page_read_at_once_send_it_to_gemini_once ... ok
+test a_page_whose_saving_fails_says_so_and_is_saved_by_the_next_call_without_gemini ... ok
+The capture regression saves one 5K frame and checks dimensions and pixels after export from both stored formats. The import failure tests assert that the library and copied files stay empty and that the originals are preserved. Cache tests use a local fake Gemini server.
+
+corepack pnpm exec vitest run src/lib/reader.test.js src/lib/text.test.js src/screens/screens.test.js --reporter=default --reporter=junit --outputFile.junit=artifacts/chapter-round-3-vitest.xml
+Exit: 0. Test Files: 3 passed. Tests: 24 passed.
+The reader check verifies that a chapter page loads and starts translation only as it approaches the viewport. The screen checks include cancellation, the library handoff and import errors. vitest-junit.xml is the run's report with the workstation hostname omitted.
+
+corepack pnpm exec vite build
+Exit: 0. Vite 8.3.8 built the frontend in 342 ms for the native packages.

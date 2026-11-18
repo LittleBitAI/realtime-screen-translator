@@ -1,0 +1,19 @@
+Round 3 reviewed and tested source: 00c5e9e6f338ed5a2bfff6c4b28eb8fabc8ddc8a.
+Git tree: ef38a4193846373dfe5e10b97415c1419e8c34cd.
+The native binaries and focused checks in this directory were produced from that checkout. The packages used isolated application identities to keep test data separate. The builds shared the frontend produced on this checkout.
+
+Tracked build input objects:
+src-tauri         b744d27832c90b5b88285035b7c7839c3ef86854
+src               cd0d6a499b94a73b96eeeb32fdb8eedc7e319b7e
+Cargo.lock        8b630f4875ccc1b8d2bdc03eae8d04f251d791c1
+package.json      2c18c489ef1fef8cbf49f85159317adf3fc010f1
+pnpm-lock.yaml    f645f904a1fbf41e8133570b4c356ee6fb884acc
+
+Generated frontend SHA-256:
+index.html         AFD3A25DE67FF56690B12753F81D92F8BC7720751BAAA152A101721A25F66EBD
+chapter.html       992F0B7957FA04C3B2F1793417BBEE5EA41640F2152956118484D17901C08953
+index-dy1Jv9Iw.js   8F9C5DEA192D7BA4401AD3F6BA33E408817E9137EAB3E740ABCEB5ADC57FA790
+index-mWoJK8hG.css  04DBEAC18FE0980799354D9CB19DB72877BA3C245031F14366BEC0BA834BB104
+
+The evidence commit adds files only in this directory. Compare the full tracked trees outside those files to verify that HEAD and the tested revision contain identical application and test inputs:
+git diff --exit-code 00c5e9e6f338ed5a2bfff6c4b28eb8fabc8ddc8a HEAD -- . ":(exclude)e2e/receipts/chapter-import-round-3/"

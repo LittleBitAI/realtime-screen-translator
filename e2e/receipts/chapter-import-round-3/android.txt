@@ -1,0 +1,22 @@
+Fresh physical Android verification from 00c5e9e6f338ed5a2bfff6c4b28eb8fabc8ddc8a.
+Git tree: ef38a4193846373dfe5e10b97415c1419e8c34cd.
+Device: Galaxy S21+ SM-G996N, Android 15, AP3A.240905.015.A2, firmware G996NKSSCHZA9, arm64-v8a.
+Isolated build: ai.littlebit.realtime_screen_translator.folderroundthree, version 0.1.0, universalDebug.
+cargo tauri android build --debug --apk --target aarch64 --features app --ci
+The Rust cross-build finished in 4m 01s. After the Windows symlink error, the new JNI library was copied to jniLibs. Gradle assembleUniversalDebug packaged the isolated application ID and exited 0 in 2m 39s.
+Cross-built JNI SHA-256: 318991677B148D4A41D56921674AB759A0DD80A57A36E5294A774D081F680115
+The ARM64 library in the APK matched the cross-built library byte for byte.
+Local and installed base APK SHA-256: A0D685539B56BF7C17C0B3049CC71C2AF533302FE0996A5BF4FA732B38E4B1E6
+ADB install returned Success. ADB identified the installed package and measured its APK hash.
+
+The app's import button opened the foreground Android DocumentsUI picker. Cancelling the picker and selecting an empty directory each returned to a responsive home screen with zero chapters and zero translation requests.
+Selecting the synthetic source through DocumentsUI and granting access imported one chapter with three pages and zero requests. The source had three direct JPEGs, a text file and a subdirectory containing another image.
+The synthetic source then moved, its original path was confirmed absent, and the same installed package was force-stopped and restarted. ADB reported Status: ok and LaunchState: COLD.
+The native reader reopened the app-owned chapter. Source and opened image bytes matched by SHA-256 in reader order 1.jpg, 2.jpg, 10.jpg:
+c1bda2f3c9ca4745ae55759efdfd5d7e9d60aecfe822bc1b50a99bd306a9ca76
+87073f5a7000781fa681e73fdee74a422741bbd64460478bb2272426077ef159
+028f919bc5cef9a2d4b22125738b7a1704b65273dca9012e797e91b1d484fe29
+The third page rendered at its natural width of 600 pixels after scrolling to it in the cold-started reader.
+android-reopened-page-3.png is the fresh screenshot of that page. This installation used no Gemini key, so the screenshot shows the source art and the app's missing-key notice.
+Screenshot SHA-256: 2E414FB220FC7D8C8D043E8B632BFAD17A293D5B1EAB03D4B6F12A77840ED3F7
+This run directly observed the physical device and did not reuse the earlier Android receipt or an owner report about runtime behavior.
