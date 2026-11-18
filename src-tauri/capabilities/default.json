@@ -20,6 +20,10 @@
     "allow-get-preview",
     "allow-put-settings-source-lang",
     "allow-post-reader-open",
-    "allow-post-reader-close"
+    "allow-post-reader-close",
+    "allow-post-chapter-import",
+    "allow-get-chapter",
+    "allow-get-chapter-image",
+    "allow-post-chapter-page"
   ]
 }

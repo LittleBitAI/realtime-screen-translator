@@ -22,6 +22,9 @@ const MODEL_SETTING: &str = "gemini_model";
 
 #[path = "reader.rs"]
 mod reader;
+pub(crate) const MAX_PAGE_BYTES: u64 = 20 << 20;
+#[path = "chapter.rs"]
+mod chapter;
 
 #[derive(Clone)]
 struct Known {
@@ -1246,7 +1249,8 @@ impl Backend {
                     preview_path: preview,
                 });
             }
-            books.push(BookOut { id: b.id, title: b.title, started_at: b.started_at, ended_at: b.ended_at, pictures });
+            let imported = store::is_chapter(&st.db, b.id)?;
+            books.push(BookOut { id: b.id, title: b.title, started_at: b.started_at, ended_at: b.ended_at, pictures, imported });
         }
         Ok(BooksOut { books, next_before })
     }
@@ -1263,7 +1267,10 @@ impl Backend {
             let mut pictures = vec![];
             for p in store::pictures(&st.db, book.id)? {
                 let strips = self.strips(&st.db, p.id)?;
-                let placements = store::placements(&st.db, p.id)?;
+                let placements = match store::chapter_translation(&st.db, p.id)? {
+                    Some(key) => store::reader_placements(&st.db, &key)?,
+                    None => store::placements(&st.db, p.id)?,
+                };
                 pictures.push((p, strips, placements));
             }
             (book, pictures)

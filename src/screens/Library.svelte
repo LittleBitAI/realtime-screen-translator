@@ -111,6 +111,12 @@
             {/if}
           </div>
           <h2 class="m-0 mt-4 text-base font-bold break-keep">{bookName(book)}</h2>
+          {#if book.imported && api.canOpenSites()}
+            <a
+              href="/chapter.html?id={book.id}"
+              class="mt-4 inline-flex min-h-12 w-full box-border items-center justify-center rounded-lg border border-primary px-4 font-semibold text-primary no-underline"
+            >읽기</a>
+          {/if}
           <dl class="m-0 mt-2 flex flex-col gap-2">
             <div class="flex items-center justify-between gap-2">
               <dt>그림 수</dt>

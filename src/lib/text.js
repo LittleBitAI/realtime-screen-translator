@@ -18,6 +18,24 @@ export function openError(code) {
   }
 }
 
+export function importError(code) {
+  switch (code) {
+    case 'empty_folder':
+      return '선택한 폴더에 JPG, PNG 또는 WebP 그림이 없습니다.';
+    case 'bad_image':
+    case 'image_unreachable':
+      return '폴더의 그림을 읽을 수 없습니다. 파일을 확인해 주세요.';
+    case 'image_too_large':
+      return '20MB가 넘는 그림이 있습니다. 파일 크기를 확인해 주세요.';
+    case 'storage_full':
+      return '저장 공간이 모자랍니다. 공간을 비운 뒤 다시 가져와 주세요.';
+    case 'storage_denied':
+      return '앱이 저장 폴더에 쓰지 못했습니다.';
+    default:
+      return '폴더를 가져오지 못했습니다. 잠시 뒤 다시 해 주세요.';
+  }
+}
+
 export const reachError = () => '앱과 연결하지 못했습니다. 잠시 뒤 다시 해 주세요.';
 
 /** In a browser no other site can be opened inside these screens. */

@@ -36,7 +36,10 @@ export async function http(method, path, body) {
 }
 
 async function call(cmd, args, method, path, body) {
-  if (!inTauri()) return http(method, path, body);
+  if (!inTauri()) {
+    if (!method) throw new ApiError('native_only', 0);
+    return http(method, path, body);
+  }
   try {
     return await invoke(cmd, args);
   } catch (e) {
@@ -51,6 +54,7 @@ export const api = {
   /** Only the installed app can show another site with the translation on it (P12). */
   canOpenSites: inTauri,
   openSite: (url) => call('post_reader_open', { url }, 'POST', '/reader/open', { url }),
+  importChapter: () => call('post_chapter_import', {}),
   books: (before = null) =>
     call('get_books', { limit: 20, before }, 'GET', before == null ? '/books?limit=20' : `/books?limit=20&before=${before}`),
   exportBook: (bookId, format) =>

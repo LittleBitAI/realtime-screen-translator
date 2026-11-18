@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   plugins: [svelte(), tailwindcss()],
   // Tauri serves `dist/` (tauri.conf.json `frontendDist`); the web host too.
-  build: { outDir: 'dist', emptyOutDir: true },
+  build: { outDir: 'dist', emptyOutDir: true, rolldownOptions: { input: ['index.html', 'chapter.html'] } },
   server: { port: 5173, strictPort: true },
   clearScreen: false,
   resolve: process.env.VITEST ? { conditions: ['browser'] } : undefined,
