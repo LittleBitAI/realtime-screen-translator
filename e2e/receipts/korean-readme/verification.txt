@@ -1,0 +1,104 @@
+Korean reader guide verification, 2026-11-18
+
+Walkthrough checkout: 1a999d433cce71308f47bf4e06745bd021ca2174
+Tested README blob: 10e81e126b87ed63c5f5707ee9fedbfaa5b6b23a
+Installer source: 4c3390cdeda0af426912cf789a8f0c9f0d4879e3
+
+Candidate binding
+  Run node --test e2e/receipts/korean-readme/check-evidence.mjs from the
+  repository root. It compares the committed guide with the blob used during
+  the walkthrough and compares the installer source with the checked-out
+  commit. The comparison excludes the guide, historical installer evidence,
+  this receipt directory and generated wiki metadata. A future change in the
+  guide or installer inputs must be checked again.
+
+Desktop environment and build
+  Windows 11 Home 10.0.26200 x64, PowerShell 7.7.0, WebView2 157.0.4341.60.
+  Reused the delivered unsigned NSIS installer recorded in
+  e2e/receipts/windows-installer/verification.txt. The installer and the
+  executable below were both hashed again after selecting the handoff file.
+  Handoff file: artifacts/windows-installer/realtime-screen-translator_0.1.0_x64-setup.exe
+  Installer: version 0.1.0, x64, 24135404 bytes
+  Installer SHA-256: 4e276893d7efb91cf0e5fed9cf014287d2a00f9c9faaf4610d44677cbe9804d1
+  Installed executable SHA-256: 95f05efae1b56374193cd661b0ec1ce583a82aa3e1e4146cd9ee9bb32b4bf6a5
+  Setup exited 0 after installing outside the repository. It created the
+  realtime-screen-translator Start menu shortcut. That shortcut opened the
+  native window with no development server or test overrides. Closing the
+  uninstrumented window ended the process.
+
+Fresh desktop observations
+  Followed the guide against that installed executable. Used WebView2 input
+  automation, the native Windows folder picker, a synthetic chapter, a
+  synthetic key and a loopback service for the manga and translation response.
+  There were no live Gemini requests. The initial profile held only earlier
+  test fixtures and no key. This run used new page bytes and titles.
+
+  1. Opened 설정, entered a synthetic key in 새 키 and pressed 저장. The
+     saved key displayed only its last four characters. Selected 영어 under
+     원문 언어. Went to 만화 열기, entered the test chapter URL in 주소,
+     and pressed 열기. A separate native reader window displayed 안녕하세요
+     on the test image. The mock received one English request. 번역 켜짐
+     hid the overlay, 번역 꺼짐 restored it, and 앱으로 돌아가기 closed
+     the reader window.
+  2. The translated web chapter appeared in 번역본. Used 링크 추가, 작품
+     제목, 사이트 주소 and 링크 저장 to name it Saved Web Chapter. Searched
+     for part of its address with 제목 또는 주소 검색. Pressed 읽기 and
+     saw the cached Korean translation with the request count still at one.
+  3. Pressed 그림 폴더 가져오기. The installed process owned the Win32
+     폴더 선택 dialog (class #32770). Selected First Chapter Proof. The
+     app opened 번역본 with a three-page entry under the folder name.
+     Pressed 읽기 and observed 1.jpg, 2.jpg and 10.jpg in that order, at
+     600 by 800, 600 by 900 and 600 by 1000 pixels. The first image matched
+     the web chapter by bytes and reused its translation. The other two
+     images added two mock requests. All three showed Korean.
+  4. Used 편집, 새 목록 이름 and 목록 만들기 to create Read Again Proof.
+     Checked it under 작품을 담을 목록 and closed editing. Closed the
+     Windows process, moved the original fixture folder and replaced its
+     first JPEG with a 23 by 22 image. Relaunched from the Start menu in a
+     different process. The list still contained First Chapter Proof and
+     읽기 reopened the original 600 by 800 page with its cached overlay.
+  5. Cleared the list membership. The chapter remained in 전체 작품.
+     Used 그림 내보내기, WebP and 내보내기. Windows Downloads contained
+     three decoded WebP files with the original page sizes in numerical order
+     and the white translation covers rendered into the pixels. The loopback
+     request count remained three through reopening, removal and export.
+     Restored 일본어 and cleared the synthetic key.
+
+Visual evidence
+  Captures are beside this receipt. The first is the native Start menu launch
+  at 1116 by 799. The others show the URL reader at 1100 by 900, the selected
+  list after relaunch at 1100 by 760, and the reopened chapter at 1100 by 760.
+  The colored pages and list titles are synthetic.
+
+installed.png 4973f276e1cff5dd515cf583a342eb97ec6fc6e1b2ac3bba7ba7bc7e3e28e2c1
+reopened-chapter.png 6dd4b19a15117ebd5cf7b38566cd2a1d50a16f38c72d185b569b5417d8501965
+saved-list.png c9c7639464d93a23a8a1643b8233e7589855947b99552e5cdb10133908ac6534
+url-reader.png f3a864b00ea6b77b3d1c79abfa0dc50df7dcc33c4845f0b7b6c853f77c997c56
+
+Focused offline checks
+  Node 24.18.0, pnpm 12.21.0 through Corepack, Vitest 5.1.0.
+  corepack pnpm exec vitest run src/screens/screens.test.js src/lib/reader.test.js
+  Screen tests: 21 passed. Reader tests: 2 passed. Exit 0.
+  The suites check key and source-language changes, browser restrictions and
+  per-image downloads, native link and chapter launch, list navigation,
+  folder import errors, export messages, and reading nearby chapter pages.
+  The receipt tests verify the guide's UTF-8 encoding without a BOM,
+  section order and repository links, the candidate inputs, and all four
+  screenshot hashes.
+
+Reused Android check and server gate
+  Reused the first implementation run of the Android build and app journey
+  for the identical README blob above. The documented Windows fallback
+  finished assembleUniversalDebug successfully. The APK contained a matching
+  ARM64 native library, required Android API 26, and exposed the launcher label
+  실시간 화면 번역. ADB installed and launched it on a Galaxy S21+ SM-G996N
+  running Android 15. The Android picker imported a JPEG, 읽기 opened it,
+  and PNG export saved a file under Pictures/RealtimeTranslator. The Android
+  request count stayed at zero. ADB was used for installation.
+  APK SHA-256: fc99be3ee3323df351ed85cdf09ba53e5dbc340f986a78232a0007cd1176e07c
+  The installed APK hash was verified again on the same physical phone in
+  this repair. The documented installable package is app-universal-debug.apk.
+
+  The owner reported the repository gate passed on the guide commit above.
+  GitHub Actions run 44290629164 confirmed that exact head, success, and
+  Gate success. The review server owns the gate on the repair commit.
