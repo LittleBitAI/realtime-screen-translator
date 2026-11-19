@@ -118,21 +118,25 @@ pub fn encode_png(img: &Rgb) -> Result<Vec<u8>, String> {
 /// How far round a pixel the tone fill looks for art already known.
 const TONE_REACH: i64 = 3;
 
+/// How far (px) round a letter's strokes the tone fill covers: their soft edge.
+const STROKE_RIM: usize = 2;
+
 /// How light (0–255) the white edging round lettering on the art is.
 const EDGING: u16 = 200;
 
-/// Art darker than this (0–255, its median) round lettering is dark art.
+/// Art darker than this (0–255), in the main, next to lettering is dark art.
 const DARK_ART: u16 = 128;
 
-/// The art round `rects` (`x0, y0, x1, y1`) carried in over them from their
-/// edges inwards, ring by ring, each pixel the mean of the known pixels near
-/// it, nearer ones counting more (as Telea's fill): what covers lettering
-/// with no balloon, under the Korean's white rim. On dark art (hair, a dark
-/// texture) the letters' white edging, light pixels out to `edging` from
-/// them, is taken in too: carried in from it, the fill is a light smudge on
-/// the dark. On light art it is not: taken in, the fill is carried in from
-/// the dark lines it stops at. A PNG opaque on what is covered, at `x, y, w,
-/// h`; None for no area.
+/// The art round the letters in `rects` (`x0, y0, x1, y1`) carried in over
+/// them from their edges inwards, ring by ring, each pixel the mean of the
+/// known pixels near it, nearer ones counting more (as Telea's fill): what
+/// covers lettering with no balloon, under the Korean's white rim. Only the
+/// letters' strokes are covered, not the art between them. Where the art
+/// next to them is dark (hair, a dark texture) their white edging, light
+/// pixels out to `edging` from them, is taken in too: carried in from it,
+/// the fill is a light smudge on the dark. Where it is light it is not:
+/// taken in, the fill is carried in from the dark lines it stops at. A PNG
+/// opaque on what is covered, at `x, y, w, h`; None for no area.
 pub(crate) fn tone(page: &Rgb, rects: &[[i64; 4]], edging: i64) -> Option<layout::Patch> {
     use base64::Engine;
     let (w, h) = (page.w as i64, page.h as i64);
@@ -141,8 +145,9 @@ pub(crate) fn tone(page: &Rgb, rects: &[[i64; 4]], edging: i64) -> Option<layout
     if rs.is_empty() {
         return None;
     }
-    // The frame: the rects' bounds and the art an edging and a reach round them.
-    let m = edging + TONE_REACH;
+    // The frame: the rects' bounds, an edging round them, and the art an
+    // edging and a reach beyond that.
+    let m = 2 * edging + TONE_REACH;
     let f = [(b[0] - m).max(0), (b[1] - m).max(0), (b[2] + m).min(w), (b[3] + m).min(h)];
     let (fw, fh) = ((f[2] - f[0]) as usize, (f[3] - f[1]) as usize);
     let mut known = vec![true; fw * fh];
@@ -156,17 +161,34 @@ pub(crate) fn tone(page: &Rgb, rects: &[[i64; 4]], edging: i64) -> Option<layout
         let p = ((f[1] + (i / fw) as i64) * w + f[0] + (i % fw) as i64) as usize * 3;
         page.px[p..p + 3].iter().map(|&v| v as u16).sum::<u16>() / 3
     };
-    let next_to = |i: usize| {
-        let (x, y) = (i % fw, i / fw);
-        [(x > 0).then(|| i - 1), (x + 1 < fw).then(|| i + 1), (y > 0).then(|| i - fw), (y + 1 < fh).then(|| i + fw)].into_iter().flatten()
+    // The pixels round a pixel, corners too: growth by them is square, as a
+    // letter's edging is.
+    let round = |i: usize| {
+        let (x, y) = ((i % fw) as i64, (i / fw) as i64);
+        (-1..=1i64).flat_map(move |dy| (-1..=1i64).map(move |dx| (x + dx, y + dy))).filter(|&(nx, ny)| nx >= 0 && ny >= 0 && nx < fw as i64 && ny < fh as i64).map(|(nx, ny)| ny as usize * fw + nx as usize)
     };
+    // Within the rects, only the dark strokes and `STROKE_RIM` round them.
+    // The light art between letters and lines stays as drawn: carried in
+    // over a whole band, the fill smears the light on one side of a panel's
+    // border into the dark on the other (ch258 p17, "OCEAN" under a panel's
+    // top edge). A stroke running in from the art round them is covered too:
+    // a letter touching a speed line is still a letter (ch257 p11, "HAKARI").
+    let band: Vec<bool> = known.iter().map(|k| !k).collect();
+    let mut letter: Vec<bool> = (0..fw * fh).map(|i| band[i] && gray(i) < DARK_ART).collect();
+    for _ in 0..STROKE_RIM {
+        let was = letter.clone();
+        for i in (0..fw * fh).filter(|&i| band[i] && !was[i]) {
+            letter[i] = round(i).any(|j| was[j]);
+        }
+    }
+    (0..fw * fh).filter(|&i| band[i] && !letter[i]).for_each(|i| known[i] = true);
     // The light pixels touching the letters' cover, out to `edging`.
     let mut grown = known.iter().map(|k| !k).collect::<Vec<bool>>();
     let mut edge: Vec<usize> = (0..fw * fh).filter(|&i| grown[i]).collect();
     for _ in 0..edging {
         let mut next = vec![];
         for &i in &edge {
-            for j in next_to(i) {
+            for j in round(i) {
                 if !grown[j] && gray(j) >= EDGING {
                     grown[j] = true;
                     next.push(j);
@@ -175,28 +197,28 @@ pub(crate) fn tone(page: &Rgb, rects: &[[i64; 4]], edging: i64) -> Option<layout
         }
         edge = next;
     }
-    // Each piece of it taken in whole where the art round it is dark.
-    let mut seen = vec![false; fw * fh];
-    for start in 0..fw * fh {
-        if !grown[start] || seen[start] {
-            continue;
-        }
-        seen[start] = true;
-        let (mut piece, mut stack, mut ring) = (vec![], vec![start], vec![]);
-        while let Some(i) = stack.pop() {
-            piece.push(i);
-            for j in next_to(i) {
-                if grown[j] && !seen[j] {
-                    seen[j] = true;
-                    stack.push(j);
-                } else if !grown[j] {
-                    ring.push(gray(j));
-                }
+    // Each spot of it taken in where the art beyond it, near that spot, is
+    // mostly dark: lettering across a panel's edge has its edging taken in
+    // on the dark side and left on the light (ch258 p17, "OCEAN").
+    let sum = |on: &dyn Fn(usize) -> bool| {
+        let mut t = vec![0u32; (fw + 1) * (fh + 1)];
+        for y in 0..fh {
+            for x in 0..fw {
+                t[(y + 1) * (fw + 1) + x + 1] = t[y * (fw + 1) + x + 1] + t[(y + 1) * (fw + 1) + x] - t[y * (fw + 1) + x] + on(y * fw + x) as u32;
             }
         }
-        ring.sort_unstable();
-        if ring.get(ring.len() / 2).is_some_and(|&g| g < DARK_ART) {
-            piece.into_iter().for_each(|i| known[i] = false);
+        t
+    };
+    let (art, dark) = (sum(&|i| !grown[i]), sum(&|i| !grown[i] && gray(i) < DARK_ART));
+    let r = (edging + TONE_REACH) as usize;
+    let count = |t: &[u32], x: usize, y: usize| {
+        let (x0, y0, x1, y1) = (x.saturating_sub(r), y.saturating_sub(r), (x + r + 1).min(fw), (y + r + 1).min(fh));
+        t[y1 * (fw + 1) + x1] + t[y0 * (fw + 1) + x0] - t[y0 * (fw + 1) + x1] - t[y1 * (fw + 1) + x0]
+    };
+    for i in 0..fw * fh {
+        let (x, y) = (i % fw, i / fw);
+        if grown[i] && known[i] && 2 * count(&dark, x, y) > count(&art, x, y) {
+            known[i] = false;
         }
     }
     let inside = known.iter().map(|k| !k).collect::<Vec<bool>>();
@@ -656,10 +678,38 @@ mod tests {
         let at = |x: i64, y: i64| &px[((y - patch.at[1]) as usize * pw as usize + (x - patch.at[0]) as usize) * 4..][..4];
         assert_eq!(at(25, 20), &[200, 200, 200, 255]);
         // The edging covered, and the fill the dark of the art round it.
-        assert!(at(76, 11)[3] == 255 && at(93, 28)[3] == 255);
+        assert!(at(76, 20)[3] == 255 && at(85, 11)[3] == 255 && at(93, 22)[3] == 255);
         assert!(at(85, 20)[0] < 60 && at(85, 20)[3] == 255, "{:?}", at(85, 20));
         // The light art round the left letter is left as it is.
         assert_eq!(at(15, 20)[3], 0);
+    }
+
+    /// The user, on the phone: lettering across a panel's edge, light art
+    /// above and dark below, still left a light smudge (ch258 p17, "OCEAN").
+    /// Its edging is taken in on the dark side only.
+    #[test]
+    fn tone_takes_in_edging_on_the_dark_side_of_a_panel_edge() {
+        let mut page = Rgb { w: 100, h: 40, px: vec![200; 100 * 40 * 3] };
+        for y in 20..40 {
+            for x in 0..100 {
+                page.put(x, y, [30, 30, 30]);
+            }
+        }
+        for y in 12..29 {
+            for x in 47..64 {
+                page.put(x, y, [255, 255, 255]);
+            }
+        }
+        for y in 15..26 {
+            for x in 50..61 {
+                page.put(x, y, [0, 0, 0]);
+            }
+        }
+        let patch = tone(&page, &[[48, 14, 63, 27]], 4).unwrap();
+        let (pw, px) = patch_px(&patch).unwrap();
+        let at = |x: i64, y: i64| &px[((y - patch.at[1]) as usize * pw as usize + (x - patch.at[0]) as usize) * 4..][..4];
+        assert!(at(55, 27)[3] == 255 && at(55, 27)[0] < 100, "{:?}", at(55, 27));
+        assert_eq!(at(55, 12)[3], 0);
     }
 
     #[test]
