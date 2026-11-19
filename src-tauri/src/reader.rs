@@ -33,6 +33,9 @@ const GROW_MIN_PX: f64 = 4.0;
 /// source text's letters reaches [`balloon::REACH`] letters, over the lines
 /// the page shows too faintly to find (ch257 p14, outlined "PRETTY!").
 const WIDEN: f64 = 1.5;
+/// How much larger than the original letters Korean set over the art may
+/// be: its white rim hides what the original lettering's area still shows.
+const OVER_ART: f64 = 1.5;
 /// A letter's size, as a share of the page's width, where no lettering was
 /// measured: what a rim round unmeasured lettering is sized from.
 const GLYPH_GUESS: f64 = 0.02;
@@ -427,10 +430,10 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                     })
                     .collect()
             };
-            let parts = |runs: Option<Vec<String>>, own: [i64; 4], more: &[(Vec<[i64; 2]>, [i64; 4])]| -> Vec<layout::Part> {
+            let parts = |runs: Option<Vec<String>>, own: [i64; 4], more: &[(Vec<[i64; 2]>, [i64; 4])], scale: f64| -> Vec<layout::Part> {
                 let areas = std::iter::once(own).chain(more.iter().map(|m| m.1));
                 runs.map_or(vec![], |runs| {
-                    areas.zip(runs).map(|(a, ko)| layout::Part { text: a, font_px: layout::font_for(&ko, a[2] as u32, a[3] as u32, glyph), ko }).collect()
+                    areas.zip(runs).map(|(a, ko)| layout::Part { text: a, font_px: layout::font_for(&ko, a[2] as u32, a[3] as u32, glyph.map(|g| g * scale)), ko }).collect()
                 })
             };
             let around = |t: [f64; 4], glyph: f64| balloon::find(&pg, t, glyph, &others).map(|f| balloon::Found { glyph: Some(glyph), ..f });
@@ -457,7 +460,7 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                     let (tw, th) = ((x1 - x0) as u32, (y1 - y0) as u32);
                     let (sep, runs) = apart_from(f.bounds.map(|v| v as f64));
                     let more = beside(&sep);
-                    let parts = parts(runs, [x0, y0, tw as i64, th as i64], &more);
+                    let parts = parts(runs, [x0, y0, tw as i64, th as i64], &more, 1.0);
                     let (outline, b) = joined(std::iter::once(f.outline).chain(more.into_iter().map(|m| m.0)).collect());
                     PageBox {
                         x: b[0],
@@ -541,29 +544,27 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                     let rect = [s.x, s.y, s.x + s.w as i64, s.y + s.h as i64];
                     let own = if own[0] < own[2] && own[1] < own[3] { own } else { rect };
                     let more = beside(&sep);
-                    // The Korean goes where the letters were, over the art
-                    // in its own white rim: none of it lies on the art the
-                    // white leaves.
-                    // Over found lettering, only its blocks: not the marks of the
-                    // art round them (an ear, a face; ch258 p17).
+                    // The white goes over every dark letter in the
+                    // lettering's area. The Korean goes over the blocks
+                    // found there (not the art marks round them: an ear, a
+                    // face; ch258 p17), larger than the original letters,
+                    // so its own white rim hides what the white leaves.
                     let grown = |p: &[f64; 4]| {
                         let (mx, my) = (((p[2] - p[0]) * GROW).max(GROW_MIN_PX), ((p[3] - p[1]) * GROW).max(GROW_MIN_PX));
-                        [(p[0] - mx) as i64, (p[1] - my) as i64, (p[2] + mx).ceil() as i64, (p[3] + my).ceil() as i64]
+                        // Off the page's edges by a pad: a letter set
+                        // against the edge reads as cut off.
+                        let e = PAD as f64;
+                        [(p[0] - mx).max(e), (p[1] - my).max(e), (p[2] + mx).ceil().min(w as f64 - e), (p[3] + my).ceil().min(h as f64 - e)]
                     };
-                    // Lettering found short of its letters is faint beside
-                    // them: the whole of `own` is looked over.
-                    let found: usize = pieces[i].iter().filter_map(|p| blocks.iter().find(|b| b.bounds == *p)).map(|b| b.letters).sum();
-                    let mut rs: Vec<[i64; 4]> = pieces[i].iter().filter(|p| !sep.contains(p)).map(grown).collect();
-                    if rs.is_empty() || found < wanted[i].1 {
-                        rs.clear();
-                        rs.push(own);
-                    }
-                    let fill = lettering(&rs, glyph, &sep);
+                    let blocks_at: Vec<[f64; 4]> = pieces[i].iter().filter(|p| !sep.contains(p)).map(grown).collect();
+                    let fill = lettering(&[own], glyph, &sep);
+                    let scale = if fill.is_some() { OVER_ART } else { 1.0 };
                     if let Some((_, f)) = fill {
+                        let f = if blocks_at.is_empty() { f } else { union(&blocks_at).map(|v| v as i64) };
                         s.text = [f[0], f[1], f[2] - f[0], f[3] - f[1]];
-                        s.font_px = layout::font_for(&it.ko, s.text[2] as u32, s.text[3] as u32, glyph);
+                        s.font_px = layout::font_for(&it.ko, s.text[2] as u32, s.text[3] as u32, glyph.map(|g| g * scale));
                     }
-                    s.parts = parts(runs, s.text, &more);
+                    s.parts = parts(runs, s.text, &more, scale);
                     // A rounded white box only where no dark letters are found.
                     if fill.is_some() || !more.is_empty() {
                         let (outline, b) = joined(std::iter::once(fill.map_or_else(|| rect_outline(rect), |f| f.0)).chain(more.into_iter().map(|m| m.0)).collect());
@@ -955,6 +956,37 @@ mod tests {
         let (outline, b) = joined(vec![rect_outline([0, 80, 80, 150]), rect_outline([190, 80, 270, 150])]);
         let shape = PageBox { x: b[0], y: b[1], w: 270, h: 70, radius: 0, font_px: 12, ko: two.into(), outline, text: [15, 105, 50, 30], parts };
         assert_eq!(page_box(&row(String::new(), &shape)), shape);
+    }
+
+    /// The user, on the phone: lettering on the art with no balloon had a
+    /// white rectangle painted over it and the art around it. Its white is
+    /// its letters and their rim, the art between its lines and beside it
+    /// stays, and the Korean is set larger over it, its own rim hiding what
+    /// the white leaves.
+    #[test]
+    fn lettering_on_the_art_is_covered_letter_by_letter_under_larger_korean() {
+        let (w, h) = (600u32, 600u32);
+        let mut page = export::Rgb { w, h, px: vec![170; (w * h * 3) as usize] };
+        let mut ink = |x0: u32, y0: u32, x1: u32, y1: u32| (y0..y1).for_each(|y| (x0..x1).for_each(|x| page.px[((y * w + x) * 3) as usize..][..3].fill(0)));
+        // Two lines of two four-letter words, 16 px letters; dark art below.
+        for y in [200, 232] {
+            for x in [200, 220, 240, 260, 320, 340, 360, 380] {
+                ink(x, y, x + 14, y + 16);
+            }
+        }
+        ink(150, 400, 450, 520);
+        let it = PageItem { src: "ABCD EFGH IJKL MNOP".into(), ko: "그래, 그거야!".into(), ..item([190.0 / 600.0, 190.0 / 600.0, 258.0 / 600.0, 404.0 / 600.0], None) };
+        let b = &shapes(&[it], &page, "en")[0];
+        assert!(!b.outline.is_empty() && b.radius == 0, "{b:?}");
+        let mut img = export::Rgb { w, h, px: vec![0; (w * h * 3) as usize] };
+        export::draw_placement(&mut img, &row(String::new(), b), 0);
+        let white = |x: u32, y: u32| img.px[((y * w + x) * 3) as usize] == 255;
+        // Letters at each end; not the art between the words, the lines, or below.
+        for (x, y) in [(207, 208), (387, 240), (230, 240), (366, 208)] {
+            assert!(white(x, y), "({x}, {y})");
+        }
+        assert!(!white(300, 208) && !white(230, 225) && !white(300, 450) && !white(150, 208), "{b:?}");
+        assert!(b.font_px as f64 > 16.0 * layout::KO_SCALE, "{b:?}");
     }
 
     #[test]

@@ -52,7 +52,7 @@
     }
     // A white rim round each Korean letter: legible where it is set over
     // the art beside lettering that has no balloon.
-    const HALO = [...Array(8)].map((_, k) => `${(Math.cos((k * Math.PI) / 4) * 0.09).toFixed(3)}em ${(Math.sin((k * Math.PI) / 4) * 0.09).toFixed(3)}em 0.03em #fff`).join(',');
+    const HALO = [...Array(8)].map((_, k) => `${(Math.cos((k * Math.PI) / 4) * 0.14).toFixed(3)}em ${(Math.sin((k * Math.PI) / 4) * 0.14).toFixed(3)}em 0.04em #fff`).join(',');
     const css = document.createElement('style');
     css.textContent = `
       .rst-layer{position:absolute;pointer-events:none;z-index:2147483000;transform-origin:0 0}

@@ -301,7 +301,7 @@ fn draw_words(img: &mut Rgb, p: &PlacementRow, top: i64) {
 
 /// The white rim round each Korean letter, as a share of the letter's size
 /// (the reader's own rim is the same).
-const HALO: f32 = 0.09;
+const HALO: f32 = 0.14;
 
 /// `ko` at `font_px`, centred in text area `x, y, w, h` (page pixels; the
 /// image starts at page row `top`).
