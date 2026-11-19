@@ -118,6 +118,9 @@ pub fn encode_png(img: &Rgb) -> Result<Vec<u8>, String> {
 /// How far round a pixel the tone fill looks for art already known.
 const TONE_REACH: i64 = 3;
 
+/// How many passes smooth the tone fill (`tone`).
+const TONE_RELAX: usize = 40;
+
 /// How far (px) round a letter's strokes the tone fill covers: their soft edge.
 const STROKE_RIM: usize = 2;
 
@@ -271,6 +274,16 @@ pub(crate) fn tone(page: &Rgb, rects: &[[i64; 4]], edging: i64) -> Option<layout
             known[i] = true;
         }
         todo.retain(|&i| !known[i]);
+    }
+    // Ring by ring, the fill is faceted, a mosaic of near copies; relaxed to
+    // the mean of its four neighbours, it is an even tone between its edges.
+    let filled: Vec<usize> = (0..fw * fh).filter(|&i| inside[i]).collect();
+    for _ in 0..TONE_RELAX {
+        for &i in &filled {
+            let (x, y) = (i % fw, i / fw);
+            let n = [if x > 0 { i - 1 } else { i }, if x + 1 < fw { i + 1 } else { i }, if y > 0 { i - fw } else { i }, if y + 1 < fh { i + fw } else { i }];
+            c[i] = [0, 1, 2].map(|k| n.iter().map(|&j| c[j][k]).sum::<f32>() / 4.0);
+        }
     }
     let (pw, ph) = (fw as u32, fh as u32);
     let mut px = Vec::with_capacity(fw * fh * 4);
@@ -719,6 +732,24 @@ mod tests {
         let at = |x: i64, y: i64| &px[((y - patch.at[1]) as usize * pw as usize + (x - patch.at[0]) as usize) * 4..][..4];
         assert!(at(55, 27)[3] == 255 && at(55, 27)[0] < 100, "{:?}", at(55, 27));
         assert_eq!(at(55, 12)[3], 0);
+    }
+
+    /// The user, on the phone: the fill looked like a mosaic, facets of near
+    /// copies ring by ring. Over a smooth gradient it is smooth too.
+    #[test]
+    fn tone_is_smooth_not_a_mosaic() {
+        let mut page = Rgb { w: 80, h: 60, px: vec![0; 80 * 60 * 3] };
+        for y in 0..60 {
+            for x in 0..80 {
+                let v = (60 + 2 * x + y) as u8;
+                page.put(x, y, if (25..45).contains(&x) && (20..40).contains(&y) { [0; 3] } else { [v; 3] });
+            }
+        }
+        let patch = tone(&page, &[[23, 18, 47, 42]], 0).unwrap();
+        let (pw, px) = patch_px(&patch).unwrap();
+        let at = |x: i64, y: i64| px[((y - patch.at[1]) as usize * pw as usize + (x - patch.at[0]) as usize) * 4] as i32;
+        let jump = (25..44).flat_map(|x| (20..39).map(move |y| (x, y))).map(|(x, y)| (at(x + 1, y) - at(x, y)).abs().max((at(x, y + 1) - at(x, y)).abs())).max().unwrap();
+        assert!(jump <= 4, "largest step between neighbours {jump}");
     }
 
     #[test]
