@@ -365,8 +365,9 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
     // Gemini's boxes say roughly where; the lettering on the page says exactly.
     let blocks = balloon::blocks(&pg, vertical);
     let letters = |s: &str| s.chars().filter(|c| c.is_alphanumeric()).count();
-    let wanted: Vec<([f64; 4], usize)> = items.iter().map(|it| (px(it.text, w, h), letters(&it.src))).collect();
-    let on = balloon::assign(&wanted, &blocks, w);
+    let mut wanted: Vec<([f64; 4], usize)> = items.iter().map(|it| (px(it.text, w, h), letters(&it.src))).collect();
+    let mut on = balloon::assign(&wanted, &blocks, w);
+    balloon::nudge(&mut wanted, &blocks, &mut on);
     let pieces = balloon::gather(&wanted, &blocks, &on);
     let union = |p: &[[f64; 4]]| p.iter().fold([f64::MAX, f64::MAX, f64::MIN, f64::MIN], |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
     let texts: Vec<[f64; 4]> = pieces.iter().zip(&wanted).map(|(p, &(t, _))| if p.is_empty() { t } else { union(p) }).collect();
@@ -388,8 +389,20 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
             let letters_in = |c: [f64; 4]| -> f64 {
                 pieces[i].iter().filter(|p| within(p, c)).filter_map(|p| blocks.iter().find(|b| b.bounds == *p)).map(|b| b.letters as f64).sum()
             };
-            let apart_from = |cover: [f64; 4]| -> (Vec<[f64; 4]>, Option<Vec<String>>) {
-                let sep: Vec<[f64; 4]> = pieces[i].iter().skip(1).filter(|p| !within(p, cover)).copied().collect();
+            // Beside a balloon of its own, a piece with no balloon round it
+            // is the item's only if it lies mostly in Gemini's box: else it
+            // is the art, gathered to make up letters the balloon's block
+            // missed (ch256 p6, brick lines beside "RIIIN.", whose thin
+            // "III" the block left out).
+            let mostly_in = |p: &[f64; 4], t: [f64; 4]| (p[2].min(t[2]) - p[0].max(t[0])).max(0.0) * (p[3].min(t[3]) - p[1].max(t[1])).max(0.0) >= 0.5 * (p[2] - p[0]) * (p[3] - p[1]);
+            let apart_from = |cover: [f64; 4], ballooned: bool| -> (Vec<[f64; 4]>, Option<Vec<String>>) {
+                let sep: Vec<[f64; 4]> = pieces[i]
+                    .iter()
+                    .skip(1)
+                    .filter(|p| !within(p, cover))
+                    .filter(|p| !ballooned || mostly_in(p, wanted[i].0) || balloon::find(&pg, **p, glyph.unwrap_or(0.0), &others).is_some())
+                    .copied()
+                    .collect();
                 if sep.is_empty() {
                     return (sep, None);
                 }
@@ -407,7 +420,20 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
             // art). With it, where the letters are, less those of pieces
             // apart (`sep`), which have Korean of their own.
             let lettering = |rs: &[[i64; 4]], glyph: Option<f64>, sep: &[[f64; 4]]| -> Option<(Vec<[i64; 4]>, [i64; 4])> {
-                let fill: Vec<[i64; 4]> = rs.iter().flat_map(|r| balloon::silhouette(&pg, r.map(|v| v as f64), glyph.unwrap_or(GLYPH_GUESS * w as f64))).collect();
+                // Letters of another text the region takes in stay: those
+                // centred, outside the item's own lettering, in a block of
+                // a word or more that another item took or that lies mostly
+                // outside Gemini's box (ch257 p11, the "GRND" balloons
+                // under "IT'S ABOUT TO—!", wiped with it). A block in the
+                // box nobody took may be the item's own, split off ("4...,"
+                // in ch256 p21 "3... 4...? 7...???").
+                let theirs = |f: &[i64; 4]| {
+                    let (cx, cy) = ((f[0] + f[2]) as f64 / 2.0, (f[1] + f[3]) as f64 / 2.0);
+                    let at = |b: &[f64; 4]| cx >= b[0] && cx <= b[2] && cy >= b[1] && cy <= b[3];
+                    let another = |j: usize| on.iter().enumerate().any(|(k, o)| k != i && *o == Some(j));
+                    !pieces[i].iter().any(at) && blocks.iter().enumerate().any(|(j, b)| b.letters >= balloon::WORD_LETTERS && (another(j) || !mostly_in(&b.bounds, wanted[i].0)) && at(&b.bounds))
+                };
+                let fill: Vec<[i64; 4]> = rs.iter().flat_map(|r| balloon::silhouette(&pg, r.map(|v| v as f64), glyph.unwrap_or(GLYPH_GUESS * w as f64))).filter(|f| !theirs(f)).collect();
                 let mine: Vec<[i64; 4]> = fill.iter().filter(|f| !sep.iter().any(|p| (f[0] as f64) < p[2] && (f[2] as f64) > p[0] && (f[1] as f64) < p[3] && (f[3] as f64) > p[1])).copied().collect();
                 let at = union(&if mine.is_empty() { &fill } else { &mine }.iter().map(|f| f.map(|v| v as f64)).collect::<Vec<_>>()).map(|v| v as i64);
                 if fill.is_empty() {
@@ -461,7 +487,7 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                 Some(f) => {
                     let [x0, y0, x1, y1] = f.text;
                     let (tw, th) = ((x1 - x0) as u32, (y1 - y0) as u32);
-                    let (sep, runs) = apart_from(f.bounds.map(|v| v as f64));
+                    let (sep, runs) = apart_from(f.bounds.map(|v| v as f64), true);
                     let more = beside(&sep);
                     let parts = parts(runs, [x0, y0, tw as i64, th as i64], &more, 1.0);
                     let tone: Vec<[i64; 4]> = more.iter().flat_map(|m| m.1.iter().copied()).collect();
@@ -524,11 +550,14 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                                 .flat_map(|y| (t[0].max(0.0) as i64..(t[2] as i64).min(w as i64)).map(move |x| (x, y)))
                                 .filter(|&(x, y)| gray[y as usize * w as usize + x as usize] < 128)
                                 .collect();
-                            balloon::glyph(&strokes, vertical)
+                            // Lines found over the art (a box Gemini put on the
+                            // hair, ch256 p10 "YODEL-AY-HEE!") are as tall as
+                            // the box: no letter is taller than a letter can be.
+                            balloon::glyph(&strokes, vertical).map(|g| g.min(balloon::LETTER_MAX * w as f64))
                         }
                     };
                     // Sized for its own share of a line shared with pieces apart.
-                    let (sep, runs) = apart_from(t);
+                    let (sep, runs) = apart_from(t, false);
                     let ko = runs.as_ref().map_or(it.ko.clone(), |r| r[0].clone());
                     let placed = match on[i] {
                         Some(_) => PageItem { text: [t[1] / h as f64, t[0] / w as f64, t[3] / h as f64, t[2] / w as f64], balloon: None, ko: ko.clone(), ..it.clone() },
@@ -1014,6 +1043,36 @@ mod tests {
         }
         assert!([(300, 208), (230, 225), (300, 450), (150, 208)].iter().all(|&(x, y)| at(x, y).is_none()), "{b:?}");
         assert!(b.font_px as f64 > 16.0 * layout::KO_SCALE, "{b:?}");
+    }
+
+    /// ch256 p6: "RIIIN." in its balloon, the block of it only "R" (the
+    /// "III" thin), gathered brick lines beside the balloon that Gemini's box
+    /// reached into, and the tone wiped the bricks. The balloon is covered,
+    /// and the art beside it is not.
+    #[test]
+    fn art_beside_a_found_balloon_is_not_gathered_into_its_cover() {
+        let (w, h) = (600u32, 600u32);
+        let mut page = export::Rgb { w, h, px: vec![255; (w * h * 3) as usize] };
+        let mut ink = |x: u32, y: u32| page.px[((y * w + x) * 3) as usize..][..3].fill(0);
+        for y in 0..h {
+            for x in 0..w {
+                let e = ((x as f64 - 300.0) / 70.0).powi(2) + ((y as f64 - 200.0) / 50.0).powi(2);
+                if e > 1.0 && e <= (1.0f64 + 3.0 / 50.0).powi(2) {
+                    ink(x, y);
+                }
+            }
+        }
+        // Letters as "C"s, 3 px strokes, open to the paper.
+        let mut mark = |x0: u32, y0: u32| (y0..y0 + 20).for_each(|y| (x0..x0 + 18).filter(|&x| x < x0 + 3 || y < y0 + 3 || y >= y0 + 17).for_each(|x| ink(x, y)));
+        for x in [280, 302] {
+            mark(x, 190);
+        }
+        for x in [160, 182, 204, 226] {
+            mark(x, 255);
+        }
+        let it = PageItem { src: "RIIN".into(), ko: "따르릉.".into(), ..item([140.0 / 600.0, 232.0 / 600.0, 275.0 / 600.0, 380.0 / 600.0], None) };
+        let b = &shapes(&[it], &page, "en")[0];
+        assert!(!b.outline.is_empty() && b.patch.is_none() && b.x >= 225, "{b:?}");
     }
 
     #[test]

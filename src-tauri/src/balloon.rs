@@ -279,7 +279,7 @@ pub struct Block {
 /// A letter: a dark mark between these shares of the page's width tall,
 /// mostly surrounded by paper.
 const LETTER_MIN: f64 = 0.006;
-const LETTER_MAX: f64 = 0.07;
+pub const LETTER_MAX: f64 = 0.07;
 const PAPER_AROUND: f64 = 0.6;
 
 /// Every block of lettering on the page. Gemini only says roughly where a
@@ -519,6 +519,14 @@ pub fn marks_in(page: &Page, r: [f64; 4]) -> usize {
     n
 }
 
+/// Half a letter's stroke, in letters: a speed line thinner than a stroke
+/// is worn away from a letter it touches, the letter left.
+const STROKE: f64 = 0.05;
+
+/// How tall, in letters, a mark of letters touching each other may be: a
+/// line of them, give or take.
+const LINE_TALL: f64 = 1.5;
+
 /// The white rim lettered round each letter of lettering with no balloon, in
 /// letters: how far its cover reaches past the strokes.
 const RIM: f64 = 0.2;
@@ -526,10 +534,8 @@ const RIM: f64 = 0.2;
 /// Lettering with no balloon round it, covered where it is drawn rather than
 /// with a box: the letter-sized dark marks reaching into `r`, sought a letter
 /// beyond it (a line its edge cuts through is still lettering; art running in
-/// from further out is left), each grown by its white rim, as bands of rows a
-/// quarter of a letter tall cut into runs wherever the marks lie a letter or
-/// more apart. The art between words and lines stays; inside a balloon the
-/// cover is white on white. Empty when `r` holds no such marks (white letters
+/// from further out is left), each its own rectangle grown by its rim. The
+/// art between letters, words and lines stays. Empty when `r` holds no such marks (white letters
 /// outlined on dark art), and the caller covers `r` instead.
 pub fn silhouette(page: &Page, r: [f64; 4], glyph: f64) -> Vec<[i64; 4]> {
     let (x0, y0) = ((r[0] - glyph).max(0.0) as usize, (r[1] - glyph).max(0.0) as usize);
@@ -539,62 +545,95 @@ pub fn silhouette(page: &Page, r: [f64; 4], glyph: f64) -> Vec<[i64; 4]> {
     }
     let (bw, bh) = (x1 - x0, y1 - y0);
     let hi = LETTER_MAX * page.w as f64;
-    let dark = |x: usize, y: usize| page.px[y * page.w as usize + x] < INK;
-    let (mut seen, mut keep) = (vec![false; bw * bh], vec![false; bw * bh]);
-    for start in 0..bw * bh {
-        if seen[start] || !dark(x0 + start % bw, y0 + start / bw) {
+    let dark: Vec<bool> = (0..bw * bh).map(|i| page.px[(y0 + i / bw) * page.w as usize + x0 + i % bw] < INK).collect();
+    let mut keep = vec![false; bw * bh];
+    // The marks among the pixels `on` from `lo` to `hi` across, reaching
+    // into `r` and not running in from the region's edge.
+    let letters = |on: &[bool], lo: f64, hi: f64, keep: &mut Vec<bool>| {
+        for (mark, [lo_x, lo_y, hi_x, hi_y], edge) in pieces(on, bw, bh) {
+            let size = ((hi_x - lo_x + 1).max(hi_y - lo_y + 1)) as f64;
+            let into = ((x0 + lo_x) as f64) < r[2] && ((x0 + hi_x + 1) as f64) > r[0] && ((y0 + lo_y) as f64) < r[3] && ((y0 + hi_y + 1) as f64) > r[1];
+            if !edge && into && size <= hi && size >= lo {
+                mark.into_iter().for_each(|i| keep[i] = true);
+            }
+        }
+    };
+    letters(&dark, 2.0, hi, &mut keep);
+    // Letters touching each other are too big a mark to keep (ch257 p11,
+    // "TH" in "THE"). The thick strokes of a mark a line of letters tall,
+    // thin lines worn away from them, are sought again, each from a third
+    // of a letter to a letter and a half across. A mark taller is art: a
+    // heavy balloon outline (p11, right of "HAKARI") or hatched hair (ch256
+    // p10, under "YODEL-AY-HEE!"), its strands letter-sized.
+    let rest: Vec<bool> = (0..bw * bh).map(|i| dark[i] && !keep[i]).collect();
+    let thick = opened(&rest, bw, bh, ((STROKE * glyph).round() as usize).max(1));
+    let mut sought = vec![false; bw * bh];
+    for (mark, [lo_x, lo_y, hi_x, hi_y], _) in pieces(&rest, bw, bh) {
+        let across = ((hi_x - lo_x + 1).min(hi_y - lo_y + 1)) as f64;
+        if across <= LINE_TALL * glyph {
+            mark.into_iter().filter(|&i| thick[i]).for_each(|i| sought[i] = true);
+        }
+    }
+    letters(&sought, glyph / 3.0, LINE_TALL * glyph, &mut keep);
+    // Each letter's own rectangle, grown by its rim: not a band across a
+    // line, which takes in the art between letters and lines (ch256 p10,
+    // hair under "YODEL-AY-HEE!").
+    let rim = ((RIM * glyph).round() as usize).max(2);
+    pieces(&keep, bw, bh)
+        .into_iter()
+        .map(|(_, b, _)| [(x0 + b[0]).saturating_sub(rim).max(x0) as i64, (y0 + b[1]).saturating_sub(rim).max(y0) as i64, (x0 + b[2] + 1 + rim).min(x1) as i64, (y0 + b[3] + 1 + rim).min(y1) as i64])
+        .collect()
+}
+
+/// The 8-connected pieces of the pixels `on` in a `w` × `h` region: each
+/// one's pixels, bounds (`x0, y0, x1, y1`, inclusive) and whether it meets
+/// the region's edge.
+pub fn pieces(on: &[bool], w: usize, h: usize) -> Vec<(Vec<usize>, [usize; 4], bool)> {
+    let mut seen = vec![false; w * h];
+    let mut out = vec![];
+    for start in 0..w * h {
+        if seen[start] || !on[start] {
             continue;
         }
         seen[start] = true;
         let (mut stack, mut mark) = (vec![start], vec![]);
-        let (mut lo_x, mut lo_y, mut hi_x, mut hi_y, mut edge) = (bw, bh, 0, 0, false);
+        let (mut b, mut edge) = ([w, h, 0, 0], false);
         while let Some(i) = stack.pop() {
             mark.push(i);
-            let (x, y) = (i % bw, i / bw);
-            (lo_x, lo_y, hi_x, hi_y) = (lo_x.min(x), lo_y.min(y), hi_x.max(x), hi_y.max(y));
-            edge |= x == 0 || y == 0 || x + 1 == bw || y + 1 == bh;
+            let (x, y) = (i % w, i / w);
+            b = [b[0].min(x), b[1].min(y), b[2].max(x), b[3].max(y)];
+            edge |= x == 0 || y == 0 || x + 1 == w || y + 1 == h;
             for (dx, dy) in [(-1i64, 0i64), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1), (-1, 1), (1, -1)] {
                 let (nx, ny) = (x as i64 + dx, y as i64 + dy);
-                if nx < 0 || ny < 0 || nx >= bw as i64 || ny >= bh as i64 {
+                if nx < 0 || ny < 0 || nx >= w as i64 || ny >= h as i64 {
                     continue;
                 }
-                let j = ny as usize * bw + nx as usize;
-                if !seen[j] && dark(x0 + nx as usize, y0 + ny as usize) {
+                let j = ny as usize * w + nx as usize;
+                if !seen[j] && on[j] {
                     seen[j] = true;
                     stack.push(j);
                 }
             }
         }
-        let size = ((hi_x - lo_x + 1).max(hi_y - lo_y + 1)) as f64;
-        let into = ((x0 + lo_x) as f64) < r[2] && ((x0 + hi_x + 1) as f64) > r[0] && ((y0 + lo_y) as f64) < r[3] && ((y0 + hi_y + 1) as f64) > r[1];
-        if !edge && into && size <= hi && size >= 2.0 {
-            mark.into_iter().for_each(|i| keep[i] = true);
-        }
-    }
-    let rim = ((RIM * glyph).round() as usize).max(2);
-    let band = ((glyph / 4.0).round() as usize).max(2);
-    let gap = glyph.max(4.0) as usize;
-    let mut out: Vec<[i64; 4]> = vec![];
-    for y in (0..bh).step_by(band) {
-        let rows = y.saturating_sub(rim)..(y + band + rim).min(bh);
-        let mut runs: Vec<(usize, usize)> = vec![];
-        for x in (0..bw).filter(|&x| rows.clone().any(|yy| keep[yy * bw + x])) {
-            match runs.last_mut() {
-                Some(run) if x - run.1 <= gap => run.1 = x,
-                _ => runs.push((x, x)),
-            }
-        }
-        for (a, b) in runs {
-            let rect = [(x0 + a).saturating_sub(rim).max(x0) as i64, (y0 + y) as i64, (x0 + b + 1 + rim).min(x1) as i64, (y0 + (y + band).min(bh)) as i64];
-            // The same run as the band above, give or take a rim: one taller
-            // rectangle, its edges smoothed out to the wider.
-            match out.iter_mut().rev().take(8).find(|p| p[3] == rect[1] && (p[0] - rect[0]).abs() <= rim as i64 && (p[2] - rect[2]).abs() <= rim as i64) {
-                Some(p) => *p = [p[0].min(rect[0]), p[1], p[2].max(rect[2]), rect[3]],
-                None => out.push(rect),
-            }
-        }
+        out.push((mark, b, edge));
     }
     out
+}
+
+/// The pixels `on` that lie within `r` of a square `2r + 1` wide wholly
+/// `on`: strokes that thick or thicker, without the thinner lines running
+/// from them.
+pub fn opened(on: &[bool], w: usize, h: usize, r: usize) -> Vec<bool> {
+    let r = r as i64;
+    let all = |i: usize, test: &dyn Fn(usize) -> bool| {
+        let (x, y) = (i % w, i / w);
+        (-r..=r).all(|dy| (-r..=r).all(|dx| {
+            let (nx, ny) = (x as i64 + dx, y as i64 + dy);
+            nx >= 0 && ny >= 0 && nx < w as i64 && ny < h as i64 && test(ny as usize * w + nx as usize)
+        }))
+    };
+    let core: Vec<bool> = (0..w * h).map(|i| on[i] && all(i, &|j| on[j])).collect();
+    (0..w * h).map(|i| on[i] && !all(i, &|j| !core[j])).collect()
 }
 
 /// How far, in letters, marks may join a block beyond its own letters.
@@ -665,6 +704,34 @@ pub fn assign(items: &[([f64; 4], usize)], blocks: &[Block], page_w: u32) -> Vec
     out
 }
 
+/// Gemini's box for an item [`assign`] left without lettering, moved onto
+/// the line it missed: when the box meets no block at all and a word or
+/// more nobody took lies within [`REACH`] letters of it, the box moves just
+/// far enough to hold that line, and the line is the item's (ch257 p10, a
+/// footnote's box two lines above it; its cover went to the frills there).
+/// Of lines equally near, the longest.
+pub fn nudge(items: &mut [([f64; 4], usize)], blocks: &[Block], on: &mut [Option<usize>]) {
+    let meets = |t: [f64; 4], r: [f64; 4]| t[0] < r[2] && r[0] < t[2] && t[1] < r[3] && r[1] < t[3];
+    for i in 0..items.len() {
+        let t = items[i].0;
+        if on[i].is_some() || blocks.iter().any(|b| meets(t, b.bounds)) {
+            continue;
+        }
+        let gap = |r: [f64; 4]| (r[0] - t[2]).max(t[0] - r[2]).max(r[1] - t[3]).max(t[1] - r[3]);
+        let near = blocks
+            .iter()
+            .enumerate()
+            .filter(|&(j, b)| !on.contains(&Some(j)) && b.letters >= WORD_LETTERS && gap(b.bounds) <= REACH * b.glyph)
+            .min_by(|a, b| gap(a.1.bounds).total_cmp(&gap(b.1.bounds)).then(b.1.letters.cmp(&a.1.letters)));
+        let Some((j, b)) = near else { continue };
+        let r = b.bounds;
+        let dx = if r[0] >= t[2] { r[2] - t[2] } else if r[2] <= t[0] { r[0] - t[0] } else { 0.0 };
+        let dy = if r[1] >= t[3] { r[3] - t[3] } else if r[3] <= t[1] { r[1] - t[1] } else { 0.0 };
+        items[i].0 = [t[0] + dx, t[1] + dy, t[2] + dx, t[3] + dy];
+        on[i] = Some(j);
+    }
+}
+
 /// Each item's lettering: its block, joined by blocks no item took that
 /// are lettered at its size and either lie almost wholly inside the item's
 /// box or, half inside it or reaching into it within a few letters of the
@@ -722,7 +789,7 @@ pub fn gather(items: &[([f64; 4], usize)], blocks: &[Block], on: &[Option<usize>
 
 /// The fewest letters a text gathered from beside an item's box holds: a
 /// word ("◆ Plung" ahead of a caption's box, ch258 p19).
-const WORD_LETTERS: usize = 4;
+pub const WORD_LETTERS: usize = 4;
 
 /// Matching cost: distance in page widths, plus this much per unit of the
 /// log ratio of letter counts; beyond `MATCH_MAX`, no match.
@@ -1089,13 +1156,18 @@ mod tests {
             ink(x, 42, x + 16, 58);
         }
         ink(0, 120, 200, 123);
+        // A letter a speed line 1 px thin runs through, across the page
+        // (ch257 p11, "KA" in "HAKARI").
+        ink(0, 140, 400, 141);
+        ink(150, 132, 166, 148);
         let cover = silhouette(&Page { w, h, px: &px }, [60.0, 50.0, 320.0, 150.0], 16.0);
         let on = |x: i64, y: i64| cover.iter().any(|r| x >= r[0] && x < r[2] && y >= r[1] && y < r[3]);
         // Every stroke, and a rim past each edge.
         for x in [97, 100, 115, 135, 155, 158, 217, 275, 278] {
             assert!(on(x, 88), "x {x}");
         }
-        assert!(on(130, 77) && on(130, 98) && on(108, 43) && on(268, 57));
+        assert!(on(130, 77) && on(130, 98) && on(108, 43) && on(268, 57) && on(158, 133) && on(165, 147));
+        assert!(!on(70, 140) && !on(300, 140));
         // Not the art between the words, beyond the rim, or the hair.
         assert!(!on(190, 88) && !on(130, 70) && !on(130, 104) && !on(120, 121) && !on(70, 88));
     }
@@ -1262,6 +1334,28 @@ mod tests {
         ];
         let texts = gather(&[([12.0, 834.0, 266.0, 1160.0], 39)], &blocks, &[Some(0)]);
         assert_eq!(texts, vec![vec![blocks[0].bounds]]);
+    }
+
+    /// ch257 p10: the footnote's box sits 24 px above its line, which the
+    /// grouping split in three; the box moves onto the line and gathers all
+    /// of it, not the 42 px lettering further off.
+    #[test]
+    fn a_box_off_its_line_moves_onto_it() {
+        let block = |bounds: [f64; 4], letters, glyph| Block { bounds, letters, glyph, in_balloon: false };
+        let blocks = [
+            block([268.0, 1016.0, 447.0, 1034.0], 14, 13.0),
+            block([477.0, 1016.0, 743.0, 1039.0], 23, 13.0),
+            block([744.0, 1016.0, 860.0, 1039.0], 10, 13.0),
+            block([384.0, 1111.0, 501.0, 1197.0], 6, 42.0),
+        ];
+        let mut items = [([379.0, 932.0, 1146.0, 992.0], 52)];
+        let mut on = assign(&items, &blocks, 1200);
+        assert_eq!(on, vec![None]);
+        nudge(&mut items, &blocks, &mut on);
+        assert_eq!(on, vec![Some(1)]);
+        let mut texts = gather(&items, &blocks, &on).remove(0);
+        texts.sort_by(|a, b| a[0].total_cmp(&b[0]));
+        assert_eq!(texts, vec![blocks[0].bounds, blocks[1].bounds, blocks[2].bounds]);
     }
 
     /// Lettering on a face (ch256 p8, "...SHE NEEDS OPPORTUNITIES"): the
