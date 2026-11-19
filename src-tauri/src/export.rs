@@ -121,10 +121,11 @@ const TONE_REACH: i64 = 3;
 /// How far (px) round a letter's strokes the tone fill covers: their soft edge.
 const STROKE_RIM: usize = 2;
 
-/// How light (0–255) the white edging round lettering on the art is.
-const EDGING: u16 = 200;
+/// How light (0–255) the white edging round lettering on the art is: near
+/// white, lighter than a gray tone.
+const EDGING: u16 = 235;
 
-/// Art darker than this (0–255), in the main, next to lettering is dark art.
+/// Darker than this (0–255), a pixel is part of a letter's strokes.
 const DARK_ART: u16 = 128;
 
 /// The art round the letters in `rects` (`x0, y0, x1, y1`) carried in over
@@ -198,8 +199,11 @@ pub(crate) fn tone(page: &Rgb, rects: &[[i64; 4]], edging: i64) -> Option<layout
         edge = next;
     }
     // Each spot of it taken in where the art beyond it, near that spot, is
-    // mostly dark: lettering across a panel's edge has its edging taken in
-    // on the dark side and left on the light (ch258 p17, "OCEAN").
+    // mostly not white: there the edging shows, as letter-shaped white on a
+    // tone (ch257 p6, "THAT?!") or a light smudge in the dark. On white
+    // paper it is left: it does not show, and filled it is carried in from
+    // the dark lines it stops at (ch257 p9). Lettering across a panel's edge
+    // has its edging taken in on the dark side only (ch258 p17, "OCEAN").
     let sum = |on: &dyn Fn(usize) -> bool| {
         let mut t = vec![0u32; (fw + 1) * (fh + 1)];
         for y in 0..fh {
@@ -209,7 +213,7 @@ pub(crate) fn tone(page: &Rgb, rects: &[[i64; 4]], edging: i64) -> Option<layout
         }
         t
     };
-    let (art, dark) = (sum(&|i| !grown[i]), sum(&|i| !grown[i] && gray(i) < DARK_ART));
+    let (art, dark) = (sum(&|i| !grown[i]), sum(&|i| !grown[i] && gray(i) < EDGING));
     let r = (edging + TONE_REACH) as usize;
     let count = |t: &[u32], x: usize, y: usize| {
         let (x0, y0, x1, y1) = (x.saturating_sub(r), y.saturating_sub(r), (x + r + 1).min(fw), (y + r + 1).min(fh));
@@ -649,47 +653,52 @@ mod tests {
 
     /// The user, on the phone: the tone carried in over lettering on dark art
     /// was a light smudge, carried in from the letters' white edging (ch258
-    /// p17, ch257 p6). On dark art the edging is taken in and the fill is
-    /// the art's dark; on light art the letters take its light tone.
+    /// p17, ch257 p6), and on a gray tone the edging stayed as letter-shaped
+    /// white (ch257 p6, "THAT?!"). The edging is taken in, and the fill is
+    /// the art's own tone, wherever the art round it is not white paper.
     #[test]
-    fn tone_takes_in_white_edging_on_dark_art_only() {
-        let mut page = Rgb { w: 120, h: 40, px: vec![200; 120 * 40 * 3] };
-        // Dark art on the right half; a black letter in each half, the one
-        // on the dark art edged in white 3 px wide.
+    fn tone_takes_in_white_edging_off_white_paper() {
+        let mut page = Rgb { w: 180, h: 40, px: vec![255; 180 * 40 * 3] };
+        // White paper, a gray tone, dark art; a black letter on each, the
+        // two off the paper edged in white 5 px wide.
         for y in 0..40 {
-            for x in 60..120 {
-                page.put(x, y, [30, 30, 30]);
+            for x in 60..180 {
+                page.put(x, y, if x < 120 { [200; 3] } else { [30; 3] });
             }
         }
-        for y in 10..30 {
-            for x in 75..95 {
-                page.put(x, y, [255, 255, 255]);
-            }
-        }
-        for (x0, y0) in [(20, 15), (80, 15)] {
-            for y in y0..y0 + 10 {
-                for x in x0..x0 + 10 {
-                    page.put(x, y, [0, 0, 0]);
+        for x0 in [75, 135] {
+            for y in 10..30 {
+                for x in x0..x0 + 20 {
+                    page.put(x, y, [255; 3]);
                 }
             }
         }
-        let patch = tone(&page, &[[18, 13, 32, 27], [78, 13, 92, 27]], 4).unwrap();
+        for x0 in [20, 80, 140] {
+            for y in 15..25 {
+                for x in x0..x0 + 10 {
+                    page.put(x, y, [0; 3]);
+                }
+            }
+        }
+        let patch = tone(&page, &[[18, 13, 32, 27], [78, 13, 92, 27], [138, 13, 152, 27]], 4).unwrap();
         let (pw, px) = patch_px(&patch).unwrap();
         let at = |x: i64, y: i64| &px[((y - patch.at[1]) as usize * pw as usize + (x - patch.at[0]) as usize) * 4..][..4];
-        assert_eq!(at(25, 20), &[200, 200, 200, 255]);
-        // The edging covered, and the fill the dark of the art round it.
-        assert!(at(76, 20)[3] == 255 && at(85, 11)[3] == 255 && at(93, 22)[3] == 255);
-        assert!(at(85, 20)[0] < 60 && at(85, 20)[3] == 255, "{:?}", at(85, 20));
-        // The light art round the left letter is left as it is.
+        // On paper: the letter is paper, the paper round it left as it is.
+        assert_eq!(at(25, 20), &[255, 255, 255, 255]);
         assert_eq!(at(15, 20)[3], 0);
+        // On the tone and the dark: the edging covered, filled with the art.
+        for (x, art) in [(76, 200u8), (85, 200), (136, 30), (145, 30)] {
+            assert!(at(x, 20)[3] == 255 && at(x, 20)[0].abs_diff(art) < 30, "({x}, 20): {:?}", at(x, 20));
+        }
+        assert!(at(85, 11)[3] == 255 && at(153, 22)[3] == 255);
     }
 
-    /// The user, on the phone: lettering across a panel's edge, light art
-    /// above and dark below, still left a light smudge (ch258 p17, "OCEAN").
+    /// The user, on the phone: lettering across a panel's edge, the white
+    /// gutter above and dark art below, still left a light smudge (ch258 p17, "OCEAN").
     /// Its edging is taken in on the dark side only.
     #[test]
     fn tone_takes_in_edging_on_the_dark_side_of_a_panel_edge() {
-        let mut page = Rgb { w: 100, h: 40, px: vec![200; 100 * 40 * 3] };
+        let mut page = Rgb { w: 100, h: 40, px: vec![255; 100 * 40 * 3] };
         for y in 20..40 {
             for x in 0..100 {
                 page.put(x, y, [30, 30, 30]);
