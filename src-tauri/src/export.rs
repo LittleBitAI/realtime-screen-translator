@@ -131,8 +131,10 @@ const STROKE_RIM: usize = 2;
 /// How far (0–255) a pixel's gray is from the art's ground for it to be part
 /// of the lettering's halo, its white edging or gray shadow, not the ground:
 /// past JPEG noise, short of the soft edge of white edging on a light tone
-/// (ch256 p6, 240 on 225).
-const OFF_GROUND: f32 = 12.0;
+/// (ch256 p6, 240 on 225) and of the ringing round letters on white paper
+/// (ch258 p7, 236–244 on 252: a dotted outline of "YOU MEAN" round the
+/// cover).
+const OFF_GROUND: f32 = 8.0;
 
 /// Darker than this (0–255), a pixel is part of a letter's strokes.
 const DARK_ART: u16 = 128;
@@ -140,6 +142,10 @@ const DARK_ART: u16 = 128;
 /// Ink lighter than this (0–255) is the soft rim between white edging and
 /// dark art, not the art.
 const RIM_GRAY: u16 = 64;
+
+/// How far (0–255) the relaxed fill may stray from the nearest ground before
+/// it goes over to it, wholly at twice this.
+const TONE_SPLIT: f32 = 40.0;
 
 /// Pixels the halo may reach past the edging asked for.
 const HALO_PAST: i64 = 2;
@@ -347,7 +353,20 @@ pub(crate) fn tone(page: &Rgb, rects: &[[i64; 4]], edging: i64) -> Option<layout
     }
     let inside = known.iter().map(|k| !k).collect::<Vec<bool>>();
     let src = ground(&known);
-    let c = fill(&known, &src, TONE_RELAX);
+    let smooth = fill(&known, &src, TONE_RELAX);
+    // Across a hard edge, relaxed, the fill is a gray blur from one side
+    // into the other (ch258 p7, "MEAN" touching black hair on white paper):
+    // there it goes over to the nearest ground, the edge kept as drawn.
+    let near = fill(&known, &src, 0);
+    let c: Vec<[f32; 3]> = smooth
+        .iter()
+        .zip(&near)
+        .map(|(s, n)| {
+            let d = (0..3).map(|k| (s[k] - n[k]).abs()).fold(0f32, f32::max);
+            let t = ((d - TONE_SPLIT) / TONE_SPLIT).clamp(0.0, 1.0);
+            [0, 1, 2].map(|k| s[k] + t * (n[k] - s[k]))
+        })
+        .collect();
     let (pw, ph) = (fw as u32, fh as u32);
     let mut px = Vec::with_capacity(fw * fh * 4);
     for y in f[1]..f[3] {
