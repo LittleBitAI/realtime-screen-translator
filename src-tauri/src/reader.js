@@ -59,6 +59,7 @@
       html.rst-off .rst-layer{display:none}
       .rst-box{position:absolute;box-sizing:border-box;pointer-events:auto}
       .rst-fill{position:absolute;inset:0;background:#fff}
+      .rst-patch{position:absolute;background-size:100% 100%}
       .rst-text{position:absolute;z-index:1;display:flex;align-items:center;justify-content:center;color:#111;text-align:center;
         line-height:1.2;font-family:system-ui,'Noto Sans KR',sans-serif;font-weight:600;word-break:keep-all;
         white-space:pre-line;text-wrap:balance;overflow:hidden;
@@ -364,14 +365,30 @@
       box.style.width = pct(b.w, answer.width);
       box.style.height = pct(b.h, answer.height);
       box.dataset.radius = String(b.radius / answer.width);
+      // Under lettering with no balloon round it, the art's own tone
+      // carried in over the letters (a picture the app made).
+      if (b.patch) {
+        const tone = document.createElement('div');
+        tone.className = 'rst-patch';
+        const [px, py, pw, ph] = b.patch.at;
+        tone.style.left = pct(px - b.x, b.w);
+        tone.style.top = pct(py - b.y, b.h);
+        tone.style.width = pct(pw, b.w);
+        tone.style.height = pct(ph, b.h);
+        tone.style.backgroundImage = `url(data:image/png;base64,${b.patch.png})`;
+        box.appendChild(tone);
+      }
       // The white follows the balloon's own outline where the app found it,
-      // or the lettering's own letters where no balloon holds them; the
-      // Korean is set above every cover's white, in a white rim of its own.
-      const fill = document.createElement('div');
-      fill.className = 'rst-fill';
-      box.appendChild(fill);
-      if (b.outline?.length) {
-        fill.style.clipPath = `polygon(${b.outline.map(([x, y]) => `${pct(x - b.x, b.w)} ${pct(y - b.y, b.h)}`).join(',')})`;
+      // or is a rounded box where no letters were found; with a patch and no
+      // outline there is none. The Korean is set above every cover, in a
+      // white rim of its own.
+      if (b.outline?.length || !b.patch) {
+        const fill = document.createElement('div');
+        fill.className = 'rst-fill';
+        box.appendChild(fill);
+        if (b.outline?.length) {
+          fill.style.clipPath = `polygon(${b.outline.map(([x, y]) => `${pct(x - b.x, b.w)} ${pct(y - b.y, b.h)}`).join(',')})`;
+        }
       }
       // A line lettered in several balloons is set a share in each.
       const parts = b.parts?.length ? b.parts : [{ text: b.text ?? [b.x, b.y, b.w, b.h], font_px: b.font_px, ko: b.ko }];
@@ -406,7 +423,8 @@
   const READABLE = 7;
   const WORDS_KEEP = 0.7;
   function fitFont(box, shownWidth) {
-    box.querySelector('.rst-fill').style.borderRadius = `${Number(box.dataset.radius) * shownWidth}px`;
+    const fill = box.querySelector('.rst-fill');
+    if (fill) fill.style.borderRadius = `${Number(box.dataset.radius) * shownWidth}px`;
     for (const text of box.querySelectorAll('.rst-text')) fitText(text, shownWidth);
   }
 
@@ -431,12 +449,16 @@
       }
     };
     text.style.wordBreak = '';
+    text.style.textWrap = '';
     text.style.overflowWrap = 'normal';
     if (shrink(Math.max(READABLE, start * WORDS_KEEP))) {
       // Between syllables, as Korean may break, but never ahead of the
       // punctuation that ends a word: "무서워하지 않았어...?" keeps its
-      // "...?", "젠장...!" its "!" (ch257 p18, p19).
+      // "...?", "젠장...!" its "!" (ch257 p18, p19). Lines filled in turn,
+      // not balanced: balanced, a short word is split too ("너 / 무 달",
+      // ch257 p6).
       text.style.wordBreak = 'normal';
+      text.style.textWrap = 'wrap';
       if (shrink(READABLE)) {
         text.style.overflowWrap = 'anywhere';
         shrink(2);

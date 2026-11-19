@@ -406,32 +406,33 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
             // no dark letters are found there (white letters outlined on
             // art). With it, where the letters are, less those of pieces
             // apart (`sep`), which have Korean of their own.
-            let lettering = |rs: &[[i64; 4]], glyph: Option<f64>, sep: &[[f64; 4]]| -> Option<(Vec<[i64; 2]>, [i64; 4])> {
+            let lettering = |rs: &[[i64; 4]], glyph: Option<f64>, sep: &[[f64; 4]]| -> Option<(Vec<[i64; 4]>, [i64; 4])> {
                 let fill: Vec<[i64; 4]> = rs.iter().flat_map(|r| balloon::silhouette(&pg, r.map(|v| v as f64), glyph.unwrap_or(GLYPH_GUESS * w as f64))).collect();
                 let mine: Vec<[i64; 4]> = fill.iter().filter(|f| !sep.iter().any(|p| (f[0] as f64) < p[2] && (f[2] as f64) > p[0] && (f[1] as f64) < p[3] && (f[3] as f64) > p[1])).copied().collect();
                 let at = union(&if mine.is_empty() { &fill } else { &mine }.iter().map(|f| f.map(|v| v as f64)).collect::<Vec<_>>()).map(|v| v as i64);
                 if fill.is_empty() {
                     return None;
                 }
-                Some((joined(fill.into_iter().map(rect_outline).collect()).0, at))
+                Some((fill, at))
             };
-            let beside = |sep: &[[f64; 4]]| -> Vec<(Vec<[i64; 2]>, [i64; 4])> {
+            let beside = |sep: &[[f64; 4]]| -> Vec<(Vec<[i64; 2]>, Vec<[i64; 4]>, [i64; 4])> {
                 sep.iter()
                     .map(|p| {
                         if let Some(f) = balloon::find(&pg, *p, glyph.unwrap_or(0.0), &others) {
                             let [x0, y0, x1, y1] = f.text;
-                            return (f.outline, [x0, y0, x1 - x0, y1 - y0]);
+                            return (f.outline, vec![], [x0, y0, x1 - x0, y1 - y0]);
                         }
                         let (mx, my) = (((p[2] - p[0]) * GROW).max(GROW_MIN_PX), ((p[3] - p[1]) * GROW).max(GROW_MIN_PX));
                         let r = apart([p[0] - mx, p[1] - my, p[2] + mx, p[3] + my], *p, &others);
                         let r = [r[0] as i64, r[1] as i64, r[2].ceil() as i64, r[3].ceil() as i64];
                         let pad = PAD as i64;
-                        (lettering(&[r], glyph, &[]).map_or_else(|| rect_outline(r), |f| f.0), [r[0] + pad, r[1] + pad, (r[2] - r[0] - 2 * pad).max(1), (r[3] - r[1] - 2 * pad).max(1)])
+                        let (white, tone) = lettering(&[r], glyph, &[]).map_or_else(|| (rect_outline(r), vec![]), |f| (vec![], f.0));
+                        (white, tone, [r[0] + pad, r[1] + pad, (r[2] - r[0] - 2 * pad).max(1), (r[3] - r[1] - 2 * pad).max(1)])
                     })
                     .collect()
             };
-            let parts = |runs: Option<Vec<String>>, own: [i64; 4], more: &[(Vec<[i64; 2]>, [i64; 4])], scale: f64| -> Vec<layout::Part> {
-                let areas = std::iter::once(own).chain(more.iter().map(|m| m.1));
+            let parts = |runs: Option<Vec<String>>, own: [i64; 4], more: &[(Vec<[i64; 2]>, Vec<[i64; 4]>, [i64; 4])], scale: f64| -> Vec<layout::Part> {
+                let areas = std::iter::once(own).chain(more.iter().map(|m| m.2));
                 runs.map_or(vec![], |runs| {
                     areas.zip(runs).map(|(a, ko)| layout::Part { text: a, font_px: layout::font_for(&ko, a[2] as u32, a[3] as u32, glyph.map(|g| g * scale)), ko }).collect()
                 })
@@ -461,7 +462,9 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                     let (sep, runs) = apart_from(f.bounds.map(|v| v as f64));
                     let more = beside(&sep);
                     let parts = parts(runs, [x0, y0, tw as i64, th as i64], &more, 1.0);
+                    let tone: Vec<[i64; 4]> = more.iter().flat_map(|m| m.1.iter().copied()).collect();
                     let (outline, b) = joined(std::iter::once(f.outline).chain(more.into_iter().map(|m| m.0)).collect());
+                    let b = tone.iter().fold(b, |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
                     PageBox {
                         x: b[0],
                         y: b[1],
@@ -473,6 +476,7 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                         outline,
                         text: [x0, y0, tw as i64, th as i64],
                         parts,
+                        patch: export::tone(page, &tone),
                     }
                 }
                 // No closed balloon: a rounded rectangle over the lettering
@@ -482,11 +486,11 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                 // below it): a white box there would wipe the art and leave
                 // the lettering. The line is kept, with nothing drawn.
                 // Lettered in another item's block: drawn in its cover.
-                None if host[i].is_some() => PageBox { x: 0, y: 0, w: 0, h: 0, radius: 0, font_px: 0, ko: it.ko.clone(), outline: vec![], text: [0, 0, 0, 0], parts: vec![] },
+                None if host[i].is_some() => PageBox { x: 0, y: 0, w: 0, h: 0, radius: 0, font_px: 0, ko: it.ko.clone(), outline: vec![], text: [0, 0, 0, 0], parts: vec![], patch: None },
                 None if on[i].is_none() && balloon::marks_in(&pg, wanted[i].0) < (wanted[i].1 / 2).max(1) => {
                     let t = wanted[i].0;
                     let (x, y) = (t[0].max(0.0) as i64, t[1].max(0.0) as i64);
-                    PageBox { x, y, w: 0, h: 0, radius: 0, font_px: 0, ko: it.ko.clone(), outline: vec![], text: [x, y, 0, 0], parts: vec![] }
+                    PageBox { x, y, w: 0, h: 0, radius: 0, font_px: 0, ko: it.ko.clone(), outline: vec![], text: [x, y, 0, 0], parts: vec![], patch: None }
                 }
                 None => {
                     // The lettering found, and as much of Gemini's box as lies
@@ -575,12 +579,17 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                         }
                     }
                     s.parts = parts(runs, s.text, &more, scale);
-                    // A rounded white box only where no dark letters are found.
+                    // A rounded white box only where no dark letters are
+                    // found; under dark letters with no balloon the art's
+                    // own tone, carried in over them from round them.
                     if fill.is_some() || !more.is_empty() {
-                        let (outline, b) = joined(std::iter::once(fill.map_or_else(|| rect_outline(rect), |f| f.0)).chain(more.into_iter().map(|m| m.0)).collect());
+                        let (white, mut tone) = fill.map_or_else(|| (rect_outline(rect), vec![]), |f| (vec![], f.0));
+                        tone.extend(more.iter().flat_map(|m| m.1.iter().copied()));
+                        let (outline, b) = joined(std::iter::once(white).chain(more.into_iter().map(|m| m.0)).collect());
                         let t = s.text;
+                        let b = tone.iter().fold(b, |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
                         let b = [b[0].min(t[0]), b[1].min(t[1]), b[2].max(t[0] + t[2]), b[3].max(t[1] + t[3])];
-                        (s.outline, s.radius) = (outline, 0);
+                        (s.outline, s.radius, s.patch) = (outline, 0, export::tone(page, &tone));
                         (s.x, s.y, s.w, s.h) = (b[0], b[1], (b[2] - b[0]) as u32, (b[3] - b[1]) as u32);
                     }
                     s
@@ -619,7 +628,7 @@ fn clear_texts(mut boxes: Vec<PageBox>, texts: &[[f64; 4]], rectish: &[bool]) ->
         }
         let old = b.text;
         let c = [c[0] as i64, c[1] as i64, c[2] as i64, c[3] as i64];
-        if b.outline.is_empty() {
+        if b.outline.is_empty() && b.patch.is_none() {
             (b.x, b.y, b.w, b.h) = (c[0], c[1], (c[2] - c[0]) as u32, (c[3] - c[1]) as u32);
             b.radius = b.radius.min((b.w.min(b.h) / 4) as u16);
         }
@@ -733,7 +742,7 @@ fn joined(parts: Vec<Vec<[i64; 2]>>) -> (Vec<[i64; 2]>, [i64; 4]) {
 
 /// The library row of a shape.
 fn row(fingerprint: String, b: &PageBox) -> store::PlacementRow {
-    let cover = layout::Cover { outline: b.outline.clone(), text: b.text, parts: b.parts.clone() };
+    let cover = layout::Cover { outline: b.outline.clone(), text: b.text, parts: b.parts.clone(), patch: b.patch.clone() };
     let cover = serde_json::to_string(&cover).ok();
     store::PlacementRow { id: 0, fingerprint, x: b.x, y: b.y, w: b.w, h: b.h, radius: b.radius, font_px: b.font_px, ko: b.ko.clone(), cover }
 }
@@ -742,11 +751,11 @@ fn row(fingerprint: String, b: &PageBox) -> store::PlacementRow {
 fn page_box(p: &store::PlacementRow) -> PageBox {
     let pad = PAD as i64;
     let cover: Option<layout::Cover> = p.cover.as_deref().and_then(|c| serde_json::from_str(c).ok());
-    let (outline, text, parts) = match cover {
-        Some(c) => (c.outline, c.text, c.parts),
-        None => (vec![], [p.x + pad, p.y + pad, (p.w as i64 - 2 * pad).max(1), (p.h as i64 - 2 * pad).max(1)], vec![]),
+    let (outline, text, parts, patch) = match cover {
+        Some(c) => (c.outline, c.text, c.parts, c.patch),
+        None => (vec![], [p.x + pad, p.y + pad, (p.w as i64 - 2 * pad).max(1), (p.h as i64 - 2 * pad).max(1)], vec![], None),
     };
-    PageBox { x: p.x, y: p.y, w: p.w, h: p.h, radius: p.radius, font_px: p.font_px, ko: p.ko.clone(), outline, text, parts }
+    PageBox { x: p.x, y: p.y, w: p.w, h: p.h, radius: p.radius, font_px: p.font_px, ko: p.ko.clone(), outline, text, parts, patch }
 }
 
 /// The white shape for one balloon: its text, grown towards the middle of
@@ -779,7 +788,7 @@ pub(crate) fn shape(it: &PageItem, w: u32, h: u32) -> PageBox {
     let (cw, ch) = (((cover[2] - cover[0]) - 2.0 * pad).max(1.0) as u32, ((cover[3] - cover[1]) - 2.0 * pad).max(1.0) as u32);
     let area = (area[0].max(0.0) as i64, area[1].max(0.0) as i64, (area[2].min(w as f64)) as i64, (area[3].min(h as f64)) as i64);
     let s = layout::fit_within(x0, y0, cw, ch, &it.ko, area);
-    PageBox { x: s.x, y: s.y, w: s.w, h: s.h, radius: s.radius, font_px: s.font_px, ko: it.ko.clone(), outline: vec![], text: [s.x, s.y, s.w as i64, s.h as i64], parts: vec![] }
+    PageBox { x: s.x, y: s.y, w: s.w, h: s.h, radius: s.radius, font_px: s.font_px, ko: it.ko.clone(), outline: vec![], text: [s.x, s.y, s.w as i64, s.h as i64], parts: vec![], patch: None }
 }
 
 #[cfg(test)]
@@ -902,7 +911,7 @@ mod tests {
         let parts = vec![rect_outline([10, 10, 40, 40]), rect_outline([30, 30, 50, 50]), rect_outline([70, 20, 90, 60])];
         let (outline, b) = joined(parts);
         assert_eq!(b, [10, 10, 90, 60]);
-        let shape = PageBox { x: b[0], y: b[1], w: 80, h: 50, radius: 0, font_px: 10, ko: String::new(), outline, text: [12, 12, 26, 26], parts: vec![] };
+        let shape = PageBox { x: b[0], y: b[1], w: 80, h: 50, radius: 0, font_px: 10, ko: String::new(), outline, text: [12, 12, 26, 26], parts: vec![], patch: None };
         let mut img = export::Rgb { w: 100, h: 100, px: vec![0; 100 * 100 * 3] };
         export::draw_placement(&mut img, &row(String::new(), &shape), 0);
         let white = |x: usize, y: usize| img.px[(y * 100 + x) * 3] == 255;
@@ -917,7 +926,7 @@ mod tests {
     /// the other's text area and keeps its own lettering covered.
     #[test]
     fn a_rectangle_never_covers_another_covers_korean() {
-        let rect = |x: i64, y: i64, w: u32, h: u32| PageBox { x, y, w, h, radius: 8, font_px: 20, ko: "이런 걸 하려면 방에 숨어야 하거든.".into(), outline: vec![], text: [x + PAD as i64, y + PAD as i64, w as i64 - 2 * PAD as i64, h as i64 - 2 * PAD as i64], parts: vec![] };
+        let rect = |x: i64, y: i64, w: u32, h: u32| PageBox { x, y, w, h, radius: 8, font_px: 20, ko: "이런 걸 하려면 방에 숨어야 하거든.".into(), outline: vec![], text: [x + PAD as i64, y + PAD as i64, w as i64 - 2 * PAD as i64, h as i64 - 2 * PAD as i64], parts: vec![], patch: None };
         let (left, right) = (rect(560, 60, 160, 90), rect(700, 10, 230, 80));
         let texts = [[580.0, 70.0, 690.0, 140.0], [740.0, 20.0, 900.0, 80.0]];
         let out = clear_texts(vec![left.clone(), right.clone()], &texts, &[true, true]);
@@ -964,7 +973,7 @@ mod tests {
         // The shares survive the library.
         let parts = vec![layout::Part { text: [210, 95, 40, 40], font_px: 12, ko: "수영부 부장이야.".into() }, layout::Part { text: [15, 105, 50, 30], font_px: 11, ko: "3학년 5반, 누레미 스이무.".into() }];
         let (outline, b) = joined(vec![rect_outline([0, 80, 80, 150]), rect_outline([190, 80, 270, 150])]);
-        let shape = PageBox { x: b[0], y: b[1], w: 270, h: 70, radius: 0, font_px: 12, ko: two.into(), outline, text: [15, 105, 50, 30], parts };
+        let shape = PageBox { x: b[0], y: b[1], w: 270, h: 70, radius: 0, font_px: 12, ko: two.into(), outline, text: [15, 105, 50, 30], parts, patch: None };
         assert_eq!(page_box(&row(String::new(), &shape)), shape);
     }
 
@@ -987,15 +996,21 @@ mod tests {
         ink(150, 400, 450, 520);
         let it = PageItem { src: "ABCD EFGH IJKL MNOP".into(), ko: "그래, 그거야!".into(), ..item([190.0 / 600.0, 190.0 / 600.0, 258.0 / 600.0, 404.0 / 600.0], None) };
         let b = &shapes(&[it], &page, "en")[0];
-        assert!(!b.outline.is_empty() && b.radius == 0, "{b:?}");
-        let mut img = export::Rgb { w, h, px: vec![0; (w * h * 3) as usize] };
-        export::draw_placement(&mut img, &row(String::new(), b), 0);
-        let white = |x: u32, y: u32| img.px[((y * w + x) * 3) as usize] == 255;
+        // No white: the art's tone carried in over the letters, and only them.
+        assert!(b.outline.is_empty() && b.radius == 0, "{b:?}");
+        let patch = b.patch.as_ref().expect("a tone patch");
+        let (pw, px) = export::patch_px(patch).unwrap();
+        let at = |x: i64, y: i64| {
+            let (x, y) = (x - patch.at[0], y - patch.at[1]);
+            if x < 0 || y < 0 || x >= pw as i64 || y >= patch.at[3] { return None; }
+            let q = &px[(y as usize * pw as usize + x as usize) * 4..][..4];
+            (q[3] == 255).then_some(q[0])
+        };
         // Letters at each end; not the art between the words, the lines, or below.
         for (x, y) in [(207, 208), (387, 240), (230, 240), (366, 208)] {
-            assert!(white(x, y), "({x}, {y})");
+            assert!(at(x, y).is_some_and(|v| v.abs_diff(170) <= 2), "({x}, {y}): {:?}", at(x, y));
         }
-        assert!(!white(300, 208) && !white(230, 225) && !white(300, 450) && !white(150, 208), "{b:?}");
+        assert!([(300, 208), (230, 225), (300, 450), (150, 208)].iter().all(|&(x, y)| at(x, y).is_none()), "{b:?}");
         assert!(b.font_px as f64 > 16.0 * layout::KO_SCALE, "{b:?}");
     }
 

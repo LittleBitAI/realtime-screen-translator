@@ -524,15 +524,16 @@ pub fn marks_in(page: &Page, r: [f64; 4]) -> usize {
 const RIM: f64 = 0.2;
 
 /// Lettering with no balloon round it, covered where it is drawn rather than
-/// with a box: the letter-sized dark marks wholly inside `r` (art running in
-/// from outside it is left), each grown by its white rim, as bands of rows a
+/// with a box: the letter-sized dark marks reaching into `r`, sought a letter
+/// beyond it (a line its edge cuts through is still lettering; art running in
+/// from further out is left), each grown by its white rim, as bands of rows a
 /// quarter of a letter tall cut into runs wherever the marks lie a letter or
 /// more apart. The art between words and lines stays; inside a balloon the
 /// cover is white on white. Empty when `r` holds no such marks (white letters
 /// outlined on dark art), and the caller covers `r` instead.
 pub fn silhouette(page: &Page, r: [f64; 4], glyph: f64) -> Vec<[i64; 4]> {
-    let (x0, y0) = (r[0].max(0.0) as usize, r[1].max(0.0) as usize);
-    let (x1, y1) = ((r[2].max(0.0) as usize).min(page.w as usize), (r[3].max(0.0) as usize).min(page.h as usize));
+    let (x0, y0) = ((r[0] - glyph).max(0.0) as usize, (r[1] - glyph).max(0.0) as usize);
+    let (x1, y1) = (((r[2] + glyph).max(0.0) as usize).min(page.w as usize), ((r[3] + glyph).max(0.0) as usize).min(page.h as usize));
     if x1 <= x0 || y1 <= y0 {
         return vec![];
     }
@@ -565,7 +566,8 @@ pub fn silhouette(page: &Page, r: [f64; 4], glyph: f64) -> Vec<[i64; 4]> {
             }
         }
         let size = ((hi_x - lo_x + 1).max(hi_y - lo_y + 1)) as f64;
-        if !edge && size <= hi && size >= 2.0 {
+        let into = ((x0 + lo_x) as f64) < r[2] && ((x0 + hi_x + 1) as f64) > r[0] && ((y0 + lo_y) as f64) < r[3] && ((y0 + hi_y + 1) as f64) > r[1];
+        if !edge && into && size <= hi && size >= 2.0 {
             mark.into_iter().for_each(|i| keep[i] = true);
         }
     }
@@ -1080,9 +1082,11 @@ mod tests {
         let mut px = vec![230u8; (w * h) as usize];
         let mut ink = |x0: usize, y0: usize, x1: usize, y1: usize| (y0..y1).for_each(|y| (x0..x1).for_each(|x| px[y * w as usize + x] = 0));
         // Two words of three 16 px letters, 60 px apart; a hair stroke
-        // running in from the left edge of the box.
+        // running in from the left edge of the box; a line above that the
+        // box's top edge cuts through (ch257 p6, "UNINSTALL").
         for x in [100, 120, 140, 220, 240, 260] {
             ink(x, 80, x + 16, 96);
+            ink(x, 42, x + 16, 58);
         }
         ink(0, 120, 200, 123);
         let cover = silhouette(&Page { w, h, px: &px }, [60.0, 50.0, 320.0, 150.0], 16.0);
@@ -1091,7 +1095,7 @@ mod tests {
         for x in [97, 100, 115, 135, 155, 158, 217, 275, 278] {
             assert!(on(x, 88), "x {x}");
         }
-        assert!(on(130, 77) && on(130, 98));
+        assert!(on(130, 77) && on(130, 98) && on(108, 43) && on(268, 57));
         // Not the art between the words, beyond the rim, or the hair.
         assert!(!on(190, 88) && !on(130, 70) && !on(130, 104) && !on(120, 121) && !on(70, 88));
     }

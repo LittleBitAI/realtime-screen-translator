@@ -315,10 +315,15 @@ pub struct PageBox {
     /// balloon; empty for the rounded rectangle `x, y, w, h, radius`.
     pub outline: Vec<[i64; 2]>,
     /// Where the Korean is set: `x, y, w, h`, inside the shape.
-    pub text: [i64; 4],    /// A line Gemini gave for several balloons: each balloon's share, set
+    pub text: [i64; 4],
+    /// A line Gemini gave for several balloons: each balloon's share, set
     /// in place of `text` and `ko`.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub parts: Vec<crate::layout::Part>,
+    /// Lettering on the art with no balloon: its tone over the letters, in
+    /// place of white. With an empty `outline`, no white is drawn at all.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub patch: Option<crate::layout::Patch>,
 }
 
 #[derive(Serialize, Debug)]

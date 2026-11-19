@@ -98,6 +98,19 @@ pub struct Cover {
     /// A line Gemini gave for several balloons, set a share in each.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub parts: Vec<Part>,
+    /// Lettering on the art with no balloon: the art's own tone painted over
+    /// its letters, in place of white.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patch: Option<Patch>,
+}
+
+/// The art's tone over lettering with no balloon: an RGBA PNG (base64)
+/// covering `at` = `x, y, w, h` (picture pixels), opaque over the letters
+/// and clear elsewhere.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Patch {
+    pub at: [i64; 4],
+    pub png: String,
 }
 
 /// One balloon's share of a line lettered in several: where it goes

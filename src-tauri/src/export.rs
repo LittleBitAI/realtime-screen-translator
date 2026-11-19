@@ -115,6 +115,110 @@ pub fn encode_png(img: &Rgb) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
+/// How far round a pixel the tone fill looks for art already known.
+const TONE_REACH: i64 = 3;
+
+/// The art round `rects` (`x0, y0, x1, y1`) carried in
+/// over them from their edges inwards, ring by ring, each pixel the mean of
+/// the known pixels near it, nearer ones counting more (as Telea's fill):
+/// what covers lettering with no balloon, under the Korean's white rim. A
+/// PNG opaque on the rects only, at `x, y, w, h`; None for no area.
+pub(crate) fn tone(page: &Rgb, rects: &[[i64; 4]]) -> Option<layout::Patch> {
+    use base64::Engine;
+    let (w, h) = (page.w as i64, page.h as i64);
+    let rs: Vec<[i64; 4]> = rects.iter().map(|r| [r[0].max(0), r[1].max(0), r[2].min(w), r[3].min(h)]).filter(|r| r[0] < r[2] && r[1] < r[3]).collect();
+    let b = rs.iter().fold([i64::MAX, i64::MAX, i64::MIN, i64::MIN], |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
+    if rs.is_empty() {
+        return None;
+    }
+    // The frame: the rects' bounds and the art a reach round them.
+    let f = [(b[0] - TONE_REACH).max(0), (b[1] - TONE_REACH).max(0), (b[2] + TONE_REACH).min(w), (b[3] + TONE_REACH).min(h)];
+    let (fw, fh) = ((f[2] - f[0]) as usize, (f[3] - f[1]) as usize);
+    let mut known = vec![true; fw * fh];
+    for r in &rs {
+        for y in r[1]..r[3] {
+            let row = (y - f[1]) as usize * fw;
+            known[row + (r[0] - f[0]) as usize..row + (r[2] - f[0]) as usize].fill(false);
+        }
+    }
+    let inside = known.iter().map(|k| !k).collect::<Vec<bool>>();
+    let mut c: Vec<[f32; 3]> = (0..fw * fh)
+        .map(|i| {
+            let (x, y) = (f[0] + (i % fw) as i64, f[1] + (i / fw) as i64);
+            let p = (y * w + x) as usize * 3;
+            if known[i] { [page.px[p] as f32, page.px[p + 1] as f32, page.px[p + 2] as f32] } else { [255.0; 3] }
+        })
+        .collect();
+    let mut todo: Vec<usize> = (0..fw * fh).filter(|&i| !known[i]).collect();
+    while !todo.is_empty() {
+        let ring: Vec<(usize, [f32; 3])> = todo
+            .iter()
+            .filter_map(|&i| {
+                let (x, y) = ((i % fw) as i64, (i / fw) as i64);
+                let (mut sum, mut wt) = ([0f32; 3], 0f32);
+                for dy in -TONE_REACH..=TONE_REACH {
+                    for dx in -TONE_REACH..=TONE_REACH {
+                        let (nx, ny) = (x + dx, y + dy);
+                        let d2 = (dx * dx + dy * dy) as f32;
+                        if nx < 0 || ny < 0 || nx >= fw as i64 || ny >= fh as i64 || d2 == 0.0 || d2 > (TONE_REACH * TONE_REACH) as f32 {
+                            continue;
+                        }
+                        let j = ny as usize * fw + nx as usize;
+                        if known[j] {
+                            let k = 1.0 / d2;
+                            (0..3).for_each(|n| sum[n] += k * c[j][n]);
+                            wt += k;
+                        }
+                    }
+                }
+                // Only pixels next to the known art take a value this ring.
+                let next = (-1..=1).any(|dy: i64| (-1..=1).any(|dx: i64| {
+                    let (nx, ny) = (x + dx, y + dy);
+                    nx >= 0 && ny >= 0 && nx < fw as i64 && ny < fh as i64 && known[ny as usize * fw + nx as usize]
+                }));
+                (next && wt > 0.0).then(|| (i, sum.map(|s| s / wt)))
+            })
+            .collect();
+        if ring.is_empty() {
+            break;
+        }
+        for &(i, v) in &ring {
+            c[i] = v;
+            known[i] = true;
+        }
+        todo.retain(|&i| !known[i]);
+    }
+    let (pw, ph) = ((b[2] - b[0]) as u32, (b[3] - b[1]) as u32);
+    let mut px = Vec::with_capacity(pw as usize * ph as usize * 4);
+    for y in b[1]..b[3] {
+        for x in b[0]..b[2] {
+            let i = (y - f[1]) as usize * fw + (x - f[0]) as usize;
+            let [r, g, bl] = c[i].map(|v| v.round().clamp(0.0, 255.0) as u8);
+            px.extend_from_slice(&[r, g, bl, if inside[i] { 255 } else { 0 }]);
+        }
+    }
+    let mut out = Vec::new();
+    let mut enc = png::Encoder::new(&mut out, pw, ph);
+    enc.set_color(png::ColorType::Rgba);
+    enc.set_depth(png::BitDepth::Eight);
+    let mut wr = enc.write_header().ok()?;
+    wr.write_image_data(&px).ok()?;
+    wr.finish().ok()?;
+    Some(layout::Patch { at: [b[0], b[1], pw as i64, ph as i64], png: base64::engine::general_purpose::STANDARD.encode(out) })
+}
+
+/// The pixels of a patch's PNG (RGBA) and its width.
+pub(crate) fn patch_px(p: &layout::Patch) -> Option<(u32, Vec<u8>)> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(&p.png).ok()?;
+    let mut dec = png::Decoder::new(std::io::Cursor::new(bytes));
+    dec.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
+    let mut reader = dec.read_info().ok()?;
+    let mut buf = vec![0; reader.output_buffer_size()?];
+    let info = reader.next_frame(&mut buf).ok()?;
+    (info.color_type == png::ColorType::Rgba).then(|| (info.width, buf[..info.buffer_size()].to_vec()))
+}
+
 /// WebP pictures are at most 16383 px on a side.
 pub const WEBP_MAX: u32 = 16383;
 
@@ -274,6 +378,17 @@ fn draw_cover(img: &mut Rgb, p: &PlacementRow, top: i64) {
     }
     let cover: Option<layout::Cover> = p.cover.as_deref().and_then(|c| serde_json::from_str(c).ok());
     let outline = cover.as_ref().map_or(&[][..], |c| &c.outline[..]);
+    let patch = cover.as_ref().and_then(|c| c.patch.as_ref());
+    if let Some((pw, px)) = patch.and_then(patch_px) {
+        let at = patch.unwrap().at;
+        for (i, q) in px.chunks(4).enumerate().filter(|(_, q)| q[3] == 255) {
+            img.put(at[0] + (i as u32 % pw) as i64, at[1] + (i as u32 / pw) as i64 - top, [q[0], q[1], q[2]]);
+        }
+        // With no outline, the patch is all the cover there is.
+        if outline.is_empty() {
+            return;
+        }
+    }
     for y in p.y..p.y + p.h as i64 {
         for x in p.x..p.x + p.w as i64 {
             let on = if outline.is_empty() { inside_rounded(x, y, p) } else { inside_outline(outline, x as f64 + 0.5, y as f64 + 0.5) };
@@ -440,7 +555,7 @@ mod tests {
         let mut img = Rgb { w: 200, h: 120, px: vec![90; 200 * 120 * 3] };
         // Picture rows 100..220: a wide step 120..160, a narrow one 160..200.
         let outline = vec![[160, 120], [160, 160], [130, 160], [130, 200], [70, 200], [70, 160], [40, 160], [40, 120]];
-        let cover = serde_json::to_string(&layout::Cover { outline, text: [75, 125, 50, 70], parts: vec![] }).unwrap();
+        let cover = serde_json::to_string(&layout::Cover { outline, text: [75, 125, 50, 70], parts: vec![], patch: None }).unwrap();
         let p = PlacementRow { id: 1, fingerprint: String::new(), x: 40, y: 120, w: 120, h: 80, radius: 0, font_px: 14, ko: "안녕".into(), cover: Some(cover) };
         draw_placement(&mut img, &p, 100);
         let at = |x: u32, y: u32| img.px[((y * 200 + x) * 3) as usize];
