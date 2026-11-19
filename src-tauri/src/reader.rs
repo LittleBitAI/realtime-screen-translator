@@ -365,7 +365,7 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
     let union = |p: &[[f64; 4]]| p.iter().fold([f64::MAX, f64::MAX, f64::MIN, f64::MIN], |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
     let texts: Vec<[f64; 4]> = pieces.iter().zip(&wanted).map(|(p, &(t, _))| if p.is_empty() { t } else { union(p) }).collect();
     let host = hosts(&wanted, &blocks, &on);
-    items
+    let boxes: Vec<PageBox> = items
         .iter()
         .enumerate()
         .map(|(i, own)| {
@@ -532,7 +532,39 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
             b.ko = own.ko.clone();
             b
         })
-        .collect()
+        .collect();
+    clear_texts(boxes, &texts)
+}
+
+/// Rectangle covers cut back from the other covers' text areas, on the side
+/// away from their own lettering (`texts`): a white box drawn after another
+/// never hides that one's Korean (ch256 p6, two captions side by side on the
+/// phone's wider lines). The size steps down only as far as the smaller area
+/// needs.
+fn clear_texts(mut boxes: Vec<PageBox>, texts: &[[f64; 4]]) -> Vec<PageBox> {
+    let areas: Vec<[f64; 4]> = boxes.iter().map(|b| [b.text[0] as f64, b.text[1] as f64, (b.text[0] + b.text[2]) as f64, (b.text[1] + b.text[3]) as f64]).collect();
+    for (i, b) in boxes.iter_mut().enumerate() {
+        if b.w == 0 || !b.outline.is_empty() {
+            continue;
+        }
+        let others: Vec<[f64; 4]> = areas.iter().enumerate().filter(|&(j, a)| j != i && a[2] > a[0]).map(|(_, a)| *a).collect();
+        let r = [b.x as f64, b.y as f64, (b.x + b.w as i64) as f64, (b.y + b.h as i64) as f64];
+        let c = apart(r, texts[i], &others);
+        if c == r {
+            continue;
+        }
+        let old = b.text;
+        (b.x, b.y, b.w, b.h) = (c[0] as i64, c[1] as i64, (c[2] - c[0]) as u32, (c[3] - c[1]) as u32);
+        b.radius = b.radius.min((b.w.min(b.h) / 4) as u16);
+        let pad = PAD as i64;
+        b.text = [b.x + pad, b.y + pad, (b.w as i64 - 2 * pad).max(1), (b.h as i64 - 2 * pad).max(1)];
+        let size = |ko: &str, font: u16, t: [i64; 4]| layout::font_for(ko, t[2] as u32, t[3] as u32, Some(font as f64 / layout::KO_SCALE)).min(font);
+        b.font_px = size(&b.ko, b.font_px, b.text);
+        for part in b.parts.iter_mut().filter(|p| p.text == old) {
+            (part.text, part.font_px) = (b.text, size(&part.ko, part.font_px, b.text));
+        }
+    }
+    boxes
 }
 
 /// For each item with no block of its own, the item whose block holds its
@@ -812,6 +844,25 @@ mod tests {
         assert!(white(20, 20) && white(45, 45) && white(35, 35) && white(80, 50));
         // The face between them, and along the bridge.
         assert!(!white(60, 30) && !white(20, 55) && !white(55, 15));
+    }
+
+    /// ch256 p6 on the phone: the left caption's white box reached into the
+    /// right caption's text area and hid "린은". Each box is cut back from
+    /// the other's text area and keeps its own lettering covered.
+    #[test]
+    fn a_rectangle_never_covers_another_covers_korean() {
+        let rect = |x: i64, y: i64, w: u32, h: u32| PageBox { x, y, w, h, radius: 8, font_px: 20, ko: "이런 걸 하려면 방에 숨어야 하거든.".into(), outline: vec![], text: [x + PAD as i64, y + PAD as i64, w as i64 - 2 * PAD as i64, h as i64 - 2 * PAD as i64], parts: vec![] };
+        let (left, right) = (rect(560, 60, 160, 90), rect(700, 10, 230, 80));
+        let texts = [[580.0, 70.0, 690.0, 140.0], [740.0, 20.0, 900.0, 80.0]];
+        let out = clear_texts(vec![left.clone(), right.clone()], &texts);
+        let (l, r) = (&out[0], &out[1]);
+        // Neither white box reaches into the other's text area, before or after.
+        assert!(l.x + l.w as i64 <= right.text[0] && l.x + l.w as i64 <= r.text[0], "{l:?}");
+        assert!(r.x >= left.text[0] + left.text[2], "{r:?}");
+        // Each still covers its own lettering.
+        assert!(l.x as f64 <= texts[0][0] && (l.x + l.w as i64) as f64 >= texts[0][2]);
+        assert!(r.x as f64 <= texts[1][0] && (r.x + r.w as i64) as f64 >= texts[1][2]);
+        assert!(l.font_px <= 20 && l.font_px > 0);
     }
 
     /// ch256 p12: "SURELY, HER FRIEND..." (33 letters) and "THE PEOPLE
