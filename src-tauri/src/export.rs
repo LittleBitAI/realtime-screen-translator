@@ -38,6 +38,16 @@ impl Rgb {
         }
     }
 
+    fn lighten(&mut self, x: i64, y: i64, coverage: f32) {
+        if x >= 0 && y >= 0 && (x as u32) < self.w && (y as u32) < self.h {
+            let i = (y as usize * self.w as usize + x as usize) * 3;
+            let k = coverage.clamp(0.0, 1.0);
+            for v in &mut self.px[i..i + 3] {
+                *v = (*v as f32 + (255.0 - *v as f32) * k) as u8;
+            }
+        }
+    }
+
     pub fn gray(&self) -> Vec<u8> {
         self.px.chunks(3).map(|p| ((p[0] as u32 * 299 + p[1] as u32 * 587 + p[2] as u32 * 114) / 1000) as u8).collect()
     }
@@ -252,6 +262,12 @@ fn inside_outline(poly: &[[i64; 2]], x: f64, y: f64) -> bool {
 /// balloon's outline where the reader drew one, else a rounded rectangle;
 /// the Korean is wrapped in the text area the reader used.
 pub fn draw_placement(img: &mut Rgb, p: &PlacementRow, top: i64) {
+    draw_cover(img, p, top);
+    draw_words(img, p, top);
+}
+
+/// The white of placement `p`.
+fn draw_cover(img: &mut Rgb, p: &PlacementRow, top: i64) {
     // A line the reader keeps without drawing (no lettering found for it).
     if p.w == 0 || p.h == 0 {
         return;
@@ -266,6 +282,15 @@ pub fn draw_placement(img: &mut Rgb, p: &PlacementRow, top: i64) {
             }
         }
     }
+}
+
+/// The Korean of placement `p`, each letter in a white rim of its own: set
+/// over the art beside lettering with no balloon, it stays legible.
+fn draw_words(img: &mut Rgb, p: &PlacementRow, top: i64) {
+    if p.w == 0 || p.h == 0 {
+        return;
+    }
+    let cover: Option<layout::Cover> = p.cover.as_deref().and_then(|c| serde_json::from_str(c).ok());
     let text = cover.as_ref().map_or([p.x + PAD as i64, p.y + PAD as i64, p.w.saturating_sub(2 * PAD) as i64, p.h.saturating_sub(2 * PAD) as i64], |c| c.text);
     match cover.as_ref().filter(|c| !c.parts.is_empty()) {
         // A line lettered in several balloons: each share in its own.
@@ -273,6 +298,10 @@ pub fn draw_placement(img: &mut Rgb, p: &PlacementRow, top: i64) {
         None => draw_text(img, &p.ko, p.font_px, text, top),
     }
 }
+
+/// The white rim round each Korean letter, as a share of the letter's size
+/// (the reader's own rim is the same).
+const HALO: f32 = 0.09;
 
 /// `ko` at `font_px`, centred in text area `x, y, w, h` (page pixels; the
 /// image starts at page row `top`).
@@ -296,6 +325,14 @@ fn draw_text(img: &mut Rgb, ko: &str, font_px: u16, [tx, ty, tw, th]: [i64; 4], 
                     let id = font.glyph_id(c);
                     if let Some(g) = font.outline_glyph(id.with_scale_and_position(scale, ab_glyph::point(x, baseline))) {
                         let b = g.px_bounds();
+                        // The rim: the letter stamped white a little way off
+                        // in eight directions, then the letter itself.
+                        let r = (size as f32 * HALO).max(1.0);
+                        for k in 0..8 {
+                            let a = k as f32 * std::f32::consts::FRAC_PI_4;
+                            let (dx, dy) = ((a.cos() * r).round() as i64, (a.sin() * r).round() as i64);
+                            g.draw(|gx, gy, cov| img.lighten(b.min.x as i64 + gx as i64 + dx, b.min.y as i64 + gy as i64 + dy, cov));
+                        }
                         g.draw(|gx, gy, cov| img.darken(b.min.x as i64 + gx as i64, b.min.y as i64 + gy as i64, cov));
                     }
                     x += sf.h_advance(id);
@@ -358,9 +395,10 @@ pub fn render(width: u32, top: i64, bottom: i64, strips: &[StripRow], placements
             img.px[dst..dst + w * 3].copy_from_slice(&strip.px[src..src + w * 3]);
         }
     }
-    for p in placements.iter().filter(|p| p.y < top + height as i64 && p.y + p.h as i64 > top) {
-        draw_placement(&mut img, p, top);
-    }
+    // Every white first: no cover drawn later hides another's Korean.
+    let here: Vec<&PlacementRow> = placements.iter().filter(|p| p.y < top + height as i64 && p.y + p.h as i64 > top).collect();
+    here.iter().for_each(|p| draw_cover(&mut img, p, top));
+    here.iter().for_each(|p| draw_words(&mut img, p, top));
     Ok(img)
 }
 

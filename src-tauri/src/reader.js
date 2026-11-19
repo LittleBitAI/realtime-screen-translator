@@ -50,14 +50,19 @@
       chapter = Boolean(document.querySelector('meta[name="rst-chapter"]'));
       if (!chapter) return;
     }
+    // A white rim round each Korean letter: legible where it is set over
+    // the art beside lettering that has no balloon.
+    const HALO = [...Array(8)].map((_, k) => `${(Math.cos((k * Math.PI) / 4) * 0.09).toFixed(3)}em ${(Math.sin((k * Math.PI) / 4) * 0.09).toFixed(3)}em 0.03em #fff`).join(',');
     const css = document.createElement('style');
     css.textContent = `
       .rst-layer{position:absolute;pointer-events:none;z-index:2147483000;transform-origin:0 0}
       html.rst-off .rst-layer{display:none}
-      .rst-box{position:absolute;box-sizing:border-box;background:#fff;pointer-events:auto}
-      .rst-text{position:absolute;display:flex;align-items:center;justify-content:center;color:#111;text-align:center;
+      .rst-box{position:absolute;box-sizing:border-box;pointer-events:auto}
+      .rst-fill{position:absolute;inset:0;background:#fff}
+      .rst-text{position:absolute;z-index:1;display:flex;align-items:center;justify-content:center;color:#111;text-align:center;
         line-height:1.2;font-family:system-ui,'Noto Sans KR',sans-serif;font-weight:600;word-break:keep-all;
-        white-space:pre-line;text-wrap:balance;overflow:hidden}
+        white-space:pre-line;text-wrap:balance;overflow:hidden;
+        text-shadow:${HALO}}
       .rst-box.rst-peek{opacity:.12}
       .rst-chip{position:absolute;left:6px;top:6px;padding:4px 8px;border-radius:12px;background:rgba(17,24,39,.85);
         color:#fff;font:600 12px system-ui,sans-serif;pointer-events:auto}
@@ -359,9 +364,14 @@
       box.style.width = pct(b.w, answer.width);
       box.style.height = pct(b.h, answer.height);
       box.dataset.radius = String(b.radius / answer.width);
-      // The shape follows the balloon's own outline where the app found it.
+      // The white follows the balloon's own outline where the app found it,
+      // or the lettering's own letters where no balloon holds them; the
+      // Korean is set above every cover's white, in a white rim of its own.
+      const fill = document.createElement('div');
+      fill.className = 'rst-fill';
+      box.appendChild(fill);
       if (b.outline?.length) {
-        box.style.clipPath = `polygon(${b.outline.map(([x, y]) => `${pct(x - b.x, b.w)} ${pct(y - b.y, b.h)}`).join(',')})`;
+        fill.style.clipPath = `polygon(${b.outline.map(([x, y]) => `${pct(x - b.x, b.w)} ${pct(y - b.y, b.h)}`).join(',')})`;
       }
       // A line lettered in several balloons is set a share in each.
       const parts = b.parts?.length ? b.parts : [{ text: b.text ?? [b.x, b.y, b.w, b.h], font_px: b.font_px, ko: b.ko }];
@@ -396,7 +406,7 @@
   const READABLE = 7;
   const WORDS_KEEP = 0.7;
   function fitFont(box, shownWidth) {
-    box.style.borderRadius = `${Number(box.dataset.radius) * shownWidth}px`;
+    box.querySelector('.rst-fill').style.borderRadius = `${Number(box.dataset.radius) * shownWidth}px`;
     for (const text of box.querySelectorAll('.rst-text')) fitText(text, shownWidth);
   }
 

@@ -82,7 +82,9 @@ describe('reader page script', () => {
       return b;
     });
     expect([...document.querySelectorAll('.rst-box')].map((b) => b.textContent)).toEqual(['말풍선']);
-    expect(box.style.clipPath).toBe('polygon(100% 0%, 100% 100%, 0% 100%, 0% 50%, 25% 50%, 25% 0%)');
+    // The white is cut to the outline; the Korean over it is not.
+    expect(box.style.clipPath).toBe('');
+    expect(box.querySelector('.rst-fill').style.clipPath).toBe('polygon(100% 0%, 100% 100%, 0% 100%, 0% 50%, 25% 50%, 25% 0%)');
     const text = box.querySelector('.rst-text');
     expect([text.style.left, text.style.top, text.style.width, text.style.height]).toEqual(['25%', '20%', '50%', '60%']);
     expect(text.textContent).toBe('말풍선');

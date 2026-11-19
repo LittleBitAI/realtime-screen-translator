@@ -478,6 +478,82 @@ pub fn marks_in(page: &Page, r: [f64; 4]) -> usize {
     n
 }
 
+/// The white rim lettered round each letter of lettering with no balloon, in
+/// letters: how far its cover reaches past the strokes.
+const RIM: f64 = 0.2;
+
+/// Lettering with no balloon round it, covered where it is drawn rather than
+/// with a box: the letter-sized dark marks wholly inside `r` (art running in
+/// from outside it is left), each grown by its white rim, as bands of rows a
+/// quarter of a letter tall cut into runs wherever the marks lie a letter or
+/// more apart. The art between words and lines stays; inside a balloon the
+/// cover is white on white. Empty when `r` holds no such marks (white letters
+/// outlined on dark art), and the caller covers `r` instead.
+pub fn silhouette(page: &Page, r: [f64; 4], glyph: f64) -> Vec<[i64; 4]> {
+    let (x0, y0) = (r[0].max(0.0) as usize, r[1].max(0.0) as usize);
+    let (x1, y1) = ((r[2].max(0.0) as usize).min(page.w as usize), (r[3].max(0.0) as usize).min(page.h as usize));
+    if x1 <= x0 || y1 <= y0 {
+        return vec![];
+    }
+    let (bw, bh) = (x1 - x0, y1 - y0);
+    let hi = LETTER_MAX * page.w as f64;
+    let dark = |x: usize, y: usize| page.px[y * page.w as usize + x] < INK;
+    let (mut seen, mut keep) = (vec![false; bw * bh], vec![false; bw * bh]);
+    for start in 0..bw * bh {
+        if seen[start] || !dark(x0 + start % bw, y0 + start / bw) {
+            continue;
+        }
+        seen[start] = true;
+        let (mut stack, mut mark) = (vec![start], vec![]);
+        let (mut lo_x, mut lo_y, mut hi_x, mut hi_y, mut edge) = (bw, bh, 0, 0, false);
+        while let Some(i) = stack.pop() {
+            mark.push(i);
+            let (x, y) = (i % bw, i / bw);
+            (lo_x, lo_y, hi_x, hi_y) = (lo_x.min(x), lo_y.min(y), hi_x.max(x), hi_y.max(y));
+            edge |= x == 0 || y == 0 || x + 1 == bw || y + 1 == bh;
+            for (dx, dy) in [(-1i64, 0i64), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1), (-1, 1), (1, -1)] {
+                let (nx, ny) = (x as i64 + dx, y as i64 + dy);
+                if nx < 0 || ny < 0 || nx >= bw as i64 || ny >= bh as i64 {
+                    continue;
+                }
+                let j = ny as usize * bw + nx as usize;
+                if !seen[j] && dark(x0 + nx as usize, y0 + ny as usize) {
+                    seen[j] = true;
+                    stack.push(j);
+                }
+            }
+        }
+        let size = ((hi_x - lo_x + 1).max(hi_y - lo_y + 1)) as f64;
+        if !edge && size <= hi && size >= 2.0 {
+            mark.into_iter().for_each(|i| keep[i] = true);
+        }
+    }
+    let rim = ((RIM * glyph).round() as usize).max(2);
+    let band = ((glyph / 4.0).round() as usize).max(2);
+    let gap = glyph.max(4.0) as usize;
+    let mut out: Vec<[i64; 4]> = vec![];
+    for y in (0..bh).step_by(band) {
+        let rows = y.saturating_sub(rim)..(y + band + rim).min(bh);
+        let mut runs: Vec<(usize, usize)> = vec![];
+        for x in (0..bw).filter(|&x| rows.clone().any(|yy| keep[yy * bw + x])) {
+            match runs.last_mut() {
+                Some(run) if x - run.1 <= gap => run.1 = x,
+                _ => runs.push((x, x)),
+            }
+        }
+        for (a, b) in runs {
+            let rect = [(x0 + a).saturating_sub(rim).max(x0) as i64, (y0 + y) as i64, (x0 + b + 1 + rim).min(x1) as i64, (y0 + (y + band).min(bh)) as i64];
+            // The same run as the band above, give or take a rim: one taller
+            // rectangle, its edges smoothed out to the wider.
+            match out.iter_mut().rev().take(8).find(|p| p[3] == rect[1] && (p[0] - rect[0]).abs() <= rim as i64 && (p[2] - rect[2]).abs() <= rim as i64) {
+                Some(p) => *p = [p[0].min(rect[0]), p[1], p[2].max(rect[2]), rect[3]],
+                None => out.push(rect),
+            }
+        }
+    }
+    out
+}
+
 /// How far, in letters, marks may join a block beyond its own letters.
 const ABSORB: f64 = 2.0;
 
@@ -911,6 +987,32 @@ impl Grid {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The user, on the phone: lettering with no balloon was covered with a
+    /// white box over the art. Its cover is its letters and their rim; the
+    /// art between two words a few letters apart, and art reaching in from
+    /// outside, stay as drawn.
+    #[test]
+    fn lettering_with_no_balloon_is_covered_letter_by_letter() {
+        let (w, h) = (400u32, 200u32);
+        let mut px = vec![230u8; (w * h) as usize];
+        let mut ink = |x0: usize, y0: usize, x1: usize, y1: usize| (y0..y1).for_each(|y| (x0..x1).for_each(|x| px[y * w as usize + x] = 0));
+        // Two words of three 16 px letters, 60 px apart; a hair stroke
+        // running in from the left edge of the box.
+        for x in [100, 120, 140, 220, 240, 260] {
+            ink(x, 80, x + 16, 96);
+        }
+        ink(0, 120, 200, 123);
+        let cover = silhouette(&Page { w, h, px: &px }, [60.0, 50.0, 320.0, 150.0], 16.0);
+        let on = |x: i64, y: i64| cover.iter().any(|r| x >= r[0] && x < r[2] && y >= r[1] && y < r[3]);
+        // Every stroke, and a rim past each edge.
+        for x in [97, 100, 115, 135, 155, 158, 217, 275, 278] {
+            assert!(on(x, 88), "x {x}");
+        }
+        assert!(on(130, 77) && on(130, 98));
+        // Not the art between the words, beyond the rim, or the hair.
+        assert!(!on(190, 88) && !on(130, 70) && !on(130, 104) && !on(120, 121) && !on(70, 88));
+    }
 
     /// A white page with an elliptical balloon (outline 3 px), centred at
     /// (cx, cy) with half-axes (a, b), and black text bars inside.
