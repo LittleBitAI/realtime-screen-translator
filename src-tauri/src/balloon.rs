@@ -527,6 +527,11 @@ const STROKE: f64 = 0.05;
 /// line of them, give or take.
 const LINE_TALL: f64 = 1.5;
 
+/// How far round a mark's bounds (pixels) the paper round lettering is
+/// looked for, and the share of that ring it takes.
+const EDGE_RING: usize = 2;
+const PAPER_RING: f64 = 0.5;
+
 /// The white rim lettered round each letter of lettering with no balloon, in
 /// letters: how far its cover reaches past the strokes.
 const RIM: f64 = 0.2;
@@ -535,9 +540,11 @@ const RIM: f64 = 0.2;
 /// with a box: the letter-sized dark marks reaching into `r`, sought a letter
 /// beyond it (a line its edge cuts through is still lettering; art running in
 /// from further out is left), each its own rectangle grown by its rim. The
-/// art between letters, words and lines stays. Empty when `r` holds no such marks (white letters
+/// art between letters, words and lines stays. A mark is lettering with
+/// paper round it, or lying in one of `lettered` (blocks found on the page,
+/// on a pattern that rings them: ch256 p21, "4...?" on a net). Empty when `r` holds no such marks (white letters
 /// outlined on dark art), and the caller covers `r` instead.
-pub fn silhouette(page: &Page, r: [f64; 4], glyph: f64) -> Vec<[i64; 4]> {
+pub fn silhouette(page: &Page, r: [f64; 4], glyph: f64, lettered: &[[f64; 4]]) -> Vec<[i64; 4]> {
     let (x0, y0) = ((r[0] - glyph).max(0.0) as usize, (r[1] - glyph).max(0.0) as usize);
     let (x1, y1) = (((r[2] + glyph).max(0.0) as usize).min(page.w as usize), ((r[3] + glyph).max(0.0) as usize).min(page.h as usize));
     if x1 <= x0 || y1 <= y0 {
@@ -547,18 +554,28 @@ pub fn silhouette(page: &Page, r: [f64; 4], glyph: f64) -> Vec<[i64; 4]> {
     let hi = LETTER_MAX * page.w as f64;
     let dark: Vec<bool> = (0..bw * bh).map(|i| page.px[(y0 + i / bw) * page.w as usize + x0 + i % bw] < INK).collect();
     let mut keep = vec![false; bw * bh];
+    // Paper (or a letter's white edging) right round a mark's bounds, as
+    // there is round lettering and not round grass tufts on a gray tone
+    // (ch258 p15, over "Ah...").
+    let papered = |[lo_x, lo_y, hi_x, hi_y]: [usize; 4]| {
+        let (ax, ay, bx, by) = (lo_x.saturating_sub(EDGE_RING), lo_y.saturating_sub(EDGE_RING), (hi_x + EDGE_RING).min(bw - 1), (hi_y + EDGE_RING).min(bh - 1));
+        let ring: Vec<u8> = (ay..=by).flat_map(|y| (ax..=bx).map(move |x| (x, y))).filter(|&(x, y)| x < lo_x || x > hi_x || y < lo_y || y > hi_y).map(|(x, y)| page.px[(y0 + y) * page.w as usize + x0 + x]).collect();
+        let (cx, cy) = ((x0 + lo_x + x0 + hi_x) as f64 / 2.0, (y0 + lo_y + y0 + hi_y) as f64 / 2.0);
+        lettered.iter().any(|b| cx >= b[0] && cx <= b[2] && cy >= b[1] && cy <= b[3]) || ring.iter().filter(|&&v| v >= LIGHT).count() as f64 >= PAPER_RING * ring.len() as f64
+    };
     // The marks among the pixels `on` from `lo` to `hi` across, reaching
     // into `r` and not running in from the region's edge.
-    let letters = |on: &[bool], lo: f64, hi: f64, keep: &mut Vec<bool>| {
-        for (mark, [lo_x, lo_y, hi_x, hi_y], edge) in pieces(on, bw, bh) {
+    let letters = |on: &[bool], lo: f64, hi: f64, paper: bool, keep: &mut Vec<bool>| {
+        for (mark, b, edge) in pieces(on, bw, bh) {
+            let [lo_x, lo_y, hi_x, hi_y] = b;
             let size = ((hi_x - lo_x + 1).max(hi_y - lo_y + 1)) as f64;
             let into = ((x0 + lo_x) as f64) < r[2] && ((x0 + hi_x + 1) as f64) > r[0] && ((y0 + lo_y) as f64) < r[3] && ((y0 + hi_y + 1) as f64) > r[1];
-            if !edge && into && size <= hi && size >= lo {
+            if !edge && into && size <= hi && size >= lo && (!paper || papered(b)) {
                 mark.into_iter().for_each(|i| keep[i] = true);
             }
         }
     };
-    letters(&dark, 2.0, hi, &mut keep);
+    letters(&dark, 2.0, hi, true, &mut keep);
     // Letters touching each other are too big a mark to keep (ch257 p11,
     // "TH" in "THE"). The thick strokes of a mark a line of letters tall,
     // thin lines worn away from them, are sought again, each from a third
@@ -574,7 +591,7 @@ pub fn silhouette(page: &Page, r: [f64; 4], glyph: f64) -> Vec<[i64; 4]> {
             mark.into_iter().filter(|&i| thick[i]).for_each(|i| sought[i] = true);
         }
     }
-    letters(&sought, glyph / 3.0, LINE_TALL * glyph, &mut keep);
+    letters(&sought, glyph / 3.0, LINE_TALL * glyph, false, &mut keep);
     // Each letter's own rectangle, grown by its rim: not a band across a
     // line, which takes in the art between letters and lines (ch256 p10,
     // hair under "YODEL-AY-HEE!").
@@ -1147,6 +1164,8 @@ mod tests {
     fn lettering_with_no_balloon_is_covered_letter_by_letter() {
         let (w, h) = (400u32, 200u32);
         let mut px = vec![230u8; (w * h) as usize];
+        // A grass tuft's gray tone (ch258 p15, over "Ah...").
+        (100..130).for_each(|y| (280..320).for_each(|x| px[y * w as usize + x] = 150));
         let mut ink = |x0: usize, y0: usize, x1: usize, y1: usize| (y0..y1).for_each(|y| (x0..x1).for_each(|x| px[y * w as usize + x] = 0));
         // Two words of three 16 px letters, 60 px apart; a hair stroke
         // running in from the left edge of the box; a line above that the
@@ -1160,7 +1179,17 @@ mod tests {
         // (ch257 p11, "KA" in "HAKARI").
         ink(0, 140, 400, 141);
         ink(150, 132, 166, 148);
-        let cover = silhouette(&Page { w, h, px: &px }, [60.0, 50.0, 320.0, 150.0], 16.0);
+        // The tuft on its tone: two thin blades.
+        ink(295, 110, 297, 120);
+        ink(301, 110, 303, 120);
+        let tuft = |lettered: &[[f64; 4]]| {
+            let cover = silhouette(&Page { w, h, px: &px }, [60.0, 50.0, 320.0, 150.0], 16.0, lettered);
+            cover.iter().any(|r| 300 >= r[0] && 300 < r[2] && 115 >= r[1] && 115 < r[3])
+        };
+        // Not lettering, unless the page's lettering was found there (a
+        // net ringing "4...?", ch256 p21).
+        assert!(!tuft(&[]) && tuft(&[[290.0, 105.0, 310.0, 125.0]]));
+        let cover = silhouette(&Page { w, h, px: &px }, [60.0, 50.0, 320.0, 150.0], 16.0, &[]);
         let on = |x: i64, y: i64| cover.iter().any(|r| x >= r[0] && x < r[2] && y >= r[1] && y < r[3]);
         // Every stroke, and a rim past each edge.
         for x in [97, 100, 115, 135, 155, 158, 217, 275, 278] {

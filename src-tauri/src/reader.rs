@@ -433,7 +433,8 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                     let another = |j: usize| on.iter().enumerate().any(|(k, o)| k != i && *o == Some(j));
                     !pieces[i].iter().any(at) && blocks.iter().enumerate().any(|(j, b)| b.letters >= balloon::WORD_LETTERS && (another(j) || !mostly_in(&b.bounds, wanted[i].0)) && at(&b.bounds))
                 };
-                let fill: Vec<[i64; 4]> = rs.iter().flat_map(|r| balloon::silhouette(&pg, r.map(|v| v as f64), glyph.unwrap_or(GLYPH_GUESS * w as f64))).filter(|f| !theirs(f)).collect();
+                let lettered: Vec<[f64; 4]> = blocks.iter().map(|b| b.bounds).collect();
+                let fill: Vec<[i64; 4]> = rs.iter().flat_map(|r| balloon::silhouette(&pg, r.map(|v| v as f64), glyph.unwrap_or(GLYPH_GUESS * w as f64), &lettered)).filter(|f| !theirs(f)).collect();
                 let mine: Vec<[i64; 4]> = fill.iter().filter(|f| !sep.iter().any(|p| (f[0] as f64) < p[2] && (f[2] as f64) > p[0] && (f[1] as f64) < p[3] && (f[3] as f64) > p[1])).copied().collect();
                 let at = union(&if mine.is_empty() { &fill } else { &mine }.iter().map(|f| f.map(|v| v as f64)).collect::<Vec<_>>()).map(|v| v as i64);
                 if fill.is_empty() {
