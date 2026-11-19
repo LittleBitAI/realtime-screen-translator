@@ -95,6 +95,62 @@ pub fn fit_within(x: i64, y: i64, w: u32, h: u32, ko: &str, area: (i64, i64, i64
 pub struct Cover {
     pub outline: Vec<[i64; 2]>,
     pub text: [i64; 4],
+    /// A line Gemini gave for several balloons, set a share in each.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<Part>,
+}
+
+/// One balloon's share of a line lettered in several: where it goes
+/// (`x, y, w, h`), its size and its Korean. Drawn in place of the cover's
+/// one text area.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Part {
+    pub text: [i64; 4],
+    pub font_px: u16,
+    pub ko: String,
+}
+
+/// `ko` cut at sentence ends into `shares.len()` runs of whole sentences,
+/// in order, each as near its share of the letters as the sentence ends
+/// allow; none when it has fewer sentences than shares
+/// ("수영부 부장이야." / "3학년 5반, 누레미 스이무.").
+pub fn split(ko: &str, shares: &[f64]) -> Option<Vec<String>> {
+    let n = shares.len();
+    let ends = |c: char| matches!(c, '.' | '!' | '?' | '…' | '~' | '♪' | '♥' | '—' | '"' | '\'' | '”' | '’' | ')' | ']');
+    // Sentences: a run ending in a sentence mark and then a space.
+    let chars: Vec<char> = ko.trim().chars().collect();
+    let mut sentences: Vec<String> = vec![];
+    let mut start = 0;
+    for i in 1..chars.len() {
+        if chars[i].is_whitespace() && ends(chars[i - 1]) && i > start {
+            sentences.push(chars[start..i].iter().collect::<String>().trim().to_string());
+            start = i;
+        }
+    }
+    sentences.push(chars[start.min(chars.len())..].iter().collect::<String>().trim().to_string());
+    sentences.retain(|s| !s.is_empty());
+    if n < 2 || sentences.len() < n {
+        return None;
+    }
+    // Cut i ends sentence `cut[i]`: the first cut nearest its share, each
+    // later one past it, leaving a sentence for each share after it.
+    let size = |s: &String| s.chars().filter(|c| !c.is_whitespace()).count() as f64;
+    let total: f64 = sentences.iter().map(size).sum::<f64>().max(1.0);
+    let whole: f64 = shares.iter().sum::<f64>().max(f64::MIN_POSITIVE);
+    let mut upto = vec![0.0];
+    for s in &sentences {
+        upto.push(upto.last().unwrap() + size(s) / total);
+    }
+    let (mut cuts, mut want) = (vec![0usize], 0.0);
+    for k in 0..n - 1 {
+        want += shares[k] / whole;
+        let lo = cuts[k] + 1;
+        let hi = sentences.len() - (n - 1 - k);
+        let best = (lo..=hi).min_by(|&a, &b| (upto[a] - want).abs().total_cmp(&(upto[b] - want).abs())).unwrap();
+        cuts.push(best);
+    }
+    cuts.push(sentences.len());
+    Some(cuts.windows(2).map(|w| sentences[w[0]..w[1]].join(" ")).collect())
 }
 
 /// Korean font size per pixel of the original letters' height: Hangul at
@@ -185,6 +241,19 @@ mod tests {
         let long = "그러니까 우리 집 구독 스트리밍 서비스에는 그 영화가 없어서 폰으로도 볼 수가 없다는 거야";
         let f = font_for(long, 100, 120, Some(20.0));
         assert!(f < 23 && wrapped_lines(long, f as f64, 100.0) as f64 * f as f64 * LINE <= 120.0, "{f}");
+    }
+
+    /// A line Gemini gave for two balloons is cut at a sentence end, nearest
+    /// the balloons' shares; one sentence for two balloons is not cut.
+    #[test]
+    fn a_line_for_several_balloons_is_cut_at_sentence_ends() {
+        let two = "수영부 부장이야. 3학년 5반, 누레미 스이무.";
+        assert_eq!(split(two, &[1.0, 1.0]).unwrap(), ["수영부 부장이야.", "3학년 5반, 누레미 스이무."]);
+        let three = "아. 그래! 그럼 내일 다시 오자... 꼭이야?";
+        assert_eq!(split(three, &[3.0, 1.0]).unwrap(), ["아. 그래! 그럼 내일 다시 오자...", "꼭이야?"]);
+        assert_eq!(split(three, &[1.0, 1.0, 1.0]).unwrap(), ["아. 그래!", "그럼 내일 다시 오자...", "꼭이야?"]);
+        assert_eq!(split("그 모든 것, 아니 그 이상으로, 렌타로 군은 언제나 내게 그런 존재였어.", &[1.0, 1.0]), None);
+        assert_eq!(split(two, &[1.0]), None);
     }
 
     #[test]

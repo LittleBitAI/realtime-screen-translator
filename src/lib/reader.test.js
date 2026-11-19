@@ -22,6 +22,8 @@ const page = (save_error) => ({
 beforeEach(() => {
   vi.stubGlobal('setInterval', vi.fn());
   vi.stubGlobal('requestAnimationFrame', (f) => setTimeout(f, 0));
+  // jsdom lays nothing out: the lines' extent is empty, as no spill.
+  Range.prototype.getBoundingClientRect ??= () => new DOMRect();
 });
 
 afterEach(() => {
@@ -84,6 +86,24 @@ describe('reader page script', () => {
     const text = box.querySelector('.rst-text');
     expect([text.style.left, text.style.top, text.style.width, text.style.height]).toEqual(['25%', '20%', '50%', '60%']);
     expect(text.textContent).toBe('말풍선');
+  });
+
+  it('sets a line lettered in two balloons a share in each', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('cors'); }));
+    const two = { x: 100, y: 200, w: 400, h: 100, radius: 0, font_px: 20, ko: '응. 알았어.', outline: [[100, 200], [500, 200], [500, 300], [100, 300]], text: [400, 220, 80, 60],
+      parts: [{ text: [400, 220, 80, 60], font_px: 20, ko: '응.' }, { text: [120, 220, 80, 60], font_px: 16, ko: '알았어.' }] };
+    const invoke = vi.fn().mockResolvedValue(null).mockResolvedValueOnce({ ...page(null), boxes: [two] });
+    window.__TAURI_INTERNALS__ = { invoke };
+    pagePicture('https://cdn.example/3.jpg');
+
+    new Function(script)();
+
+    const texts = await vi.waitFor(() => {
+      const t = [...document.querySelectorAll('.rst-box .rst-text')];
+      expect(t).toHaveLength(2);
+      return t;
+    });
+    expect(texts.map((t) => [t.textContent, t.style.left, t.style.width])).toEqual([['응.', '75%', '20%'], ['알았어.', '5%', '20%']]);
   });
 
   it('loads and translates a chapter picture only as it approaches the view', async () => {

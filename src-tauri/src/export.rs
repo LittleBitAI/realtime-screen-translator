@@ -266,9 +266,19 @@ pub fn draw_placement(img: &mut Rgb, p: &PlacementRow, top: i64) {
             }
         }
     }
-    let [tx, ty, tw, th] = cover.map_or([p.x + PAD as i64, p.y + PAD as i64, p.w.saturating_sub(2 * PAD) as i64, p.h.saturating_sub(2 * PAD) as i64], |c| c.text);
-    let size = p.font_px.max(1) as u32;
-    let lines = layout::lines(&p.ko, size, (tw.max(1)) as u32);
+    let text = cover.as_ref().map_or([p.x + PAD as i64, p.y + PAD as i64, p.w.saturating_sub(2 * PAD) as i64, p.h.saturating_sub(2 * PAD) as i64], |c| c.text);
+    match cover.as_ref().filter(|c| !c.parts.is_empty()) {
+        // A line lettered in several balloons: each share in its own.
+        Some(c) => c.parts.iter().for_each(|part| draw_text(img, &part.ko, part.font_px, part.text, top)),
+        None => draw_text(img, &p.ko, p.font_px, text, top),
+    }
+}
+
+/// `ko` at `font_px`, centred in text area `x, y, w, h` (page pixels; the
+/// image starts at page row `top`).
+fn draw_text(img: &mut Rgb, ko: &str, font_px: u16, [tx, ty, tw, th]: [i64; 4], top: i64) {
+    let size = font_px.max(1) as u32;
+    let lines = layout::lines(ko, size, (tw.max(1)) as u32);
     let line_h = size as f32 * 1.2;
     let top = (ty - top) as f32 + (th as f32 - lines.len() as f32 * line_h) / 2.0;
     let cx = tx as f32 + tw as f32 / 2.0;
@@ -392,7 +402,7 @@ mod tests {
         let mut img = Rgb { w: 200, h: 120, px: vec![90; 200 * 120 * 3] };
         // Picture rows 100..220: a wide step 120..160, a narrow one 160..200.
         let outline = vec![[160, 120], [160, 160], [130, 160], [130, 200], [70, 200], [70, 160], [40, 160], [40, 120]];
-        let cover = serde_json::to_string(&layout::Cover { outline, text: [75, 125, 50, 70] }).unwrap();
+        let cover = serde_json::to_string(&layout::Cover { outline, text: [75, 125, 50, 70], parts: vec![] }).unwrap();
         let p = PlacementRow { id: 1, fingerprint: String::new(), x: 40, y: 120, w: 120, h: 80, radius: 0, font_px: 14, ko: "안녕".into(), cover: Some(cover) };
         draw_placement(&mut img, &p, 100);
         let at = |x: u32, y: u32| img.px[((y * 200 + x) * 3) as usize];

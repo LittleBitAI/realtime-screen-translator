@@ -165,10 +165,14 @@ pub fn page_prompt(lang: &str, context: &[PageItem]) -> String {
          the first letter of the first line to the last letter of the last line, and balloon_2d the same way \
          around the whole balloon or box up to its outline; speaker, the name of the character who says it \
          (as named on earlier pages, or a short description when the name is not known); the {source} text \
-         as src; and as ko a natural, casual Korean translation that fits the balloon. Work out who speaks \
-         each balloon from its tail, the panel and the exchange, and keep every character's voice: the \
-         speech level (banmal or jondaetmal) and form of address each character uses toward each other one, \
-         their distinctive way of talking, and the tone, rough language included. List the items in reading \
+         as src; and as ko a natural Korean translation that fits the balloon, in the voice the character \
+         uses there (casual only where the {source} is). Work out who speaks each balloon from its tail, the \
+         panel and the exchange, and keep every character's voice: the speech level (banmal or jondaetmal) \
+         and form of address each character uses toward each other one (a character who addresses a parent \
+         or elder formally, as \"Father\" or with \"may I\", speaks jondaetmal and says 아버지), their \
+         distinctive way of talking (baby talk, lisps and deliberate mispronunciations stay childlike or \
+         misspoken in Korean; wordplay becomes Korean wordplay where it can), and the tone, rough language \
+         included. Write each name the same way every time. List the items in reading \
          order ({order}). Answer only with JSON {{\"items\": [{{\"box_2d\": [...], \"balloon_2d\": [...], \
          \"speaker\": \"...\", \"src\": \"...\", \"ko\": \"...\"}}]}}."
     );

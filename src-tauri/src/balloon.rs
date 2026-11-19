@@ -548,8 +548,8 @@ pub fn assign(items: &[([f64; 4], usize)], blocks: &[Block], page_w: u32) -> Vec
 
 /// Each item's lettering: its block, joined by blocks no item took that
 /// are lettered at its size and either lie almost wholly inside the item's
-/// box or, reaching into that box within a few letters of it, bring the
-/// letter count nearer the item's source text. Gemini gives two texts
+/// box or, half inside it or reaching into it within a few letters of the
+/// lettering, bring the letter count nearer the item's source text. Gemini gives two texts
 /// lettered apart as one item ("IGNORE IT!" above "JUST AS LONG AS...",
 /// "WHAT DO I..." beside "OH, I KNOW!"). The bounds of each piece, its own
 /// block first; none for an item with no block.
@@ -581,7 +581,11 @@ pub fn gather(items: &[([f64; 4], usize)], blocks: &[Block], on: &[Option<usize>
                 // next panel's shout). A second text is a word or more;
                 // a few marks beside the box are more often the art (ch257
                 // p19, hair strokes with the "G" of "GAH!").
-                let closer = gap <= reach && inter > 0.0 && other.letters >= WORD_LETTERS && miss(letters + other.letters) < miss(letters);
+                // Or half under the box at any distance: the next balloon of
+                // a box Gemini drew round two (ch258 p4, "NUREMI SUIMU, YEAR
+                // 3 CLASS 5." under "I'M THE CAPTAIN OF THE SWIM CLUB.").
+                let near = gap <= reach && inter > 0.0 || inter >= 0.5 * (r[2] - r[0]) * (r[3] - r[1]);
+                let closer = near && other.letters >= WORD_LETTERS && miss(letters + other.letters) < miss(letters);
                 let alike = other.glyph.max(own.glyph) <= 1.6 * other.glyph.min(own.glyph);
                 !taken[j] && other.letters >= 3 && alike && (inside || closer)
             });

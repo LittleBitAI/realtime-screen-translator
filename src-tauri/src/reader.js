@@ -358,21 +358,25 @@
       box.style.top = pct(b.y, answer.height);
       box.style.width = pct(b.w, answer.width);
       box.style.height = pct(b.h, answer.height);
-      box.dataset.font = String(b.font_px / answer.width);
       box.dataset.radius = String(b.radius / answer.width);
       // The shape follows the balloon's own outline where the app found it.
       if (b.outline?.length) {
         box.style.clipPath = `polygon(${b.outline.map(([x, y]) => `${pct(x - b.x, b.w)} ${pct(y - b.y, b.h)}`).join(',')})`;
       }
-      const text = document.createElement('div');
-      text.className = 'rst-text';
-      const [tx, ty, tw, th] = b.text ?? [b.x, b.y, b.w, b.h];
-      text.style.left = pct(tx - b.x, b.w);
-      text.style.top = pct(ty - b.y, b.h);
-      text.style.width = pct(tw, b.w);
-      text.style.height = pct(th, b.h);
-      text.textContent = b.ko;
-      box.appendChild(text);
+      // A line lettered in several balloons is set a share in each.
+      const parts = b.parts?.length ? b.parts : [{ text: b.text ?? [b.x, b.y, b.w, b.h], font_px: b.font_px, ko: b.ko }];
+      for (const part of parts) {
+        const text = document.createElement('div');
+        text.className = 'rst-text';
+        const [tx, ty, tw, th] = part.text;
+        text.style.left = pct(tx - b.x, b.w);
+        text.style.top = pct(ty - b.y, b.h);
+        text.style.width = pct(tw, b.w);
+        text.style.height = pct(th, b.h);
+        text.dataset.font = String(part.font_px / answer.width);
+        text.textContent = part.ko;
+        box.appendChild(text);
+      }
       // A tap shows the original under it for a moment.
       box.onclick = () => box.classList.toggle('rst-peek');
       layer.appendChild(box);
@@ -385,27 +389,48 @@
   // where the balloon has room. The browser breaks lines its own way, so
   // where its lines overflow the text area the size steps down: the shape
   // never grows past the balloon, and no line is cut off. Lines break
-  // between words while that costs at most a fifth of the size (and keeps
-  // it readable); a balloon narrower than that has words broken ("사과해야"
-  // / "겠구나") rather than the Korean set too small to read.
+  // between words while the size keeps `WORDS_KEEP` of its own (and stays
+  // readable); a balloon narrower than that has words broken between
+  // syllables ("사과해야" / "겠구나") rather than the Korean set too small to
+  // read, and only a word wider than the balloon anywhere.
   const READABLE = 7;
+  const WORDS_KEEP = 0.7;
   function fitFont(box, shownWidth) {
     box.style.borderRadius = `${Number(box.dataset.radius) * shownWidth}px`;
-    const text = box.querySelector('.rst-text');
-    const start = Math.max(READABLE, Number(box.dataset.font) * shownWidth);
+    for (const text of box.querySelectorAll('.rst-text')) fitText(text, shownWidth);
+  }
+
+  function fitText(text, shownWidth) {
+    const start = Math.max(READABLE, Number(text.dataset.font) * shownWidth);
+    // A centred line wider than the text area spills past both sides, and
+    // past the left the browser does not count as scrolled: the lines'
+    // own extent is compared with the area too (ch257 p19, "젠장...!").
+    const lines = document.createRange();
+    const spills = () => {
+      lines.selectNodeContents(text);
+      const [l, a] = [lines.getBoundingClientRect(), text.getBoundingClientRect()];
+      return l.width > 0 && (l.left < a.left - 1 || l.right > a.right + 1 || l.top < a.top - 1 || l.bottom > a.bottom + 1);
+    };
     const shrink = (floor) => {
       let px = start;
       for (;;) {
         text.style.fontSize = `${px}px`;
-        const over = text.scrollHeight > text.clientHeight + 1 || text.scrollWidth > text.clientWidth + 1;
+        const over = text.scrollHeight > text.clientHeight + 1 || text.scrollWidth > text.clientWidth + 1 || spills();
         if (!over || px <= floor) return over;
         px = Math.max(floor, px * 0.92);
       }
     };
+    text.style.wordBreak = '';
     text.style.overflowWrap = 'normal';
-    if (shrink(Math.max(READABLE, start * 0.8))) {
-      text.style.overflowWrap = 'anywhere';
-      shrink(2);
+    if (shrink(Math.max(READABLE, start * WORDS_KEEP))) {
+      // Between syllables, as Korean may break, but never ahead of the
+      // punctuation that ends a word: "무서워하지 않았어...?" keeps its
+      // "...?", "젠장...!" its "!" (ch257 p18, p19).
+      text.style.wordBreak = 'normal';
+      if (shrink(READABLE)) {
+        text.style.overflowWrap = 'anywhere';
+        shrink(2);
+      }
     }
   }
 
