@@ -437,6 +437,8 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                     areas.zip(runs).map(|(a, ko)| layout::Part { text: a, font_px: layout::font_for(&ko, a[2] as u32, a[3] as u32, glyph.map(|g| g * scale)), ko }).collect()
                 })
             };
+            // The white edging lettering on the art may have: a quarter letter.
+            let edging = |glyph: Option<f64>| (0.25 * glyph.unwrap_or(GLYPH_GUESS * w as f64)).round() as i64;
             let around = |t: [f64; 4], glyph: f64| balloon::find(&pg, t, glyph, &others).map(|f| balloon::Found { glyph: Some(glyph), ..f });
             let found = on[i].and_then(|j| {
                 let (own, glyph) = (blocks[j].bounds, blocks[j].glyph);
@@ -476,7 +478,7 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                         outline,
                         text: [x0, y0, tw as i64, th as i64],
                         parts,
-                        patch: export::tone(page, &tone),
+                        patch: export::tone(page, &tone, edging(glyph)),
                     }
                 }
                 // No closed balloon: a rounded rectangle over the lettering
@@ -589,7 +591,7 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                         let t = s.text;
                         let b = tone.iter().fold(b, |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
                         let b = [b[0].min(t[0]), b[1].min(t[1]), b[2].max(t[0] + t[2]), b[3].max(t[1] + t[3])];
-                        (s.outline, s.radius, s.patch) = (outline, 0, export::tone(page, &tone));
+                        (s.outline, s.radius, s.patch) = (outline, 0, export::tone(page, &tone, edging(glyph)));
                         (s.x, s.y, s.w, s.h) = (b[0], b[1], (b[2] - b[0]) as u32, (b[3] - b[1]) as u32);
                     }
                     s
