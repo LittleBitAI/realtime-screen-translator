@@ -148,9 +148,10 @@ impl Client<'_> {
     }
 }
 
-/// Earlier lines given to the model, at most: enough to carry names, speech
-/// levels and running jokes across a page turn, small next to the picture.
-pub const CONTEXT_LINES: usize = 40;
+/// Earlier lines given to the model, at most: a chapter so far (about 8 a
+/// page), so names, speech levels and forms of address set pages back are
+/// kept (ch256 p12, Rin's 아버지 from p7); a few thousand tokens.
+pub const CONTEXT_LINES: usize = 160;
 
 /// The reader's request text for one page.
 pub fn page_prompt(lang: &str, context: &[PageItem]) -> String {
@@ -172,15 +173,19 @@ pub fn page_prompt(lang: &str, context: &[PageItem]) -> String {
          or elder formally, as \"Father\" or with \"may I\", speaks jondaetmal and says 아버지), their \
          distinctive way of talking (baby talk, lisps and deliberate mispronunciations stay childlike or \
          misspoken in Korean; wordplay becomes Korean wordplay where it can), and the tone, rough language \
-         included. Write each name the same way every time. List the items in reading \
+         included. Translate every clause of the line; never shorten it. A term of endearment follows who \
+         says it to whom (a parent's \"honey\" to a child is 얘야 or 우리 딸, never 자기야). A line broken off \
+         mid-phrase breaks off naturally in Korean, never inside a word. Write each name the same way every \
+         time, as the earlier pages wrote it. List the items in reading \
          order ({order}). Answer only with JSON {{\"items\": [{{\"box_2d\": [...], \"balloon_2d\": [...], \
          \"speaker\": \"...\", \"src\": \"...\", \"ko\": \"...\"}}]}}."
     );
     let start = context.len().saturating_sub(CONTEXT_LINES);
     if start < context.len() {
         text.push_str(
-            "\nThe pages just before this one, in reading order, as speaker: source => Korean already shown \
-             to the reader. Keep the same names, speech levels and wording for recurring phrases:",
+            "\nThe chapter's pages before this one, in reading order, as speaker: source => Korean already \
+             shown to the reader (speakers as guessed then). Keep the same names, speech levels, forms of \
+             address and wording for recurring phrases:",
         );
         for it in &context[start..] {
             let speaker = if it.speaker.is_empty() { "?" } else { it.speaker.as_str() };
@@ -351,6 +356,18 @@ pub fn parse(prefill: &str, continuation: &str, key: &str, n: usize) -> Option<V
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A chapter's lines so far go with the page (ch256 p12 needs Rin's
+    /// "아버지" from p7), the newest kept when there are more.
+    #[test]
+    fn the_prompt_carries_the_chapter_so_far() {
+        let line = |n: usize| PageItem { text: [0.0; 4], balloon: None, speaker: "Rin".into(), src: format!("LINE {n}"), ko: format!("줄 {n}") };
+        let context: Vec<PageItem> = (0..CONTEXT_LINES + 5).map(line).collect();
+        let prompt = page_prompt("en", &context);
+        assert!(prompt.contains("\nRin: LINE 5 => 줄 5") && prompt.contains(&format!("LINE {}", CONTEXT_LINES + 4)));
+        assert!(!prompt.contains("LINE 4 =>"));
+        assert!(!page_prompt("en", &[]).contains("pages before this one"));
+    }
 
     #[test]
     fn prefill_continuation_parses_and_refusal_does_not() {

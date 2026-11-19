@@ -211,8 +211,9 @@ impl Backend {
         tests::after_let_go(self);
     }
 
-    /// The lines of the pages kept just before this one in its book, oldest
-    /// first, so the next request keeps names and voices as they were shown.
+    /// The lines of the pages kept before this one in its book (a chapter's
+    /// worth), oldest first, so the next request keeps names and voices as
+    /// they were shown.
     fn context(&self, source: ReaderSource<'_>) -> ApiResult<Vec<PageItem>> {
         let st = self.lock();
         let place = match source {
@@ -220,7 +221,7 @@ impl Backend {
             ReaderSource::Chapter(pic) => store::picture_place(&st.db, pic)?,
         };
         let Some((book, seq)) = place else { return Ok(vec![]) };
-        let pages = store::earlier_items(&st.db, book, seq, 3)?;
+        let pages = store::earlier_items(&st.db, book, seq, CONTEXT_PAGES)?;
         Ok(pages.iter().filter_map(|j| serde_json::from_str::<Vec<PageItem>>(j).ok()).flatten().collect())
     }
 
@@ -255,6 +256,9 @@ impl Backend {
     }
 
 }
+
+/// Earlier pages read for a request's context: more than a chapter holds.
+const CONTEXT_PAGES: u32 = 30;
 
 /// P12's pages in flight: one read per page key at a time, and the answers
 /// whose saving failed, kept until saving them works.
