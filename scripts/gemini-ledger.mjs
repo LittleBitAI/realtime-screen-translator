@@ -10,7 +10,8 @@
 // retry, the BLOCK_NONE fallback, a reworded prompt) is refused until
 // `<ledger>/approvals.json` grants it, as {"<key>": extra attempts}. Every
 // attempt, sent or not, is appended to `<ledger>/attempts.jsonl`, and
-// GET /ledger sums them up.
+// GET /ledger sums them up. With LEDGER_OFFLINE=1 nothing is ever sent:
+// saved answers are replayed and every other request is refused.
 import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -68,6 +69,11 @@ createServer(async (req, res) => {
   if (existsSync(saved)) {
     record({ kind: 'replay', key });
     return reply(res, 200, readFileSync(saved, 'utf8'));
+  }
+  if (process.env.LEDGER_OFFLINE === '1') {
+    record({ kind: 'refused', key, why: 'offline' });
+    console.log(`refused ${key}: offline, no saved answer`);
+    return reply(res, 429, { error: { message: 'ledger: offline, no saved answer for this page' } });
   }
   const sent = attempts().filter((a) => a.kind === 'outbound' && a.key === key).length;
   if (sent >= 1 + (approvals()[key] ?? 0)) {

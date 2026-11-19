@@ -702,7 +702,10 @@ pub fn run() {
             });
             #[cfg(target_os = "android")]
             let model = crate::models::path(&data_dir);
-            let backend = Backend::open(data_dir, std::env::var("RST_GEMINI_BASE_URL").ok(), platform)?;
+            // A phone has no environment to set: a development build may
+            // carry the address (the request ledger, over `adb reverse`).
+            let gemini_base = std::env::var("RST_GEMINI_BASE_URL").ok().or(option_env!("RST_GEMINI_BASE_URL").map(String::from));
+            let backend = Backend::open(data_dir, gemini_base, platform)?;
             app.manage(backend);
             // Built here rather than in tauri.conf.json, so it carries the
             // reader's script: on Android the sites open in this window.
