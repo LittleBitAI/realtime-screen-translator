@@ -360,11 +360,15 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
     let pieces = balloon::gather(&wanted, &blocks, &on);
     let union = |p: &[[f64; 4]]| p.iter().fold([f64::MAX, f64::MAX, f64::MIN, f64::MIN], |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
     let texts: Vec<[f64; 4]> = pieces.iter().zip(&wanted).map(|(p, &(t, _))| if p.is_empty() { t } else { union(p) }).collect();
+    let host = hosts(&wanted, &blocks, &on);
     items
         .iter()
         .enumerate()
-        .map(|(i, it)| {
-            let others: Vec<[f64; 4]> = texts.iter().enumerate().filter(|&(j, _)| j != i).map(|(_, &t)| t).collect();
+        .map(|(i, own)| {
+            // Its Korean, and that of lines lettered in its block.
+            let lines: Vec<&str> = items.iter().enumerate().filter(|&(k, _)| k == i || host[k] == Some(i)).map(|(_, x)| x.ko.as_str()).collect();
+            let it = &PageItem { ko: lines.join(" "), ..own.clone() };
+            let others: Vec<[f64; 4]> = texts.iter().enumerate().filter(|&(j, _)| j != i && host[j].is_none()).map(|(_, &t)| t).collect();
             // The pieces of lettering gathered from beside the item's own
             // that a cover over `cover` leaves out, and the Korean shared
             // out at its sentence ends between the cover (first) and them,
@@ -425,7 +429,7 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                     })
                     .or_else(|| around(own, glyph))
             });
-            match found {
+            let mut b = match found {
                 Some(f) => {
                     let [x0, y0, x1, y1] = f.text;
                     let (tw, th) = ((x1 - x0) as u32, (y1 - y0) as u32);
@@ -452,6 +456,8 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                 // (a shout fused with the panel frame, the box on the hair
                 // below it): a white box there would wipe the art and leave
                 // the lettering. The line is kept, with nothing drawn.
+                // Lettered in another item's block: drawn in its cover.
+                None if host[i].is_some() => PageBox { x: 0, y: 0, w: 0, h: 0, radius: 0, font_px: 0, ko: it.ko.clone(), outline: vec![], text: [0, 0, 0, 0], parts: vec![] },
                 None if on[i].is_none() && balloon::marks_in(&pg, wanted[i].0) < (wanted[i].1 / 2).max(1) => {
                     let t = wanted[i].0;
                     let (x, y) = (t[0].max(0.0) as i64, t[1].max(0.0) as i64);
@@ -515,9 +521,40 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                     }
                     s
                 }
+            };
+            if lines.len() > 1 && b.parts.is_empty() {
+                b.parts = vec![layout::Part { text: b.text, font_px: b.font_px, ko: it.ko.clone() }];
             }
+            b.ko = own.ko.clone();
+            b
         })
         .collect()
+}
+
+/// For each item with no block of its own, the item whose block holds its
+/// lettering too: Gemini's box touches that block, and the block's letters
+/// come nearer the two lines' letters together than the other's alone
+/// (ch256 p12, "SURELY, HER FRIEND..." and "THE PEOPLE DEMAND MORE 13!"
+/// lettered as one block, Gemini's boxes off to one side).
+fn hosts(wanted: &[([f64; 4], usize)], blocks: &[balloon::Block], on: &[Option<usize>]) -> Vec<Option<usize>> {
+    let mut host = vec![None; wanted.len()];
+    let mut held: Vec<usize> = wanted.iter().map(|w| w.1).collect();
+    for i in (0..wanted.len()).filter(|&i| on[i].is_none()) {
+        let r = wanted[i].0;
+        let overlap = |b: [f64; 4]| (r[2].min(b[2]) - r[0].max(b[0])).max(0.0) * (r[3].min(b[3]) - r[1].max(b[1])).max(0.0);
+        let best = (0..wanted.len())
+            .filter_map(|k| on[k].map(|j| (k, j)))
+            .filter(|&(k, j)| {
+                let n = blocks[j].letters as f64;
+                overlap(blocks[j].bounds) > 0.0 && (n - (held[k] + wanted[i].1) as f64).abs() < (n - held[k] as f64).abs()
+            })
+            .max_by(|a, b| overlap(blocks[a.1].bounds).total_cmp(&overlap(blocks[b.1].bounds)));
+        if let Some((k, _)) = best {
+            host[i] = Some(k);
+            held[k] += wanted[i].1;
+        }
+    }
+    host
 }
 
 /// A line Gemini gave for the lettering at `rects` (`x0, y0, x1, y1`),
@@ -771,6 +808,20 @@ mod tests {
         assert!(white(20, 20) && white(45, 45) && white(35, 35) && white(80, 50));
         // The face between them, and along the bridge.
         assert!(!white(60, 30) && !white(20, 55) && !white(55, 15));
+    }
+
+    /// ch256 p12: "SURELY, HER FRIEND..." (33 letters) and "THE PEOPLE
+    /// DEMAND MORE 13!" (21) are one block of 51 letters; Gemini's second box
+    /// lies on the sky beside it. The second line goes into the first's
+    /// cover; a line whose box only touches a block that already fits its
+    /// owner does not.
+    #[test]
+    fn a_line_lettered_in_another_items_block_is_drawn_in_its_cover() {
+        let block = |bounds, letters| balloon::Block { bounds, letters, glyph: 23.0, in_balloon: false };
+        let blocks = [block([917.0, 719.0, 1141.0, 1066.0], 51), block([583.0, 874.0, 737.0, 1019.0], 13)];
+        let wanted = [([1034.0, 815.0, 1170.0, 991.0], 33), ([1026.0, 991.0, 1170.0, 1132.0], 21), ([630.0, 815.0, 786.0, 1132.0], 20), ([700.0, 900.0, 760.0, 1000.0], 8)];
+        let on = [Some(0), None, Some(1), None];
+        assert_eq!(hosts(&wanted, &blocks, &on), [None, Some(0), None, None]);
     }
 
     /// A line Gemini gave for two balloons is set a sentence in each, the

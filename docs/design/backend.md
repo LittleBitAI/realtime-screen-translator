@@ -133,13 +133,30 @@ Chosen by the person on 2026-11-17, after screen capture kept cancelling transla
 - One request per page. The backend sends the whole page to Gemini 3.1 Flash Lite once (safety settings `OFF`, prefill `{"items":[`). It asks for each balloon's text box, balloon box, source text and Korean, in reading order (right to left for Japanese, left to right for English). Sound effects, signs and on-screen text are left out. A garbled answer or a dropped connection is retried once by the script.
 - Never twice. A page is keyed by `sha256(bytes):lang` in the `ReaderPage` table. A known key answers from the library with no Gemini request, so going back, reopening the chapter or a site recreating its `<img>` costs nothing. Copies of one page read at the same time take turns on that key: the first asks Gemini and the others answer from what it kept.
 - A failed save is told. When the library cannot keep a translated page (a full disk, a locked folder), the page is still drawn and `save_error` names why. The script shows a chip to save again, and the answer waits in memory so that retry asks Gemini nothing. A failed save removes the image it wrote before it gives up the lock, because the rolled-back picture id is free again for the next page. The image is also named after the page (`strips/{picture}/page-{hash}-{lang}.{ext}`), so two pages never share a file.
-- Shapes. The cover starts at Gemini's text box, pushed out 6% (at least 4 px) because those boxes run short of the letters. It grows toward the balloon's inner 60% rectangle, but by no more than 35% of the text's size so a balloon box drawn too large does not cover the art, and it stays inside balloon ∪ text. `layout::fit_within` then sizes the Korean.
-- Drawing. The script puts a layer as a sibling of each `<img>`, sized to its box, with the shapes in percentages. Shapes therefore scroll, slide and zoom with the picture; scroll and slide need no separate tracking in the reader. The browser's line breaks differ from `layout`, so the font steps down until the text fits (never below 7 px; at 7 px the shape grows down instead). The 번역 켜짐/꺼짐 button hides every layer, a tap on a shape shows the original under it, and 앱 returns to S1.
+- Shapes (`reader::shapes`, `balloon.rs`). Gemini's boxes say roughly where a line is, and the page's own lettering says exactly where.
+  - Lettering. `balloon::blocks` groups letter-sized dark marks on paper into blocks. `assign` gives each item the nearest block, then trades pairs that lower the total cost, so two speakers' lines never swap balloons. `gather` adds blocks Gemini's box holds, or ones near it that bring the letter count closer (at least a word).
+  - The cover. `balloon::find` walks out from the lettering to the balloon's printed outline and returns a staircase outline inset from it, plus a text area. Without a closed balloon, the cover is a rectangle over the lettering. It reaches into Gemini's box by 1.5 letters, or 3 when letters are missing from every piece (faint lettering). It is cut back from other items' lettering (`apart`).
+  - Pieces apart. Lettering an item has in two places gets a cover in each, joined into one outline by zero-width bridges. Clip-path and the export fill that outline nonzero.
+  - Sharing the line. The Korean is cut at sentence ends: a run per balloon in reading order (top to bottom, right to left across a row), each nearest the letters it holds (`layout::split`). The runs are kept as `parts` with the cover. A line with fewer sentences than balloons stays whole in the first balloon.
+  - Size. The Korean takes the original lettering's height × 1.15 and is smaller only as far as the whole line needs to fit (`layout::font_for`).
+  - Nothing found. When no lettering is found and Gemini's box holds none either, the line is kept with nothing drawn.
+  - Reopening. Shapes are recomputed from the page's own pixels on every open, and stale library rows are rewritten. A cached page therefore shows the current layout with no Gemini request.
+- Drawing. The script puts a layer as a sibling of each `<img>`, sized to its box, with the shapes in percentages. Shapes therefore scroll, slide and zoom with the picture; scroll and slide need no separate tracking in the reader. The browser's line breaks differ from `layout`, so the size steps down until the lines fit inside the text area. Overflow is checked with the lines' own extent as well, because a centred line spilling left is not scrolled. It steps down in three stages:
+  1. Words are kept whole down to 0.7 of the size.
+  2. Words then break between syllables, keeping punctuation with its word, down to 7 px.
+  3. Below 7 px, lines break anywhere.
+
+  The shape never grows past the balloon. The 번역 켜짐/꺼짐 button hides every layer, a tap on a shape shows the original under it, and 앱 returns to S1.
 - Library. Each site page is one book named after the page title, each picture one `Picture` with its file, strip, translations and placements, so S2 lists and exports reader books like any other.
 - Saved links and lists. `SavedLink` associates one web address and display title with a `Book.id`. Older site books recover their address from `ReaderPage.page_url`. Imported chapters reopen by book ID. `ListEntry` stores a book's position within a `ReadingList`, and deleting a list cascades only to its memberships.
 - Library commands. `get_books` accepts an optional list ID and title or address search before pagination. `get_lists` returns lists and their ordered book IDs. `edit_library` commits one local edit in a SQLite transaction. The browser host serves these through `GET /books`, `GET /lists` and `POST /library/edit`.
 - Kept, not reachable. The capture pipeline (P1–P11, the Kotlin plugin, the Windows overlay) stays in the backend under its contract tests. The app's screens no longer start it.
-- Known limits. If Gemini leaves a whole line out of a text box, that line's source shows below the shape (seen once on chapter 54, page 22). Pages drawn on a `<canvas>` instead of an `<img>` are not found.
+- Known limits.
+  - Missing lines. If Gemini leaves a whole line out of a text box, that line's source shows below the shape (seen once on chapter 54, page 22).
+  - Canvas pages. Pages drawn on a `<canvas>` instead of an `<img>` are not found.
+  - Halo lettering on art. Lettering drawn on art without a balloon can fail in two ways:
+    - Strokes beside the letters (hair tips on skin, speed lines) are letter-sized marks on paper. They can join the lettering block, and the rectangle then covers some art.
+    - White letters outlined on a dark background are not detected, so the cover follows Gemini's box.
 
 ## 시나리오와 확인할 테스트
 
