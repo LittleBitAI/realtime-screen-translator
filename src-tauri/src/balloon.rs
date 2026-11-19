@@ -114,9 +114,12 @@ pub fn find(page: &Page, text: [f64; 4], glyph: f64, others: &[[f64; 4]]) -> Opt
     let paper = vote(core(text)).or_else(|| vote([text[0] - ring, text[1] - ring, text[2] + ring, text[3] + ring]))?;
     let mut comp: Vec<bool> = label.iter().map(|&l| l == paper).collect();
     let reach2 = reach * reach;
+    // Whether the paper runs on past the reach: no outline closes it.
+    let mut open_paper = false;
     for (i, (x, y)) in grid.cells().enumerate() {
         if comp[i] && rect_dist2(text, x, y) > reach2 {
             comp[i] = false;
+            open_paper = true;
         }
     }
 
@@ -153,6 +156,15 @@ pub fn find(page: &Page, text: [f64; 4], glyph: f64, others: &[[f64; 4]]) -> Opt
         })
         .collect();
     if ink.is_empty() {
+        return None;
+    }
+    // Lettering edged in white on a tone that no outline closes is drawn
+    // on the art: the "paper" is the panel's gray (or the sky) running up
+    // to the next balloon's edge, and a cover over it would join the two
+    // (ch257 p6, "WHAT KIND OF A FATHER..."). A toned balloon closes round
+    // its white-edged lettering (ch256 p8, "EE HEE HEE..."), and in a white
+    // balloon what hugs the letters is no lighter than the paper.
+    if open_paper && halo(page, &grid, &comp, &ink) {
         return None;
     }
 
@@ -218,6 +230,35 @@ pub fn find(page: &Page, text: [f64; 4], glyph: f64, others: &[[f64; 4]]) -> Opt
     let pad =((TEXT_PAD * (r[2] - r[0]).min(r[3] - r[1]) as f64).round() as i64).max(1);
     let text = [r[0] + pad, r[1] + pad, (r[2] - pad).max(r[0] + pad + 1), (r[3] - pad).max(r[1] + pad + 1)];
     Some(Found { outline, bounds, text, glyph: Some(glyph) })
+}
+
+/// How much lighter than the paper, in gray levels, the pixels hugging the
+/// letters are when each letter is edged in white.
+const HALO_LIFT: f64 = 12.0;
+
+/// Whether the light pixels two pixels off the letters' ink are clearly
+/// lighter than the paper (`comp`) round them: a white edge drawn round
+/// each letter.
+fn halo(page: &Page, grid: &Grid, comp: &[bool], ink: &[usize]) -> bool {
+    let median = |mut v: Vec<u8>| -> Option<f64> {
+        v.sort_unstable();
+        v.get(v.len() / 2).map(|&m| m as f64)
+    };
+    let paper: Vec<u8> = (0..comp.len()).step_by(3).filter(|&i| comp[i]).map(|i| { let (x, y) = grid.xy(i); page.at(x, y) }).collect();
+    let mut hug = vec![];
+    for &i in ink.iter().step_by(2) {
+        let (x, y) = grid.xy(i);
+        for (dx, dy) in [(-2i64, 0i64), (2, 0), (0, -2), (0, 2)] {
+            let (nx, ny) = (x + dx, y + dy);
+            if nx >= 0 && ny >= 0 && nx < page.w as i64 && ny < page.h as i64 && page.at(nx, ny) >= LIGHT {
+                hug.push(page.at(nx, ny));
+            }
+        }
+    }
+    match (median(paper), median(hug)) {
+        (Some(p), Some(h)) => h - p >= HALO_LIFT,
+        _ => false,
+    }
 }
 
 /// A block of lettering found on the page: letters (small dark marks on
@@ -987,6 +1028,47 @@ impl Grid {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The user, on the phone (ch257 p6): "WHAT KIND OF A FATHER..." is
+    /// lettered in white-edged letters on the panel's gray tone, which ran
+    /// up to the next balloon; it was taken for one balloon and its white
+    /// joined that balloon's. Lettering edged in white on a tone no outline
+    /// closes is not in a balloon; the same lettering in a closed toned
+    /// balloon (ch256 p8, "EE HEE HEE...") is.
+    #[test]
+    fn white_edged_lettering_on_an_open_tone_is_not_a_balloon() {
+        let (w, h) = (600u32, 600u32);
+        let lettered = |closed: bool| {
+            let mut px = vec![228u8; (w * h) as usize];
+            if closed {
+                // A dark ellipse round the lettering, its inside the same tone.
+                for y in 0..h as i64 {
+                    for x in 0..w as i64 {
+                        let e = ((x as f64 - 300.0) / 150.0).powi(2) + ((y as f64 - 300.0) / 110.0).powi(2);
+                        if (0.94..1.06).contains(&e) {
+                            px[(y as u32 * w + x as u32) as usize] = 0;
+                        }
+                    }
+                }
+            }
+            let mut fill = |x0: usize, y0: usize, x1: usize, y1: usize, v: u8| (y0..y1).for_each(|y| (x0..x1).for_each(|x| px[y * w as usize + x] = v));
+            for y in [270, 302] {
+                for x in [200, 220, 240, 320, 340, 360] {
+                    fill(x - 3, y - 3, x + 17, y + 19, 255);
+                }
+            }
+            for y in [270, 302] {
+                for x in [200, 220, 240, 320, 340, 360] {
+                    fill(x, y, x + 14, y + 16, 0);
+                }
+            }
+            px
+        };
+        let (open, closed) = (lettered(false), lettered(true));
+        let text = [200.0, 270.0, 374.0, 318.0];
+        assert!(find(&Page { w, h, px: &open }, text, 16.0, &[]).is_none());
+        assert!(find(&Page { w, h, px: &closed }, text, 16.0, &[]).is_some());
+    }
 
     /// The user, on the phone: lettering with no balloon was covered with a
     /// white box over the art. Its cover is its letters and their rim; the

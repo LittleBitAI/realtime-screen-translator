@@ -559,10 +559,20 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                     let blocks_at: Vec<[f64; 4]> = pieces[i].iter().filter(|p| !sep.contains(p)).map(grown).collect();
                     let fill = lettering(&[own], glyph, &sep);
                     let scale = if fill.is_some() { OVER_ART } else { 1.0 };
+                    // Where the blocks are too small for the line (a "..."
+                    // block, ch256 p8), the rectangle's area, if the line
+                    // reads larger there.
                     if let Some((_, f)) = fill {
                         let f = if blocks_at.is_empty() { f } else { union(&blocks_at).map(|v| v as i64) };
-                        s.text = [f[0], f[1], f[2] - f[0], f[3] - f[1]];
-                        s.font_px = layout::font_for(&it.ko, s.text[2] as u32, s.text[3] as u32, glyph.map(|g| g * scale));
+                        let at = [f[0], f[1], f[2] - f[0], f[3] - f[1]];
+                        let size = |t: [i64; 4]| layout::font_for(&it.ko, t[2] as u32, t[3] as u32, glyph.map(|g| g * scale));
+                        let enough = glyph.map_or(0, |g| (g * layout::KO_SCALE).round() as u16);
+                        let (here, there) = (size(at), size(s.text));
+                        if here >= enough || here >= there {
+                            (s.text, s.font_px) = (at, here);
+                        } else {
+                            s.font_px = there;
+                        }
                     }
                     s.parts = parts(runs, s.text, &more, scale);
                     // A rounded white box only where no dark letters are found.
