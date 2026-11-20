@@ -1039,9 +1039,11 @@ mod tests {
 
     /// ch256 p12: "SURELY, HER FRIEND..." (33 letters) and "THE PEOPLE
     /// DEMAND MORE 13!" (21) are one block of 51 letters; Gemini's second box
-    /// lies on the sky beside it. The second line goes into the first's
-    /// cover; a line whose box only touches a block that already fits its
-    /// owner does not.
+    /// lies on the sky beside it. The second line is found lettered in the
+    /// first's block: [`balloon::split`] parts the two where the block cuts
+    /// between them, and where it does not, the line is drawn in the
+    /// first's cover. A line whose box only touches a block that already
+    /// fits its owner is not.
     #[test]
     fn a_line_lettered_in_another_items_block_is_drawn_in_its_cover() {
         let block = |bounds, letters| balloon::Block { bounds, letters, glyph: 23.0, in_balloon: false };
