@@ -356,14 +356,28 @@ pub(crate) fn tone(page: &Rgb, rects: &[[i64; 4]], edging: i64) -> Option<layout
     let smooth = fill(&known, &src, TONE_RELAX);
     // Across a hard edge, relaxed, the fill is a gray blur from one side
     // into the other (ch258 p7, "MEAN" touching black hair on white paper):
-    // there it goes over to the nearest ground, the edge kept as drawn.
+    // there it goes over to the nearest ground, the edge kept as drawn. Only
+    // near the cover's edge, out to an edging and fading over the next: the
+    // nearest ground carried deep in was a wedge of an ear's white far up
+    // into black hair (ch258 p18, "WHAT INCREDIBLE SPEED—").
     let near = fill(&known, &src, 0);
-    let c: Vec<[f32; 3]> = smooth
-        .iter()
-        .zip(&near)
-        .map(|(s, n)| {
+    let mut depth = vec![usize::MAX; fw * fh];
+    let mut q: std::collections::VecDeque<usize> = (0..fw * fh).filter(|&i| known[i]).collect();
+    q.iter().for_each(|&i| depth[i] = 0);
+    while let Some(i) = q.pop_front() {
+        for j in round(i) {
+            if depth[j] == usize::MAX {
+                depth[j] = depth[i] + 1;
+                q.push_back(j);
+            }
+        }
+    }
+    let e = edging.max(1) as f32;
+    let c: Vec<[f32; 3]> = (0..fw * fh)
+        .map(|i| {
+            let (s, n) = (smooth[i], near[i]);
             let d = (0..3).map(|k| (s[k] - n[k]).abs()).fold(0f32, f32::max);
-            let t = ((d - TONE_SPLIT) / TONE_SPLIT).clamp(0.0, 1.0);
+            let t = ((d - TONE_SPLIT) / TONE_SPLIT).clamp(0.0, 1.0) * ((2.0 * e - depth[i] as f32) / e).clamp(0.0, 1.0);
             [0, 1, 2].map(|k| s[k] + t * (n[k] - s[k]))
         })
         .collect();
@@ -874,6 +888,32 @@ mod tests {
         let at = |x: i64, y: i64| &px[((y - patch.at[1]) as usize * pw as usize + (x - patch.at[0]) as usize) * 4..][..4];
         assert!(at(22, 50)[3] == 255 && at(22, 50)[0] > 200, "{:?}", at(22, 50));
         assert_eq!(at(12, 50)[3], 0);
+    }
+
+    /// ch258 p18, "WHAT INCREDIBLE SPEED—": lettering edged in white on
+    /// black hair, an ear's white under it; the ear's white was carried far
+    /// up into the cover, a white wedge in the hair. Deep in, it is the
+    /// blend of all round it; at the edge, the ear's edge as drawn.
+    #[test]
+    fn tone_keeps_a_light_edge_from_running_deep_into_dark() {
+        let mut page = Rgb { w: 140, h: 150, px: vec![20; 140 * 150 * 3] };
+        for (x0, y0, x1, y1) in [(23, 13, 108, 107), (45, 107, 95, 150)] {
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    page.put(x, y, [255; 3]);
+                }
+            }
+        }
+        for y in 18..102 {
+            for x in 28..103 {
+                page.put(x, y, [0; 3]);
+            }
+        }
+        let patch = tone(&page, &[[26, 16, 105, 104]], 8).unwrap();
+        let (pw, px) = patch_px(&patch).unwrap();
+        let at = |x: i64, y: i64| &px[((y - patch.at[1]) as usize * pw as usize + (x - patch.at[0]) as usize) * 4..][..4];
+        assert!(at(70, 75)[3] == 255 && at(70, 75)[0] < 180, "deep in: {:?}", at(70, 75));
+        assert!(at(70, 101)[3] == 255 && at(70, 101)[0] > 200, "at the ear: {:?}", at(70, 101));
     }
 
     #[test]
