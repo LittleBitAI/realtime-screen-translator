@@ -650,18 +650,70 @@ pub fn blocks(page: &Page, vertical: bool) -> Vec<Block> {
 /// whether a box Gemini gave holds lettering at all, or only the art (a
 /// shout fused with the panel frame, hair under it).
 pub fn marks_in(page: &Page, r: [f64; 4]) -> usize {
+    marks_within(page, r).len()
+}
+
+/// One block of lettering cut in two between its lines, for two items
+/// lettered so close that they were grouped as one (ch256 p12, the
+/// narration "SURELY, HER FRIEND MUST HAVE NOTICED HER" ending on the top
+/// edge of the balloon "THE PEOPLE DEMAND MORE 13!"). The cut falls between
+/// two lines, where each side's letters come nearest the letters of the
+/// line read there (`counts`, first in reading order first); each side must
+/// hold a word. None when no cut does.
+pub fn split(page: &Page, block: &Block, counts: [usize; 2], vertical: bool) -> Option<[Block; 2]> {
+    let b = block.bounds;
+    let lo = LETTER_MIN * page.w as f64;
+    // Along the reading: lines down the page, or columns from the right.
+    let along = |m: &[f64; 4]| if vertical { [-m[2], -m[0]] } else { [m[1], m[3]] };
+    let size = |m: &[f64; 4]| if vertical { m[2] - m[0] } else { m[3] - m[1] };
+    let mut marks: Vec<[f64; 4]> = marks_within(page, [b[0] - 3.0, b[1] - 3.0, b[2] + 3.0, b[3] + 3.0]).into_iter().filter(|m| size(m) >= lo).collect();
+    marks.sort_by(|p, q| (along(p)[0] + along(p)[1]).total_cmp(&(along(q)[0] + along(q)[1])));
+    // Lines: marks whose middles fall within the line so far.
+    let mut lines: Vec<(f64, f64, Vec<[f64; 4]>)> = vec![];
+    for m in marks {
+        let [a0, a1] = along(&m);
+        let mid = (a0 + a1) / 2.0;
+        match lines.last_mut() {
+            Some(l) if mid >= l.0 && mid <= l.1 => {
+                (l.0, l.1) = (l.0.min(a0), l.1.max(a1));
+                l.2.push(m);
+            }
+            _ => lines.push((a0, a1, vec![m])),
+        }
+    }
+    let miss = |n: usize, c: usize| ((n as f64 + 1.0) / (c as f64 + 1.0)).ln().abs();
+    let total: usize = lines.iter().map(|l| l.2.len()).sum();
+    let (cut, _) = (1..lines.len())
+        .filter(|&s| lines[s - 1].1 <= lines[s].0)
+        .map(|s| (s, lines[..s].iter().map(|l| l.2.len()).sum::<usize>()))
+        .filter(|&(_, first)| first >= WORD_LETTERS && total - first >= WORD_LETTERS)
+        .map(|(s, first)| (s, miss(first, counts[0]) + miss(total - first, counts[1])))
+        .min_by(|p, q| p.1.total_cmp(&q.1))?;
+    let part = |ls: &[(f64, f64, Vec<[f64; 4]>)]| {
+        let ms: Vec<&[f64; 4]> = ls.iter().flat_map(|l| &l.2).collect();
+        let bounds = ms.iter().fold([f64::MAX, f64::MAX, f64::MIN, f64::MIN], |r, m| [r[0].min(m[0]), r[1].min(m[1]), r[2].max(m[2]), r[3].max(m[3])]);
+        let mut sizes: Vec<f64> = ms.iter().map(|m| size(m)).collect();
+        sizes.sort_by(f64::total_cmp);
+        let glyph = sizes[sizes.len() / 2];
+        Block { bounds, letters: ms.len(), glyph, in_balloon: find(page, bounds, glyph, &[]).is_some() }
+    };
+    Some([part(&lines[..cut]), part(&lines[cut..])])
+}
+
+/// The bounds of the letter-sized dark marks lying wholly inside `r`.
+fn marks_within(page: &Page, r: [f64; 4]) -> Vec<[f64; 4]> {
     let x0 = r[0].max(0.0) as usize;
     let y0 = r[1].max(0.0) as usize;
     let x1 = (r[2].max(0.0) as usize).min(page.w as usize);
     let y1 = (r[3].max(0.0) as usize).min(page.h as usize);
     if x1 <= x0 || y1 <= y0 {
-        return 0;
+        return vec![];
     }
     let (bw, bh) = (x1 - x0, y1 - y0);
     let hi = LETTER_MAX * page.w as f64;
     let dark = |x: usize, y: usize| page.px[y * page.w as usize + x] < INK;
     let mut seen = vec![false; bw * bh];
-    let mut n = 0;
+    let mut out = vec![];
     for start in 0..bw * bh {
         if seen[start] || !dark(x0 + start % bw, y0 + start / bw) {
             continue;
@@ -687,10 +739,11 @@ pub fn marks_in(page: &Page, r: [f64; 4]) -> usize {
         }
         let (mw, mh) = ((hi_x - lo_x + 1) as f64, (hi_y - lo_y + 1) as f64);
         if !edge && mw.max(mh) <= hi && mw.max(mh) >= 2.0 && mw <= 12.0 * mh && mh <= 12.0 * mw {
-            n += 1;
+            let (x, y) = ((x0 + lo_x) as f64, (y0 + lo_y) as f64);
+            out.push([x, y, x + mw, y + mh]);
         }
     }
-    n
+    out
 }
 
 /// Half a letter's stroke, in letters: a speed line thinner than a stroke
@@ -1669,5 +1722,29 @@ mod tests {
         let px = vec![255u8; 300 * 200];
         let p = Page { w: 300, h: 200, px: &px };
         assert_eq!(find(&p, [100.0, 80.0, 200.0, 120.0], 20.0, &[]), None);
+    }
+
+    /// ch256 p12: the narration "SURELY, HER FRIEND MUST HAVE NOTICED HER"
+    /// (33 letters) and the balloon under it, "THE PEOPLE DEMAND MORE 13!"
+    /// (21), lettered as one block. It is cut between the lines where each
+    /// side's letters come nearest its line's; one line is never cut.
+    #[test]
+    fn a_block_of_two_lines_close_together_is_cut_between_them() {
+        let (w, h) = (600usize, 600usize);
+        let mut px = vec![255u8; w * h];
+        // Five lines of four 12 x 16 letters, 8 px apart.
+        for y in [100, 124, 148, 172, 196] {
+            for x in [100, 120, 140, 160] {
+                (y..y + 16).for_each(|y| (x..x + 12).for_each(|x| px[y * w + x] = 0));
+            }
+        }
+        let p = Page { w: w as u32, h: h as u32, px: &px };
+        let block = Block { bounds: [100.0, 100.0, 172.0, 212.0], letters: 20, glyph: 16.0, in_balloon: false };
+        let [a, b] = split(&p, &block, [12, 8], false).expect("a cut");
+        assert_eq!((a.bounds, a.letters, b.bounds, b.letters), ([100.0, 100.0, 172.0, 164.0], 12, [100.0, 172.0, 172.0, 212.0], 8));
+        let [a, b] = split(&p, &block, [8, 12], false).expect("a cut");
+        assert_eq!((a.letters, b.letters), (8, 12));
+        let one = Block { bounds: [100.0, 100.0, 172.0, 116.0], ..block };
+        assert!(split(&p, &one, [2, 2], false).is_none());
     }
 }

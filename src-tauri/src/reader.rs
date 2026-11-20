@@ -36,6 +36,9 @@ const WIDEN: f64 = 1.5;
 /// How much larger than the original letters Korean set over the art may
 /// be: its white rim hides what the original lettering's area still shows.
 const OVER_ART: f64 = 1.5;
+/// How far apart, in letters, two letters of one line lettered on the art
+/// may lie: a word space and the outline round each.
+const LINE_RUN: f64 = 1.0;
 /// The share of a balloon's width and height the Korean set along its
 /// outline is sized for at first (an oval's text runs about this far).
 const FLOW: f64 = 0.85;
@@ -366,11 +369,34 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
     let pg = balloon::Page { w, h, px: &gray };
     let vertical = lang == "ja";
     // Gemini's boxes say roughly where; the lettering on the page says exactly.
-    let blocks = balloon::blocks(&pg, vertical);
+    let mut blocks = balloon::blocks(&pg, vertical);
     let letters = |s: &str| s.chars().filter(|c| c.is_alphanumeric()).count();
     let mut wanted: Vec<([f64; 4], usize)> = items.iter().map(|it| (px(it.text, w, h), letters(&it.src))).collect();
     let mut on = balloon::assign(&wanted, &blocks, w);
     balloon::nudge(&mut wanted, &blocks, &mut on);
+    // A line lettered in another's block gets its own lines of it where
+    // the block parts between the two (ch256 p12, a narration on the art
+    // and the balloon it ends on): each is then covered as what it is.
+    for (i, k) in hosts(&wanted, &blocks, &on).into_iter().enumerate().filter_map(|(i, k)| Some((i, k?))) {
+        let Some(j) = on[k] else { continue };
+        let at = |t: [f64; 4]| if vertical { -(t[0] + t[2]) } else { t[1] + t[3] };
+        let k_first = at(wanted[k].0) <= at(wanted[i].0);
+        let counts = if k_first { [wanted[k].1, wanted[i].1] } else { [wanted[i].1, wanted[k].1] };
+        if let Some([first, second]) = balloon::split(&pg, &blocks[j], counts, vertical) {
+            let (own, other) = if k_first { (first, second) } else { (second, first) };
+            // Each line's box lies more on its own side than on the other:
+            // lines set side by side are not parted by a cut between rows
+            // (ch256 p11, "THIS IS FALSE ADVERTISING!" beside "WHAT THE
+            // HELL DID I JUST WATCH?!").
+            let on_side = |t: [f64; 4], b: &balloon::Block| (t[2].min(b.bounds[2]) - t[0].max(b.bounds[0])).max(0.0) * (t[3].min(b.bounds[3]) - t[1].max(b.bounds[1])).max(0.0);
+            if on_side(wanted[k].0, &own) <= on_side(wanted[k].0, &other) || on_side(wanted[i].0, &other) <= on_side(wanted[i].0, &own) {
+                continue;
+            }
+            blocks[j] = own;
+            blocks.push(other);
+            on[i] = Some(blocks.len() - 1);
+        }
+    }
     let pieces = balloon::gather(&wanted, &blocks, &on);
     let union = |p: &[[f64; 4]]| p.iter().fold([f64::MAX, f64::MAX, f64::MIN, f64::MIN], |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
     let texts: Vec<[f64; 4]> = pieces.iter().zip(&wanted).map(|(p, &(t, _))| if p.is_empty() { t } else { union(p) }).collect();
@@ -423,8 +449,9 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
             // its letters and their rim, not a box over the art; none where
             // no dark letters are found there (white letters outlined on
             // art). With it, where the letters are, less those of pieces
-            // apart (`sep`), which have Korean of their own.
-            let lettering = |rs: &[[i64; 4]], glyph: Option<f64>, sep: &[[f64; 4]]| -> Option<(Vec<[i64; 4]>, [i64; 4])> {
+            // apart (`sep`), which have Korean of their own; only those
+            // [`in_line`] with the lettering's block (`from`), if it has one.
+            let lettering = |rs: &[[i64; 4]], glyph: Option<f64>, sep: &[[f64; 4]], from: Option<[f64; 4]>| -> Option<(Vec<[i64; 4]>, [i64; 4])> {
                 // Letters of another text the region takes in stay: those
                 // centred, outside the item's own lettering, in a block of
                 // a word or more that another item took or that lies mostly
@@ -439,7 +466,10 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                     !pieces[i].iter().any(at) && blocks.iter().enumerate().any(|(j, b)| b.letters >= balloon::WORD_LETTERS && (another(j) || !mostly_in(&b.bounds, wanted[i].0)) && at(&b.bounds))
                 };
                 let lettered: Vec<[f64; 4]> = blocks.iter().map(|b| b.bounds).collect();
-                let fill: Vec<[i64; 4]> = rs.iter().flat_map(|r| balloon::silhouette(&pg, r.map(|v| v as f64), glyph.unwrap_or(GLYPH_GUESS * w as f64), &lettered)).filter(|f| !theirs(f)).collect();
+                let mut fill: Vec<[i64; 4]> = rs.iter().flat_map(|r| balloon::silhouette(&pg, r.map(|v| v as f64), glyph.unwrap_or(GLYPH_GUESS * w as f64), &lettered)).filter(|f| !theirs(f)).collect();
+                if let Some(b) = from {
+                    fill = in_line(fill, b, (glyph.unwrap_or(GLYPH_GUESS * w as f64) * LINE_RUN) as i64, vertical);
+                }
                 let mine: Vec<[i64; 4]> = fill.iter().filter(|f| !sep.iter().any(|p| (f[0] as f64) < p[2] && (f[2] as f64) > p[0] && (f[1] as f64) < p[3] && (f[3] as f64) > p[1])).copied().collect();
                 let at = union(&if mine.is_empty() { &fill } else { &mine }.iter().map(|f| f.map(|v| v as f64)).collect::<Vec<_>>()).map(|v| v as i64);
                 if fill.is_empty() {
@@ -458,7 +488,7 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                         let r = apart([p[0] - mx, p[1] - my, p[2] + mx, p[3] + my], *p, &others);
                         let r = [r[0] as i64, r[1] as i64, r[2].ceil() as i64, r[3].ceil() as i64];
                         let pad = PAD as i64;
-                        let (white, tone) = lettering(&[r], glyph, &[]).map_or_else(|| (rect_outline(r), vec![]), |f| (vec![], f.0));
+                        let (white, tone) = lettering(&[r], glyph, &[], None).map_or_else(|| (rect_outline(r), vec![]), |f| (vec![], f.0));
                         (white, tone, [r[0] + pad, r[1] + pad, (r[2] - r[0] - 2 * pad).max(1), (r[3] - r[1] - 2 * pad).max(1)])
                     })
                     .collect()
@@ -611,7 +641,7 @@ let found = on[i].and_then(|j| {
                         [(p[0] - mx).max(e), (p[1] - my).max(e), (p[2] + mx).ceil().min(w as f64 - e), (p[3] + my).ceil().min(h as f64 - e)]
                     };
                     let blocks_at: Vec<[f64; 4]> = pieces[i].iter().filter(|p| !sep.contains(p)).map(grown).collect();
-                    let fill = lettering(&[own], glyph, &sep);
+                    let fill = lettering(&[own], glyph, &sep, on[i].map(|j| blocks[j].bounds));
                     let scale = if fill.is_some() { OVER_ART } else { 1.0 };
                     // Where the blocks are too small for the line (a "..."
                     // block, ch256 p8), the rectangle's area, if the line
@@ -690,6 +720,34 @@ fn clear_texts(mut boxes: Vec<PageBox>, texts: &[[f64; 4]], rectish: &[bool]) ->
         }
     }
     boxes
+}
+
+/// The marks of `marks` lettered with `block`: those on its lines or on a
+/// line added to it (above, below or beside it), and those on the line of
+/// one of these a word `space` from it, where a line runs on past the
+/// block's corner (ch257 p14, "SO PRETTY!" wider than "THE PETALS"). A mark
+/// off a corner of the block with no letter of a line beside it is art
+/// (ch256 p12, the ear beside "WHAT IS SHE EVEN ON ABOUT?!").
+fn in_line(marks: Vec<[i64; 4]>, block: [f64; 4], space: i64, vertical: bool) -> Vec<[i64; 4]> {
+    let b = block;
+    let (mut kept, mut rest): (Vec<[i64; 4]>, Vec<[i64; 4]>) = marks.into_iter().partition(|f| {
+        let (cx, cy) = ((f[0] + f[2]) as f64 / 2.0, (f[1] + f[3]) as f64 / 2.0);
+        (cx >= b[0] && cx <= b[2]) || (cy >= b[1] && cy <= b[3])
+    });
+    let (a, c) = if vertical { (1, 0) } else { (0, 1) };
+    let beside = |f: &[i64; 4], k: &[i64; 4]| {
+        let across = f[c + 2].min(k[c + 2]) - f[c].max(k[c]);
+        let gap = f[a].max(k[a]) - f[a + 2].min(k[a + 2]);
+        2 * across >= (f[c + 2] - f[c]).min(k[c + 2] - k[c]) && gap <= space
+    };
+    loop {
+        let (more, left): (Vec<[i64; 4]>, Vec<[i64; 4]>) = rest.into_iter().partition(|f| kept.iter().any(|k| beside(f, k)));
+        rest = left;
+        if more.is_empty() {
+            return kept;
+        }
+        kept.extend(more);
+    }
 }
 
 /// For each item with no block of its own, the item whose block holds its
@@ -1002,6 +1060,30 @@ mod tests {
         let wanted = [([1034.0, 815.0, 1170.0, 991.0], 33), ([1026.0, 991.0, 1170.0, 1132.0], 21), ([630.0, 815.0, 786.0, 1132.0], 20), ([700.0, 900.0, 760.0, 1000.0], 8)];
         let on = [Some(0), None, Some(1), None];
         assert_eq!(hosts(&wanted, &blocks, &on), [None, Some(0), None, None]);
+    }
+
+    /// ch256 p12: Gemini's box for "WHAT IS SHE EVEN ON ABOUT?!" took in the
+    /// ear off the block's top right corner, and the tone blotted it out.
+    /// The ear is left; marks over the block's columns, and a line below
+    /// running on past its corner a letter at a time (ch257 p14), are covered.
+    #[test]
+    fn marks_off_a_blocks_corner_are_art_unless_a_line_runs_there() {
+        let block = [583.0, 874.0, 737.0, 1019.0];
+        let (letter, hair, ear) = ([579, 875, 629, 927], [670, 852, 689, 884], [742, 830, 778, 886]);
+        let below = [[700, 1030, 736, 1080], [745, 1030, 780, 1080], [788, 1030, 820, 1080]];
+        let marks: Vec<[i64; 4]> = [letter, hair, ear].into_iter().chain(below).collect();
+        let mut kept = in_line(marks.clone(), block, 37, false);
+        kept.sort();
+        let mut want: Vec<[i64; 4]> = [letter, hair].into_iter().chain(below).collect();
+        want.sort();
+        assert_eq!(kept, want);
+        // Lettered down the page, the same with x and y swapped.
+        let t = |m: [i64; 4]| [m[1], m[0], m[3], m[2]];
+        let mut kept = in_line(marks.into_iter().map(t).collect(), [874.0, 583.0, 1019.0, 737.0], 37, true);
+        kept.sort();
+        let mut want: Vec<[i64; 4]> = want.into_iter().map(t).collect();
+        want.sort();
+        assert_eq!(kept, want);
     }
 
     /// A line Gemini gave for two balloons is set a sentence in each, the
