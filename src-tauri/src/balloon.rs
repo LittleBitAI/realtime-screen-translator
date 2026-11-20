@@ -14,7 +14,7 @@
 /// or outline.
 const LIGHT: u8 = 200;
 /// A stroke of the lettering: darker than this.
-const INK: u8 = 128;
+pub(crate) const INK: u8 = 128;
 /// How far past its lettering, in letter heights, a balloon's cover may
 /// reach (plus a quarter of the text block's size).
 pub const REACH: f64 = 3.0;

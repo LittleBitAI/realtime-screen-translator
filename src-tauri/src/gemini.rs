@@ -156,7 +156,10 @@ pub const CONTEXT_LINES: usize = 160;
 /// The reader's request text for one page.
 pub fn page_prompt(lang: &str, context: &[PageItem]) -> String {
     let source = if lang == "en" { "English" } else { "Japanese" };
-    let order = if lang == "en" { "left to right, top to bottom" } else { "right to left, top to bottom" };
+    // A manga page is read right to left whatever it is lettered in (an
+    // English scan keeps the Japanese page), as the reader shares a line
+    // out over its balloons (`share_out`).
+    let order = "right to left, top to bottom";
     let mut text = format!(
         "This is one manga page. Find every speech balloon, thought bubble and narration box that holds \
          {source} dialogue, and every line a character speaks, shouts or thinks that is lettered straight \
@@ -266,7 +269,7 @@ pub fn parse_page(full: &str) -> Option<Vec<PageItem>> {
 fn salvage(full: &str) -> Option<Vec<Value>> {
     let body = full.trim_end().strip_suffix("]}")?;
     let body = body.strip_prefix(PAGE_PREFILL)?;
-    let (mut items, mut depth, mut start, mut in_str, mut esc) = (vec![], 0, 0, false, false);
+    let (mut items, mut depth, mut start, mut in_str, mut esc, mut end) = (vec![], 0, 0, false, false, 0);
     for (i, c) in body.char_indices() {
         match c {
             _ if esc => esc = false,
@@ -283,12 +286,16 @@ fn salvage(full: &str) -> Option<Vec<Value>> {
                 if depth == 0 {
                     let obj = &body[start..=i];
                     items.push(serde_json::from_str(obj).ok().or_else(|| serde_json::from_str(&drop_bare_keys(obj)).ok())?);
+                    end = i + 1;
                 }
             }
             _ => {}
         }
     }
-    (!items.is_empty()).then_some(items)
+    // Nothing begun after the last item: a balloon left open, or begun and
+    // cut off, is one the page would be kept short of.
+    let rest_blank = body[end..].chars().all(|c| c.is_whitespace() || c == ',');
+    (!items.is_empty() && rest_blank).then_some(items)
 }
 
 /// `"a": "b": 1` as `"b": 1`: a key followed straight by another key.
@@ -381,6 +388,7 @@ mod tests {
             assert!(prompt.contains("lettered straight on the art with no balloon"), "{lang}");
             assert!(prompt.contains("Leave out sound effects, onomatopoeia, signs and screens."), "{lang}");
             assert!(!prompt.contains("part of the art"), "{lang}");
+            assert!(prompt.contains("in reading order (right to left, top to bottom)") && !prompt.contains("left to right"), "{lang}");
         }
     }
 
@@ -434,6 +442,19 @@ mod tests {
 ]}}", items.join(",
 "));
             assert_eq!(parse_page(&answer), None, "broken item at {at}: {answer}");
+        }
+    }
+
+    /// An answer ending in an item begun and not finished is unreadable,
+    /// whatever was cut off of it; one ending at a finished item, with or
+    /// without a comma after it, is read.
+    #[test]
+    fn an_answer_ending_in_an_unfinished_item_is_unreadable() {
+        let good = r#"{"box_2d": [100, 100, 150, 200], "src": "LINE", "ko": "줄"}"#;
+        for (tail, read) in [("", true), (",", true), (",{", false), (r#",{"box_2d": [200, 100"#, false), (r#",{"src": "LINE", "ko": "줄"#, false), (r#",{"src": "A}B""#, false)] {
+            let answer = format!("{good}{tail}
+]}}");
+            assert_eq!(parse_page(&answer).is_some(), read, "{answer}");
         }
     }
 }

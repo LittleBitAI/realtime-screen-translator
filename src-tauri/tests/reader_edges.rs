@@ -445,6 +445,43 @@ fn a_page_answered_from_the_library_counts_among_its_chapters_earlier_pages() {
     }
 }
 
+/// An earlier page last shown in another source language still gives the
+/// next page its lines in the next page's own: the answer read from the
+/// Japanese, not the one from the English. For a site chapter and an
+/// imported one alike.
+#[test]
+fn a_page_carries_the_earlier_pages_lines_in_its_own_source_language() {
+    let next = || {
+        let mut bytes = page();
+        bytes.push(2);
+        bytes
+    };
+    for form in ["site", "imported"] {
+        let dirs = Dirs::new();
+        let gemini = PageGemini::start();
+        let b = keyed(&gemini, &dirs);
+        let folder = dirs.data.with_file_name("Fixture");
+        fs::create_dir_all(&folder).unwrap();
+        fs::write(folder.join("1.jpg"), page()).unwrap();
+        fs::write(folder.join("2.jpg"), next()).unwrap();
+        let pages: Vec<_> = if form == "imported" { b.chapter(b.import_folder(&folder).unwrap()).unwrap().pages.into_iter().map(|p| p.id).collect() } else { vec![] };
+        let at = |n: usize, image: Vec<u8>| match form {
+            "site" => b.read_page(PageIn { src: format!("https://cdn.example/{n}.jpg"), image: Some(image), page_url: "https://manga.example/c/1".into(), title: "Fixture".into(), index: n as i64 }).unwrap(),
+            _ => b.read_chapter_page(pages[n - 1]).unwrap(),
+        };
+        let lang = |l: &str| b.put_source_lang(LangIn { lang: l.into() }).unwrap();
+        lang("ja");
+        at(1, page());
+        lang("en");
+        assert_eq!(at(1, page()).boxes[0].ko, "반가워", "{form}");
+        lang("ja");
+        at(2, next());
+        assert_eq!(gemini.count(), 3, "{form}");
+        let prompt = gemini.last()["contents"][0]["parts"][0]["text"].as_str().unwrap().to_string();
+        assert!(prompt.contains("HELLO => 안녕") && !prompt.contains("반가워"), "{form}: {prompt}");
+    }
+}
+
 #[test]
 fn a_page_whose_saving_fails_says_so_and_is_saved_by_the_next_call_without_gemini() {
     let dirs = Dirs::new();

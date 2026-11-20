@@ -181,6 +181,10 @@
     }
     status();
     if (!on && !chapter) return;
+    // A chapter's page in range whose picture is still loading holds back
+    // the pages after it: the app has a page wait only for the earlier ones
+    // it has been sent, so its request carries their lines.
+    let held = false;
     for (const img of document.images) {
       if (chapter ? !img.dataset.pictureId : !isPage(img)) continue;
       const src = chapter ? Number(img.dataset.pictureId) : img.currentSrc || img.src;
@@ -200,9 +204,12 @@
         const loaded = img.hasAttribute('src');
         if (near <= NEAR && !loaded && !p.loading && !p.imageError) loadPicture(img, p);
         if (near > NEAR * 2 && loaded) unloadPicture(img);
-        if (!loaded || !img.complete || !img.naturalWidth) continue;
+        if (!loaded || !img.complete || !img.naturalWidth) {
+          held ||= near <= NEAR && p.state === 'new' && !p.imageError;
+          continue;
+        }
       }
-      if (on && p.state === 'new' && near <= NEAR) queue.add(img);
+      if (on && p.state === 'new' && near <= NEAR && !held) queue.add(img);
     }
     pump();
   }

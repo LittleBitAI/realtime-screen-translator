@@ -161,7 +161,7 @@ impl Backend {
             Some(items) => items,
             None => {
                 let key = self.lock().key.clone().ok_or(ApiError("key_missing"))?;
-                let context = self.context(source)?;
+                let context = self.context(source, &lang)?;
                 self.ask_page(bytes, mime, &lang, &context, &model, &key)?
             }
         };
@@ -254,21 +254,22 @@ impl Backend {
 
     /// The lines of the pages kept before this one in its book (a chapter's
     /// worth), oldest first, so the next request keeps names and voices as
-    /// they were shown.
-    fn context(&self, source: ReaderSource<'_>) -> ApiResult<Vec<PageItem>> {
+    /// they were shown: their answers in the source language `lang`, the
+    /// page's own, whichever language a page was last shown in.
+    fn context(&self, source: ReaderSource<'_>, lang: &str) -> ApiResult<Vec<PageItem>> {
         let st = self.lock();
         let place = match source {
             ReaderSource::Site(req) => store::reader_book(&st.db, &req.page_url)?.map(|b| (b, req.index)),
             ReaderSource::Chapter(pic) => store::picture_place(&st.db, pic)?,
         };
         let mut pages: std::collections::BTreeMap<i64, String> = match place {
-            Some((book, seq)) => store::earlier_items(&st.db, book, seq, CONTEXT_PAGES)?.into_iter().collect(),
+            Some((book, seq)) => store::earlier_items(&st.db, book, seq, CONTEXT_PAGES, lang)?.into_iter().collect(),
             None => Default::default(),
         };
         // A site chapter's pages answered from the library under another
         // address count too, at the place this chapter showed them.
         if let ReaderSource::Site(req) = source {
-            pages.extend(store::earlier_site_items(&st.db, &req.page_url, req.index, CONTEXT_PAGES)?);
+            pages.extend(store::earlier_site_items(&st.db, &req.page_url, req.index, CONTEXT_PAGES, lang)?);
         }
         let skip = pages.len().saturating_sub(CONTEXT_PAGES as usize);
         Ok(pages.values().skip(skip).filter_map(|j| serde_json::from_str::<Vec<PageItem>>(j).ok()).flatten().collect())
@@ -451,6 +452,9 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
     let (w, h) = (page.w, page.h);
     let gray = page.gray();
     let pg = balloon::Page { w, h, px: &gray };
+    // The page as a negative, for white letters on dark art: dark letters on
+    // light art there, sought and toned as those are.
+    let negative: std::cell::OnceCell<Vec<u8>> = std::cell::OnceCell::new();
     let vertical = lang == "ja";
     // Gemini's boxes say roughly where; the lettering on the page says exactly.
     let mut blocks = balloon::blocks(&pg, vertical);
@@ -520,11 +524,13 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
             // with where its share of the Korean goes (`x, y, w, h`).
             // The white over lettering with no balloon round it (in `rs`):
             // its letters and their rim, not a box over the art; none where
-            // no dark letters are found there (white letters outlined on
-            // art). With it, where the letters are, less those of pieces
-            // apart (`sep`), which have Korean of their own; only those
-            // [`in_line`] with the lettering's block (`from`), if it has one.
-            let lettering = |rs: &[[i64; 4]], glyph: Option<f64>, sep: &[[f64; 4]], from: Option<[f64; 4]>| -> Option<(Vec<[i64; 4]>, [i64; 4])> {
+            // no letters are found there. Dark letters, or, where none are
+            // and the art there is mostly dark, white ones (`true` with
+            // them), sought on the page's negative. With it, where the
+            // letters are, less those of pieces apart (`sep`), which have
+            // Korean of their own; only those [`in_line`] with the
+            // lettering's block (`from`), if it has one.
+            let lettering = |rs: &[[i64; 4]], glyph: Option<f64>, sep: &[[f64; 4]], from: Option<[f64; 4]>| -> Option<(Vec<[i64; 4]>, [i64; 4], bool)> {
                 // Letters of another text the region takes in stay: those
                 // centred, outside the item's own lettering, in a block of
                 // a word or more that another item took or that lies mostly
@@ -539,7 +545,25 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                     !pieces[i].iter().any(at) && blocks.iter().enumerate().any(|(j, b)| b.letters >= balloon::WORD_LETTERS && (another(j) || !mostly_in(&b.bounds, wanted[i].0)) && at(&b.bounds))
                 };
                 let lettered: Vec<[f64; 4]> = blocks.iter().map(|b| b.bounds).collect();
-                let mut fill: Vec<[i64; 4]> = rs.iter().flat_map(|r| balloon::silhouette(&pg, r.map(|v| v as f64), glyph.unwrap_or(GLYPH_GUESS * w as f64), &lettered)).filter(|f| !theirs(f)).collect();
+                let seek = |pg: &balloon::Page| -> Vec<[i64; 4]> { rs.iter().flat_map(|r| balloon::silhouette(pg, r.map(|v| v as f64), glyph.unwrap_or(GLYPH_GUESS * w as f64), &lettered)).filter(|f| !theirs(f)).collect() };
+                let mut fill = seek(&pg);
+                let dark_art = || {
+                    let (mut ink, mut all) = (0usize, 0usize);
+                    for r in rs {
+                        for y in r[1].max(0)..r[3].min(h as i64) {
+                            for x in r[0].max(0)..r[2].min(w as i64) {
+                                all += 1;
+                                ink += (gray[y as usize * w as usize + x as usize] < balloon::INK) as usize;
+                            }
+                        }
+                    }
+                    2 * ink > all
+                };
+                let light = fill.is_empty() && dark_art();
+                if light {
+                    let neg = negative.get_or_init(|| gray.iter().map(|v| 255 - v).collect());
+                    fill = seek(&balloon::Page { w, h, px: neg });
+                }
                 if let Some(b) = from {
                     fill = in_line(fill, b, (glyph.unwrap_or(GLYPH_GUESS * w as f64) * LINE_RUN) as i64, vertical);
                 }
@@ -548,25 +572,25 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                 if fill.is_empty() {
                     return None;
                 }
-                Some((fill, at))
+                Some((fill, at, light))
             };
-            let beside = |sep: &[[f64; 4]]| -> Vec<(Vec<[i64; 2]>, Vec<[i64; 4]>, [i64; 4])> {
+            let beside = |sep: &[[f64; 4]]| -> Vec<(Vec<[i64; 2]>, Vec<[i64; 4]>, [i64; 4], bool)> {
                 sep.iter()
                     .map(|p| {
                         if let Some(f) = balloon::find(&pg, *p, glyph.unwrap_or(0.0), &others) {
                             let [x0, y0, x1, y1] = f.text;
-                            return (f.outline, vec![], [x0, y0, x1 - x0, y1 - y0]);
+                            return (f.outline, vec![], [x0, y0, x1 - x0, y1 - y0], false);
                         }
                         let (mx, my) = (((p[2] - p[0]) * GROW).max(GROW_MIN_PX), ((p[3] - p[1]) * GROW).max(GROW_MIN_PX));
                         let r = apart([p[0] - mx, p[1] - my, p[2] + mx, p[3] + my], *p, &others);
                         let r = [r[0] as i64, r[1] as i64, r[2].ceil() as i64, r[3].ceil() as i64];
                         let pad = PAD as i64;
-                        let (white, tone) = lettering(&[r], glyph, &[], None).map_or_else(|| (rect_outline(r), vec![]), |f| (vec![], f.0));
-                        (white, tone, [r[0] + pad, r[1] + pad, (r[2] - r[0] - 2 * pad).max(1), (r[3] - r[1] - 2 * pad).max(1)])
+                        let (white, tone, light) = lettering(&[r], glyph, &[], None).map_or_else(|| (rect_outline(r), vec![], false), |f| (vec![], f.0, f.2));
+                        (white, tone, [r[0] + pad, r[1] + pad, (r[2] - r[0] - 2 * pad).max(1), (r[3] - r[1] - 2 * pad).max(1)], light)
                     })
                     .collect()
             };
-            let parts = |runs: Option<Vec<String>>, own: [i64; 4], more: &[(Vec<[i64; 2]>, Vec<[i64; 4]>, [i64; 4])], scale: f64| -> Vec<layout::Part> {
+            let parts = |runs: Option<Vec<String>>, own: [i64; 4], more: &[(Vec<[i64; 2]>, Vec<[i64; 4]>, [i64; 4], bool)], scale: f64| -> Vec<layout::Part> {
                 let areas = std::iter::once(own).chain(more.iter().map(|m| m.2));
                 runs.map_or(vec![], |runs| {
                     areas.zip(runs).map(|(a, ko)| layout::Part { text: a, font_px: layout::font_for(&ko, a[2] as u32, a[3] as u32, glyph.map(|g| g * scale)), ko }).collect()
@@ -574,6 +598,17 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
             };
             // The white edging lettering on the art may have: a quarter letter.
             let edging = |glyph: Option<f64>| (0.25 * glyph.unwrap_or(GLYPH_GUESS * w as f64)).round() as i64;
+            // The art's tone over letters (`tone`): white ones (`light`)
+            // toned on the page's negative and the fill turned back.
+            let toned = |tone: &[[i64; 4]], glyph: Option<f64>, light: bool| if light { export::tone_light(page, tone, edging(glyph)) } else { export::tone(page, tone, edging(glyph)) };
+            // White letters only if every piece toned has white ones.
+            let all_light = |pieces: &mut dyn Iterator<Item = (bool, bool)>| {
+                let mut any = false;
+                pieces.filter(|p| p.0).all(|p| {
+                    any = true;
+                    p.1
+                }) && any
+            };
             let around = |t: [f64; 4], glyph: f64| balloon::find(&pg, t, glyph, &others).map(|f| balloon::Found { glyph: Some(glyph), ..f });
 let found = on[i].and_then(|j| {
                 let (own, glyph) = (blocks[j].bounds, glyph.unwrap_or(blocks[j].glyph));
@@ -600,6 +635,7 @@ let found = on[i].and_then(|j| {
                     let more = beside(&sep);
                     let parts = parts(runs, [x0, y0, tw as i64, th as i64], &more, 1.0);
                     let tone: Vec<[i64; 4]> = more.iter().flat_map(|m| m.1.iter().copied()).collect();
+                    let light = all_light(&mut more.iter().map(|m| (!m.1.is_empty(), m.3)));
                     let (outline, b) = joined(std::iter::once(f.outline).chain(more.into_iter().map(|m| m.0)).collect());
                     let b = tone.iter().fold(b, |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
                     // A line in one balloon the reader sets along its
@@ -626,7 +662,7 @@ let found = on[i].and_then(|j| {
                         outline,
                         text: [x0, y0, tw as i64, th as i64],
                         parts,
-                        patch: export::tone(page, &tone, edging(glyph)),
+                        patch: toned(&tone, glyph, light),
                     }
                 }
                 // No closed balloon: a rounded rectangle over the lettering
@@ -719,7 +755,7 @@ let found = on[i].and_then(|j| {
                     // Where the blocks are too small for the line (a "..."
                     // block, ch256 p8), the rectangle's area, if the line
                     // reads larger there.
-                    if let Some((_, f)) = fill {
+                    if let Some((_, f, _)) = fill {
                         let f = if blocks_at.is_empty() { f } else { union(&blocks_at).map(|v| v as i64) };
                         let at = [f[0], f[1], f[2] - f[0], f[3] - f[1]];
                         let size = |t: [i64; 4]| layout::font_for(&it.ko, t[2] as u32, t[3] as u32, glyph.map(|g| g * scale));
@@ -732,17 +768,18 @@ let found = on[i].and_then(|j| {
                         }
                     }
                     s.parts = parts(runs, s.text, &more, scale);
-                    // A rounded white box only where no dark letters are
-                    // found; under dark letters with no balloon the art's
-                    // own tone, carried in over them from round them.
+                    // A rounded white box only where no letters are found;
+                    // under letters with no balloon the art's own tone,
+                    // carried in over them from round them.
                     if fill.is_some() || !more.is_empty() {
+                        let light = all_light(&mut fill.iter().map(|f| (true, f.2)).chain(more.iter().map(|m| (!m.1.is_empty(), m.3))));
                         let (white, mut tone) = fill.map_or_else(|| (rect_outline(rect), vec![]), |f| (vec![], f.0));
                         tone.extend(more.iter().flat_map(|m| m.1.iter().copied()));
                         let (outline, b) = joined(std::iter::once(white).chain(more.into_iter().map(|m| m.0)).collect());
                         let t = s.text;
                         let b = tone.iter().fold(b, |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
                         let b = [b[0].min(t[0]), b[1].min(t[1]), b[2].max(t[0] + t[2]), b[3].max(t[1] + t[3])];
-                        (s.outline, s.radius, s.patch) = (outline, 0, export::tone(page, &tone, edging(glyph)));
+                        (s.outline, s.radius, s.patch) = (outline, 0, toned(&tone, glyph, light));
                         (s.x, s.y, s.w, s.h) = (b[0], b[1], (b[2] - b[0]) as u32, (b[3] - b[1]) as u32);
                     }
                     s
@@ -983,7 +1020,6 @@ mod tests {
     /// A Gemini stand-in answering one line ("HELLO" => "안녕") on any page,
     /// keeping each request's prompt.
     fn page_gemini() -> (String, Arc<Mutex<Vec<String>>>) {
-        use std::io::Read as _;
         let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
         let url = format!("http://{}", server.server_addr().to_ip().unwrap());
         let prompts = Arc::new(Mutex::new(vec![]));
@@ -1363,33 +1399,39 @@ mod tests {
     #[test]
     fn lettering_on_the_art_is_covered_letter_by_letter_under_larger_korean() {
         let (w, h) = (600u32, 600u32);
-        let mut page = export::Rgb { w, h, px: vec![170; (w * h * 3) as usize] };
-        let mut ink = |x0: u32, y0: u32, x1: u32, y1: u32| (y0..y1).for_each(|y| (x0..x1).for_each(|x| page.px[((y * w + x) * 3) as usize..][..3].fill(0)));
-        // Two lines of two four-letter words, 16 px letters; dark art below.
-        for y in [200, 232] {
-            for x in [200, 220, 240, 260, 320, 340, 360, 380] {
-                ink(x, y, x + 14, y + 16);
+        // Dark letters on light art, and white letters on dark art.
+        for (art, letter) in [(170u8, 0u8), (50, 255)] {
+            let mut page = export::Rgb { w, h, px: vec![art; (w * h * 3) as usize] };
+            let mut ink = |x0: u32, y0: u32, x1: u32, y1: u32, v: u8| (y0..y1).for_each(|y| (x0..x1).for_each(|x| page.px[((y * w + x) * 3) as usize..][..3].fill(v)));
+            // Two lines of two four-letter words, 16 px letters; art of
+            // the letters' shade below.
+            for y in [200, 232] {
+                for x in [200, 220, 240, 260, 320, 340, 360, 380] {
+                    ink(x, y, x + 14, y + 16, letter);
+                }
             }
+            ink(150, 400, 450, 520, letter);
+            let it = PageItem { src: "ABCD EFGH IJKL MNOP".into(), ko: "그래, 그거야!".into(), ..item([190.0 / 600.0, 190.0 / 600.0, 258.0 / 600.0, 404.0 / 600.0], None) };
+            let b = &shapes(&[it], &page, "en")[0];
+            // No white: the art's tone carried in over the letters, and only them.
+            assert!(b.outline.is_empty() && b.radius == 0, "{art}: {b:?}");
+            let patch = b.patch.as_ref().expect("a tone patch");
+            let (pw, px) = export::patch_px(patch).unwrap();
+            let at = |x: i64, y: i64| {
+                let (x, y) = (x - patch.at[0], y - patch.at[1]);
+                if x < 0 || y < 0 || x >= pw as i64 || y >= patch.at[3] {
+                    return None;
+                }
+                let q = &px[(y as usize * pw as usize + x as usize) * 4..][..4];
+                (q[3] == 255).then_some(q[0])
+            };
+            // Letters at each end; not the art between the words, the lines, or below.
+            for (x, y) in [(207, 208), (387, 240), (230, 240), (366, 208)] {
+                assert!(at(x, y).is_some_and(|v| v.abs_diff(art) <= 2), "{art} ({x}, {y}): {:?}", at(x, y));
+            }
+            assert!([(300, 208), (230, 225), (300, 450), (150, 208)].iter().all(|&(x, y)| at(x, y).is_none()), "{art}: {b:?}");
+            assert!(b.font_px as f64 > 16.0 * layout::KO_SCALE, "{art}: {b:?}");
         }
-        ink(150, 400, 450, 520);
-        let it = PageItem { src: "ABCD EFGH IJKL MNOP".into(), ko: "그래, 그거야!".into(), ..item([190.0 / 600.0, 190.0 / 600.0, 258.0 / 600.0, 404.0 / 600.0], None) };
-        let b = &shapes(&[it], &page, "en")[0];
-        // No white: the art's tone carried in over the letters, and only them.
-        assert!(b.outline.is_empty() && b.radius == 0, "{b:?}");
-        let patch = b.patch.as_ref().expect("a tone patch");
-        let (pw, px) = export::patch_px(patch).unwrap();
-        let at = |x: i64, y: i64| {
-            let (x, y) = (x - patch.at[0], y - patch.at[1]);
-            if x < 0 || y < 0 || x >= pw as i64 || y >= patch.at[3] { return None; }
-            let q = &px[(y as usize * pw as usize + x as usize) * 4..][..4];
-            (q[3] == 255).then_some(q[0])
-        };
-        // Letters at each end; not the art between the words, the lines, or below.
-        for (x, y) in [(207, 208), (387, 240), (230, 240), (366, 208)] {
-            assert!(at(x, y).is_some_and(|v| v.abs_diff(170) <= 2), "({x}, {y}): {:?}", at(x, y));
-        }
-        assert!([(300, 208), (230, 225), (300, 450), (150, 208)].iter().all(|&(x, y)| at(x, y).is_none()), "{b:?}");
-        assert!(b.font_px as f64 > 16.0 * layout::KO_SCALE, "{b:?}");
     }
 
     /// ch256 p6: "RIIIN." in its balloon, the block of it only "R" (the

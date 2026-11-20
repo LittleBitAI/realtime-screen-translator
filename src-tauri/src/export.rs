@@ -161,7 +161,6 @@ const HALO_PAST: i64 = 2;
 /// taken in, the fill is carried in from the dark lines it stops at. A PNG
 /// opaque on what is covered, at `x, y, w, h`; None for no area.
 pub(crate) fn tone(page: &Rgb, rects: &[[i64; 4]], edging: i64) -> Option<layout::Patch> {
-    use base64::Engine;
     let (w, h) = (page.w as i64, page.h as i64);
     let rs: Vec<[i64; 4]> = rects.iter().map(|r| [r[0].max(0), r[1].max(0), r[2].min(w), r[3].min(h)]).filter(|r| r[0] < r[2] && r[1] < r[3]).collect();
     let b = rs.iter().fold([i64::MAX, i64::MAX, i64::MIN, i64::MIN], |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
@@ -390,14 +389,30 @@ pub(crate) fn tone(page: &Rgb, rects: &[[i64; 4]], edging: i64) -> Option<layout
             px.extend_from_slice(&[r, g, bl, if inside[i] { 255 } else { 0 }]);
         }
     }
+    patch_png([f[0], f[1], pw as i64, ph as i64], &px)
+}
+
+/// [`tone`] for white letters on dark art: toned on the page's negative,
+/// where they are dark letters on light art, and the fill turned back.
+pub(crate) fn tone_light(page: &Rgb, rects: &[[i64; 4]], edging: i64) -> Option<layout::Patch> {
+    let negative = Rgb { w: page.w, h: page.h, px: page.px.iter().map(|v| 255 - v).collect() };
+    let p = tone(&negative, rects, edging)?;
+    let (_, mut px) = patch_px(&p)?;
+    px.chunks_mut(4).for_each(|q| q[..3].iter_mut().for_each(|v| *v = 255 - *v));
+    patch_png(p.at, &px)
+}
+
+/// A patch at `at` (`x, y, w, h`) of RGBA pixels `px`, as a PNG.
+fn patch_png(at: [i64; 4], px: &[u8]) -> Option<layout::Patch> {
+    use base64::Engine;
     let mut out = Vec::new();
-    let mut enc = png::Encoder::new(&mut out, pw, ph);
+    let mut enc = png::Encoder::new(&mut out, at[2] as u32, at[3] as u32);
     enc.set_color(png::ColorType::Rgba);
     enc.set_depth(png::BitDepth::Eight);
     let mut wr = enc.write_header().ok()?;
-    wr.write_image_data(&px).ok()?;
+    wr.write_image_data(px).ok()?;
     wr.finish().ok()?;
-    Some(layout::Patch { at: [f[0], f[1], pw as i64, ph as i64], png: base64::engine::general_purpose::STANDARD.encode(out) })
+    Some(layout::Patch { at, png: base64::engine::general_purpose::STANDARD.encode(out) })
 }
 
 /// The pixels of a patch's PNG (RGBA) and its width.
