@@ -67,6 +67,13 @@ describe('reader page script', () => {
   });
 
   it('shapes each cover to its balloon or the art tone, sets the Korean in its text area, and draws nothing for a line kept without a shape', async () => {
+    // The tone is painted from its own bytes, no image address loaded, so a
+    // site whose image policy refuses `data:` addresses still shows it.
+    const bitmap = { width: 100, height: 50 };
+    const decode = vi.fn(async () => bitmap);
+    vi.stubGlobal('createImageBitmap', decode);
+    const drawImage = vi.fn();
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage });
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('cors'); }));
     const balloon = { x: 100, y: 200, w: 200, h: 100, radius: 0, font_px: 20, ko: '말풍선',
       outline: [[300, 200], [300, 300], [100, 300], [100, 250], [150, 250], [150, 200]], text: [150, 220, 100, 60] };
@@ -95,7 +102,11 @@ describe('reader page script', () => {
     expect(tone.querySelector('.rst-fill')).toBeNull();
     const patch = tone.querySelector('.rst-patch');
     expect([patch.style.left, patch.style.top, patch.style.width, patch.style.height]).toEqual(['25%', '25%', '50%', '50%']);
-    expect(patch.style.backgroundImage).toContain('data:image/png;base64,AAAA');
+    expect([patch.tagName, patch.width, patch.height]).toEqual(['CANVAS', 100, 50]);
+    await vi.waitFor(() => expect(drawImage).toHaveBeenCalledWith(bitmap, 0, 0));
+    const blob = decode.mock.calls[0][0];
+    expect([blob.type, [...new Uint8Array(await blob.arrayBuffer())]]).toEqual(['image/png', [0, 0, 0]]);
+    expect([...document.querySelectorAll('.rst-layer *')].some((e) => (e.getAttribute('style') ?? '').includes('url('))).toBe(false);
   });
 
   it('sets a line lettered in two balloons a share in each', async () => {
@@ -132,32 +143,38 @@ describe('reader page script', () => {
     expect(text.textContent).toBe('아⁠—?! 13일의...?!');
   });
 
-  it('gives Korean too long for its text area the cover\'s box, and past that lets it show rather than cutting a line off', async () => {
+  it('scales Korean too long for its text area at the smallest size down whole into that area, never past it', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('cors'); }));
-    const area = { x: 100, y: 200, w: 120, h: 80, radius: 0, font_px: 20, outline: [], text: [150, 230, 16, 10] };
-    const invoke = vi.fn().mockResolvedValue(null)
-      .mockResolvedValueOnce({ ...page(null), boxes: [{ ...area, ko: '가'.repeat(20) }, { ...area, y: 400, ko: '가'.repeat(100) }] });
+    // A rectangle cover, and a balloon with its outline holding a line in
+    // two shares: each a 16 x 10 text area.
+    const long = '가'.repeat(100);
+    const rect = { x: 100, y: 200, w: 120, h: 80, radius: 0, font_px: 20, outline: [], text: [150, 230, 16, 10], ko: long };
+    const shared = { ...rect, y: 400, outline: [[100, 400], [220, 400], [220, 480], [100, 480]], text: [150, 430, 16, 10],
+      parts: [{ text: [110, 430, 16, 10], font_px: 20, ko: long }, { text: [190, 430, 16, 10], font_px: 20, ko: long }] };
+    const invoke = vi.fn().mockResolvedValue(null).mockResolvedValueOnce({ ...page(null), boxes: [rect, shared] });
     window.__TAURI_INTERNALS__ = { invoke };
-    // The lines overflow the text area at every size, and the cover's box
-    // only where fewer than 50 syllables are set in it.
+    // The lines overflow at every size: four times the area's height.
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(10);
-    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function () {
-      return this.style.width === '100%' && this.textContent.length < 50 ? 10 : 1000;
-    });
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000);
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 15, 16, 10));
+    vi.spyOn(Range.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 16, 40));
     pagePicture('https://cdn.example/5.jpg');
 
     new Function(script)();
 
     const texts = await vi.waitFor(() => {
       const t = [...document.querySelectorAll('.rst-text')];
-      expect(t).toHaveLength(2);
+      expect(t).toHaveLength(3);
+      expect(t.every((x) => x.style.transform)).toBe(true);
       return t;
     });
-    expect(texts.map((t) => [t.style.left, t.style.top, t.style.width, t.style.height, t.style.overflow])).toEqual([
-      ['0%', '0%', '100%', '100%', ''],
-      ['0%', '0%', '100%', '100%', 'visible'],
+    // Each in its own area, as placed, scaled to a quarter: the lines' height to the area's.
+    expect(texts.map((t) => [t.style.left, t.style.top, t.style.width, t.style.height, t.style.overflow, t.style.transform])).toEqual([
+      ['41.6667%', '37.5%', '13.3333%', '12.5%', 'visible', 'scale(0.25)'],
+      ['8.33333%', '37.5%', '13.3333%', '12.5%', 'visible', 'scale(0.25)'],
+      ['75%', '37.5%', '13.3333%', '12.5%', 'visible', 'scale(0.25)'],
     ]);
-    expect(texts[1].style.fontSize).toBe('2px');
+    expect(texts.map((t) => t.style.fontSize)).toEqual(['2px', '2px', '2px']);
   });
 
   it('loads and translates a chapter picture only as it approaches the view', async () => {

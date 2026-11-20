@@ -76,17 +76,19 @@ impl Backend {
         if self.lock().key.is_none() {
             return Err(ApiError("key_missing"));
         }
-        // In its book's order from before its picture is fetched, so a later
-        // page whose picture comes sooner still waits for it.
-        let _reading = self.pages.reading(&self.place(ReaderSource::Site(&req))?);
-        let bytes = match &req.image {
-            Some(b) if !b.is_empty() => b.clone(),
-            _ => fetch(&req.src, &req.page_url)?,
-        };
-        self.read_picture(ReaderSource::Site(&req), &bytes)
+        self.read_picture(ReaderSource::Site(&req), || match &req.image {
+            Some(b) if !b.is_empty() => Ok(b.clone()),
+            _ => fetch(&req.src, &req.page_url),
+        })
     }
 
-    pub(super) fn read_picture(&self, source: ReaderSource<'_>, bytes: &[u8]) -> ApiResult<PageOut> {
+    /// One page, its picture's bytes loaded by `load`.
+    pub(super) fn read_picture(&self, source: ReaderSource<'_>, load: impl FnOnce() -> ApiResult<Vec<u8>>) -> ApiResult<PageOut> {
+        // In its book's order before its picture is loaded or decoded, so a
+        // later page whose picture is ready sooner still waits for it.
+        let place = self.place(source)?;
+        let _reading = self.pages.reading(&place);
+        let bytes = &load()?[..];
         let lang = self.source_lang();
         let mime = export::mime(bytes).ok_or(ApiError("bad_image"))?;
         // The shapes are laid out on the page's own pixels, every time, so a
@@ -99,8 +101,6 @@ impl Backend {
         // being read, so its request carries their lines; a page already
         // kept does not wait. Waited for before the turn: a copy of an
         // earlier page later in the book never holds the turn it waits on.
-        let place = self.place(source)?;
-        let _reading = self.pages.reading(&place);
         if store::reader_page(&self.lock().db, &page_key)?.is_none() && self.pages.unsaved(&page_key).is_none() {
             self.pages.after_earlier(&place);
         }
@@ -147,9 +147,11 @@ impl Backend {
                 }
             }
             let save_error = match source {
-                ReaderSource::Chapter(pic) => store::set_chapter_translation(&st.db, pic, &page_key).err().map(|e| ApiError::from(e).0),
-                ReaderSource::Site(_) => None,
-            };
+                ReaderSource::Chapter(pic) => store::set_chapter_translation(&st.db, pic, &page_key),
+                ReaderSource::Site(req) => store::set_site_page(&st.db, &req.page_url, req.index, &page_key),
+            }
+            .err()
+            .map(|e| ApiError::from(e).0);
             return Ok(PageOut { width: w, height: h, saved: true, boxes, save_error });
         }
 
@@ -204,8 +206,9 @@ impl Backend {
             }
             let answer = serde_json::to_string(&items).map_err(|_| ApiError("internal"))?;
             store::insert_reader_page(&tx, &page_key, pic, url, &answer)?;
-            if let ReaderSource::Chapter(pic) = source {
-                store::set_chapter_translation(&tx, pic, &page_key)?;
+            match source {
+                ReaderSource::Chapter(pic) => store::set_chapter_translation(&tx, pic, &page_key)?,
+                ReaderSource::Site(req) => store::set_site_page(&tx, &req.page_url, req.index, &page_key)?,
             }
             tx.commit()?;
             Ok(())
@@ -258,9 +261,17 @@ impl Backend {
             ReaderSource::Site(req) => store::reader_book(&st.db, &req.page_url)?.map(|b| (b, req.index)),
             ReaderSource::Chapter(pic) => store::picture_place(&st.db, pic)?,
         };
-        let Some((book, seq)) = place else { return Ok(vec![]) };
-        let pages = store::earlier_items(&st.db, book, seq, CONTEXT_PAGES)?;
-        Ok(pages.iter().filter_map(|j| serde_json::from_str::<Vec<PageItem>>(j).ok()).flatten().collect())
+        let mut pages: std::collections::BTreeMap<i64, String> = match place {
+            Some((book, seq)) => store::earlier_items(&st.db, book, seq, CONTEXT_PAGES)?.into_iter().collect(),
+            None => Default::default(),
+        };
+        // A site chapter's pages answered from the library under another
+        // address count too, at the place this chapter showed them.
+        if let ReaderSource::Site(req) = source {
+            pages.extend(store::earlier_site_items(&st.db, &req.page_url, req.index, CONTEXT_PAGES)?);
+        }
+        let skip = pages.len().saturating_sub(CONTEXT_PAGES as usize);
+        Ok(pages.values().skip(skip).filter_map(|j| serde_json::from_str::<Vec<PageItem>>(j).ok()).flatten().collect())
     }
 
     /// One Gemini request for the whole page (R9, R10 in `gemini::read_page`).
@@ -969,6 +980,72 @@ mod tests {
         PageItem { text, balloon, speaker: String::new(), src: String::new(), ko: "안녕".into() }
     }
 
+    /// A Gemini stand-in answering one line ("HELLO" => "안녕") on any page,
+    /// keeping each request's prompt.
+    fn page_gemini() -> (String, Arc<Mutex<Vec<String>>>) {
+        use std::io::Read as _;
+        let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", server.server_addr().to_ip().unwrap());
+        let prompts = Arc::new(Mutex::new(vec![]));
+        let seen = prompts.clone();
+        std::thread::spawn(move || {
+            for mut req in server.incoming_requests() {
+                let mut body = String::new();
+                let _ = req.as_reader().read_to_string(&mut body);
+                let v: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
+                seen.lock().unwrap().push(v["contents"][0]["parts"][0]["text"].as_str().unwrap_or("").to_string());
+                let text = serde_json::json!({"box_2d":[150,200,250,300],"balloon_2d":[50,100,350,500],"src":"HELLO","ko":"안녕"}).to_string() + "]}";
+                let answer = serde_json::json!({"candidates": [{"content": {"role": "model", "parts": [{"text": text}]}}]});
+                let _ = req.respond(tiny_http::Response::from_string(answer.to_string()));
+            }
+        });
+        (url, prompts)
+    }
+
+    /// A page whose picture is slow to load (a slow disk, a large file) is
+    /// still waited for by the page after it, which joins the book later
+    /// but has its picture sooner: its request carries the first page's
+    /// lines. For a site chapter and an imported one alike.
+    #[test]
+    fn a_page_slow_to_load_is_waited_for_by_the_page_after_it() {
+        let fixture = std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/page.jpg")).unwrap();
+        let numbered = |n: u8| {
+            let mut v = fixture.clone();
+            v.push(n);
+            v
+        };
+        for form in ["site", "imported"] {
+            let dir = std::env::temp_dir().join(format!("rst-order-{form}-{}-{}", std::process::id(), now_ms()));
+            let (url, prompts) = page_gemini();
+            let b = Backend::open(dir.clone(), Some(url), Arc::new(Quiet(dir.join("export")))).unwrap();
+            b.lock().key = Some("k".into());
+            let reqs: Vec<PageIn> = (1..=2).map(|n| PageIn { src: format!("https://cdn.example/{n}.jpg"), image: None, page_url: "https://manga.example/c/1".into(), title: "Fixture".into(), index: n }).collect();
+            let pics: Vec<i64> = if form == "imported" {
+                let folder = dir.with_extension("pages");
+                std::fs::create_dir_all(&folder).unwrap();
+                (1..=2u8).for_each(|n| std::fs::write(folder.join(format!("{n}.jpg")), numbered(n)).unwrap());
+                let book = b.import_folder(&folder).unwrap();
+                b.chapter(book).unwrap().pages.into_iter().map(|p| p.id).collect()
+            } else {
+                vec![]
+            };
+            let source = |k: usize| if form == "site" { ReaderSource::Site(&reqs[k]) } else { ReaderSource::Chapter(pics[k]) };
+            std::thread::scope(|s| {
+                let first = s.spawn(|| b.read_picture(source(0), || {
+                    std::thread::sleep(std::time::Duration::from_millis(400));
+                    Ok(numbered(1))
+                }));
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                let second = s.spawn(|| b.read_picture(source(1), || Ok(numbered(2))));
+                assert!(!first.join().unwrap().unwrap().saved, "{form}");
+                assert!(!second.join().unwrap().unwrap().saved, "{form}");
+            });
+            let prompts = prompts.lock().unwrap();
+            assert_eq!(prompts.len(), 2, "{form}");
+            assert!(prompts[1].contains("HELLO => 안녕"), "{form}: {}", prompts[1]);
+        }
+    }
+
     struct Quiet(PathBuf);
 
     impl Platform for Quiet {
@@ -1050,51 +1127,64 @@ mod tests {
     /// again by this version (its cover follows the balloon's outline), its
     /// answer is kept from then on, and no request is sent.
     #[test]
-    fn a_page_saved_without_its_answer_is_laid_out_again_on_reopening() {
-        let dir = std::env::temp_dir().join(format!("rst-reader-old-{}-{}", std::process::id(), now_ms()));
-        let b = Backend::open(dir.clone(), Some("http://127.0.0.1:9".into()), Arc::new(Quiet(dir.join("export")))).unwrap();
-        b.put_source_lang(LangIn { lang: "en".into() }).unwrap();
-        b.lock().key = Some("k".into());
-        // A white page with an oval balloon and two lines of letters in it.
-        let (w, h) = (600u32, 600u32);
-        let mut img = export::Rgb { w, h, px: vec![255; (w * h * 3) as usize] };
-        let mut ink = |x: u32, y: u32| img.px[((y * w + x) * 3) as usize..][..3].fill(0);
-        for y in 0..h {
-            for x in 0..w {
-                let e = ((x as f64 - 300.0) / 150.0).powi(2) + ((y as f64 - 300.0) / 100.0).powi(2);
-                if e > 1.0 && e <= (1.0f64 + 4.0 / 100.0).powi(2) {
-                    ink(x, y);
+    fn a_page_saved_by_an_earlier_version_is_laid_out_again_and_keeps_what_that_version_reads() {
+        // Saved by a version that kept no cover, and by one that kept a
+        // cover without the shape in it: either way the columns an earlier
+        // version draws from stay as they were.
+        for (form, cover) in [("no cover", None), ("plain cover", Some(r#"{"outline":[],"text":[228,263,144,74]}"#))] {
+            let dir = std::env::temp_dir().join(format!("rst-reader-old-{}-{}-{}", form.len(), std::process::id(), now_ms()));
+            let b = Backend::open(dir.clone(), Some("http://127.0.0.1:9".into()), Arc::new(Quiet(dir.join("export")))).unwrap();
+            b.put_source_lang(LangIn { lang: "en".into() }).unwrap();
+            b.lock().key = Some("k".into());
+            // A white page with an oval balloon and two lines of letters in it.
+            let (w, h) = (600u32, 600u32);
+            let mut img = export::Rgb { w, h, px: vec![255; (w * h * 3) as usize] };
+            let mut ink = |x: u32, y: u32| img.px[((y * w + x) * 3) as usize..][..3].fill(0);
+            for y in 0..h {
+                for x in 0..w {
+                    let e = ((x as f64 - 300.0) / 150.0).powi(2) + ((y as f64 - 300.0) / 100.0).powi(2);
+                    if e > 1.0 && e <= (1.0f64 + 4.0 / 100.0).powi(2) {
+                        ink(x, y);
+                    }
                 }
             }
-        }
-        // Letters as "L"s, 4 px strokes.
-        for y0 in [270, 302] {
-            for x0 in [236, 258, 280, 302, 324, 346] {
-                (y0..y0 + 20).for_each(|y| (x0..x0 + 16).filter(|&x| x < x0 + 4 || y >= y0 + 16).for_each(|x| ink(x, y)));
+            // Letters as "L"s, 4 px strokes.
+            for y0 in [270, 302] {
+                for x0 in [236, 258, 280, 302, 324, 346] {
+                    (y0..y0 + 20).for_each(|y| (x0..x0 + 16).filter(|&x| x < x0 + 4 || y >= y0 + 16).for_each(|x| ink(x, y)));
+                }
             }
+            let bytes = export::encode_png(&img).unwrap();
+            let hash: String = Sha256::digest(&bytes).iter().map(|b| format!("{b:02x}")).collect();
+            let key = format!("{hash}:en");
+            {
+                let st = b.lock();
+                let book = store::create_book(&st.db, "old", 1).unwrap();
+                let pic = store::create_picture(&st.db, book, "page", w).unwrap();
+                st.db.execute("INSERT INTO ReaderPage (key, picture_id, page_url, items) VALUES (?1, ?2, 'https://m.example/c/1', NULL)", rusqlite::params![key, pic]).unwrap();
+                let fp = format!("page:{key}:0");
+                let t = store::Translation { fingerprint: fp.clone(), aspect: 1.0, source_ja: Some("ABCDEF GHIJKL".into()), translation_ko: Some("안녕하세요".into()), status: "ready".into() };
+                store::put_translation(&st.db, &t, "m", 1).unwrap();
+                store::insert_placement(&st.db, pic, &store::PlacementRow { id: 0, fingerprint: fp, x: 220, y: 255, w: 160, h: 90, radius: 8, font_px: 20, ko: String::new(), cover: cover.map(str::to_string) }).unwrap();
+            }
+            let columns = |b: &Backend| b.lock().db.query_row("SELECT x, y, w, h, radius, font_px, COUNT(*) OVER () FROM Placement", [], |r| Ok([r.get::<_, i64>(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?])).unwrap();
+            let read = |b: &Backend| b.read_page(PageIn { src: "https://cdn.example/p.png".into(), image: Some(bytes.clone()), page_url: "https://m.example/c/1".into(), title: "t".into(), index: 0 }).unwrap();
+            let out = read(&b);
+            assert!(out.saved && out.boxes.len() == 1, "{form}: {out:?}");
+            assert!(!out.boxes[0].outline.is_empty(), "{form}: laid out along the balloon, not the old rectangle: {:?}", out.boxes[0]);
+            assert_eq!(out.boxes[0].ko, "안녕하세요", "{form}");
+            assert_eq!(b.lock().gemini_requests, 0, "{form}");
+            let kept: Vec<PageItem> = serde_json::from_str(&store::reader_items(&b.lock().db, &key).unwrap().expect("the answer is kept now")).unwrap();
+            assert_eq!((kept.len(), kept[0].src.as_str()), (1, "ABCDEF GHIJKL"), "{form}");
+            // What an earlier version draws from is as it saved it, one row;
+            // this version reads the new shape back, and again the same.
+            assert_eq!(columns(&b), [220, 255, 160, 90, 8, 20, 1], "{form}");
+            let rows = store::reader_placements(&b.lock().db, &key).unwrap();
+            assert_eq!(page_box(&rows[0]), out.boxes[0], "{form}");
+            assert_eq!(read(&b).boxes, out.boxes, "{form}");
+            assert_eq!(columns(&b), [220, 255, 160, 90, 8, 20, 1], "{form}");
+            let _ = std::fs::remove_dir_all(&dir);
         }
-        let bytes = export::encode_png(&img).unwrap();
-        let hash: String = Sha256::digest(&bytes).iter().map(|b| format!("{b:02x}")).collect();
-        let key = format!("{hash}:en");
-        {
-            let st = b.lock();
-            let book = store::create_book(&st.db, "old", 1).unwrap();
-            let pic = store::create_picture(&st.db, book, "page", w).unwrap();
-            st.db.execute("INSERT INTO ReaderPage (key, picture_id, page_url, items) VALUES (?1, ?2, 'https://m.example/c/1', NULL)", rusqlite::params![key, pic]).unwrap();
-            let fp = format!("page:{key}:0");
-            let t = store::Translation { fingerprint: fp.clone(), aspect: 1.0, source_ja: Some("ABCDEF GHIJKL".into()), translation_ko: Some("안녕하세요".into()), status: "ready".into() };
-            store::put_translation(&st.db, &t, "m", 1).unwrap();
-            store::insert_placement(&st.db, pic, &store::PlacementRow { id: 0, fingerprint: fp, x: 220, y: 255, w: 160, h: 90, radius: 8, font_px: 20, ko: String::new(), cover: None }).unwrap();
-        }
-        let req = PageIn { src: "https://cdn.example/p.png".into(), image: Some(bytes), page_url: "https://m.example/c/1".into(), title: "t".into(), index: 0 };
-        let out = b.read_page(req).unwrap();
-        assert!(out.saved && out.boxes.len() == 1, "{out:?}");
-        assert!(!out.boxes[0].outline.is_empty(), "laid out along the balloon, not the old rectangle: {:?}", out.boxes[0]);
-        assert_eq!(out.boxes[0].ko, "안녕하세요");
-        assert_eq!(b.lock().gemini_requests, 0);
-        let kept: Vec<PageItem> = serde_json::from_str(&store::reader_items(&b.lock().db, &key).unwrap().expect("the answer is kept now")).unwrap();
-        assert_eq!((kept.len(), kept[0].src.as_str()), (1, "ABCDEF GHIJKL"));
-        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// White letters on a solid black balloon, with a tight box round them:
@@ -1102,26 +1192,36 @@ mod tests {
     /// its letters and its Korean, where before it was kept with nothing
     /// drawn and the source showed.
     #[test]
-    fn white_letters_on_a_black_balloon_are_covered() {
-        let (w, h) = (600u32, 600u32);
-        let mut page = export::Rgb { w, h, px: vec![255; (w * h * 3) as usize] };
-        let mut put = |x: u32, y: u32, v: u8| page.px[((y * w + x) * 3) as usize..][..3].fill(v);
-        for y in 0..h {
-            for x in 0..w {
-                if ((x as f64 - 300.0) / 150.0).powi(2) + ((y as f64 - 300.0) / 100.0).powi(2) <= 1.0 {
-                    put(x, y, 0);
+    fn letters_in_a_balloon_are_covered_whether_the_box_is_loose_or_tight_on_them() {
+        // Light letters on a black balloon and dark ones on a white one;
+        // Gemini's box a few pixels round the letters, or on their very
+        // edge (rows 270..=321, columns 236..=361).
+        for (ground, ink) in [(0u8, 255u8), (255, 0)] {
+            for (name, bx) in [("loose", [266.0, 232.0, 326.0, 366.0]), ("tight", [270.0, 236.0, 322.0, 362.0])] {
+                let (w, h) = (600u32, 600u32);
+                let mut page = export::Rgb { w, h, px: vec![255 - ground; (w * h * 3) as usize] };
+                let mut put = |x: u32, y: u32, v: u8| page.px[((y * w + x) * 3) as usize..][..3].fill(v);
+                for y in 0..h {
+                    for x in 0..w {
+                        let d = ((x as f64 - 300.0) / 150.0).powi(2) + ((y as f64 - 300.0) / 100.0).powi(2);
+                        if d <= 1.0 {
+                            put(x, y, ground);
+                        } else if d <= 1.06 {
+                            put(x, y, 0);
+                        }
+                    }
                 }
+                for y0 in [270, 302] {
+                    for x0 in [236, 258, 280, 302, 324, 346] {
+                        (y0..y0 + 20).for_each(|y| (x0..x0 + 16).filter(|&x| x < x0 + 4 || y >= y0 + 16).for_each(|x| put(x, y, ink)));
+                    }
+                }
+                let it = PageItem { src: "ABCDEF GHIJKL".into(), ..item([bx[0] / 600.0, bx[1] / 600.0, bx[2] / 600.0, bx[3] / 600.0], None) };
+                let b = &shapes(&[it], &page, "en")[0];
+                assert!(b.w > 0 && b.h > 0 && b.font_px > 0, "ground {ground}, {name}: drawn: {b:?}");
+                assert!(b.x <= 236 && b.y <= 270 && b.x + b.w as i64 >= 362 && b.y + b.h as i64 >= 322, "ground {ground}, {name}: over every letter: {b:?}");
             }
         }
-        for y0 in [270, 302] {
-            for x0 in [236, 258, 280, 302, 324, 346] {
-                (y0..y0 + 20).for_each(|y| (x0..x0 + 16).filter(|&x| x < x0 + 4 || y >= y0 + 16).for_each(|x| put(x, y, 255)));
-            }
-        }
-        let it = PageItem { src: "ABCDEF GHIJKL".into(), ..item([266.0 / 600.0, 232.0 / 600.0, 326.0 / 600.0, 366.0 / 600.0], None) };
-        let b = &shapes(&[it], &page, "en")[0];
-        assert!(b.w > 0 && b.h > 0 && b.font_px > 0, "drawn: {b:?}");
-        assert!(b.x <= 236 && b.y <= 270 && b.x + b.w as i64 >= 362 && b.y + b.h as i64 >= 322, "over every letter: {b:?}");
     }
 
     #[test]

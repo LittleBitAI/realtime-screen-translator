@@ -408,6 +408,43 @@ fn a_page_read_while_the_one_before_is_with_gemini_carries_its_lines() {
     }
 }
 
+/// A page answered from the library (read first under another chapter's
+/// address) still counts among its chapter's earlier pages: the next page
+/// read there, one at a time, carries its lines. For a site chapter and an
+/// imported one alike.
+#[test]
+fn a_page_answered_from_the_library_counts_among_its_chapters_earlier_pages() {
+    let next = || {
+        let mut bytes = page();
+        bytes.push(2);
+        bytes
+    };
+    for form in ["site", "imported"] {
+        let dirs = Dirs::new();
+        let gemini = PageGemini::start();
+        let b = keyed(&gemini, &dirs);
+        let at = |url: &str, image: Vec<u8>, index| b.read_page(PageIn { src: format!("https://cdn.example/{index}.jpg"), image: Some(image), page_url: url.into(), title: "Fixture".into(), index }).unwrap();
+        assert!(!at("https://manga.example/c/1", page(), 1).saved, "{form}");
+        assert_eq!(gemini.count(), 1, "{form}");
+        if form == "site" {
+            assert!(at("https://manga.example/c/2", page(), 1).saved, "{form}");
+            assert!(!at("https://manga.example/c/2", next(), 2).saved, "{form}");
+        } else {
+            let folder = dirs.data.with_file_name("Fixture");
+            fs::create_dir_all(&folder).unwrap();
+            fs::write(folder.join("1.jpg"), page()).unwrap();
+            fs::write(folder.join("2.jpg"), next()).unwrap();
+            let book = b.import_folder(&folder).unwrap();
+            let pages: Vec<_> = b.chapter(book).unwrap().pages.into_iter().map(|p| p.id).collect();
+            assert!(b.read_chapter_page(pages[0]).unwrap().saved, "{form}");
+            assert!(!b.read_chapter_page(pages[1]).unwrap().saved, "{form}");
+        }
+        assert_eq!(gemini.count(), 2, "{form}");
+        let prompt = gemini.last()["contents"][0]["parts"][0]["text"].as_str().unwrap().to_string();
+        assert!(prompt.contains("HELLO => 안녕"), "{form}: {prompt}");
+    }
+}
+
 #[test]
 fn a_page_whose_saving_fails_says_so_and_is_saved_by_the_next_call_without_gemini() {
     let dirs = Dirs::new();

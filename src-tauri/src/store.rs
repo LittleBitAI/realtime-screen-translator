@@ -75,6 +75,15 @@ CREATE TABLE IF NOT EXISTS ReaderPage (
     picture_id INTEGER NOT NULL REFERENCES Picture(id),
     page_url TEXT NOT NULL
 );
+-- Which reader page a site chapter's address showed at each place: a page
+-- answered from the library under another address still counts among this
+-- chapter's earlier pages.
+CREATE TABLE IF NOT EXISTS SitePage (
+    page_url TEXT NOT NULL,
+    seq INTEGER NOT NULL,
+    key TEXT NOT NULL,
+    PRIMARY KEY (page_url, seq)
+);
 -- An imported picture exists before translation and can share a cached
 -- translation with a different picture. The link selects its export overlay.
 CREATE TABLE IF NOT EXISTS ChapterPage (
@@ -297,7 +306,7 @@ fn picture_placements(db: &Db, picture_id: i64, prefix: Option<&str>) -> Res<Vec
          WHERE p.picture_id = ?1 AND (?2 IS NULL OR p.fingerprint GLOB ?2) ORDER BY p.id",
     )?;
     let rows = st.query_map(params![picture_id, prefix], |r| {
-        Ok(PlacementRow {
+        Ok(laid_out(PlacementRow {
             id: r.get(0)?,
             fingerprint: r.get(1)?,
             x: r.get(2)?,
@@ -308,9 +317,21 @@ fn picture_placements(db: &Db, picture_id: i64, prefix: Option<&str>) -> Res<Vec
             font_px: r.get(7)?,
             ko: r.get(8)?,
             cover: r.get(9)?,
-        })
+        }))
     })?;
     rows.collect()
+}
+
+/// A row laid out again by a later version keeps the shape it was first
+/// saved with in its columns, which an earlier version reading this
+/// library still draws, and the new one in its cover as `at`: x, y, w, h,
+/// radius, font_px.
+fn laid_out(mut p: PlacementRow) -> PlacementRow {
+    let at = p.cover.as_deref().and_then(|c| serde_json::from_str::<serde_json::Value>(c).ok()).and_then(|v| serde_json::from_value::<[i64; 6]>(v["at"].clone()).ok());
+    if let Some([x, y, w, h, radius, font_px]) = at {
+        (p.x, p.y, p.w, p.h, p.radius, p.font_px) = (x, y, w as u32, h as u32, radius as u16, font_px as u16);
+    }
+    p
 }
 
 // ---- ReaderPage
@@ -371,16 +392,36 @@ pub fn reader_lines(db: &Db, key: &str) -> Res<Vec<(PlacementRow, String)>> {
 }
 
 /// The kept answers (JSON) of the pages read just before `seq` in `book`,
-/// nearest last: a site page's own, or the page an imported picture shares.
-pub fn earlier_items(db: &Db, book: i64, seq: i64, pages: u32) -> Res<Vec<String>> {
+/// with their places, nearest last: a site page's own, or the page an
+/// imported picture shares.
+pub fn earlier_items(db: &Db, book: i64, seq: i64, pages: u32) -> Res<Vec<(i64, String)>> {
     let mut st = db.prepare(
-        "SELECT items FROM (
+        "SELECT seq, items FROM (
              SELECT p.seq, r.items FROM Picture p LEFT JOIN ChapterPage c ON c.picture_id = p.id
              JOIN ReaderPage r ON r.key = c.translated_key OR (c.picture_id IS NULL AND r.picture_id = p.id)
              WHERE p.book_id = ?1 AND p.seq < ?2 AND r.items IS NOT NULL ORDER BY p.seq DESC LIMIT ?3
          ) ORDER BY seq",
     )?;
-    let rows = st.query_map(params![book, seq, pages], |r| r.get(0))?;
+    let rows = st.query_map(params![book, seq, pages], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    rows.collect()
+}
+
+/// Notes that the site chapter at `page_url` showed reader page `key` at `seq`.
+pub fn set_site_page(db: &Db, page_url: &str, seq: i64, key: &str) -> Res<()> {
+    db.execute("INSERT OR REPLACE INTO SitePage (page_url, seq, key) VALUES (?1, ?2, ?3)", params![page_url, seq, key])?;
+    Ok(())
+}
+
+/// [`earlier_items`] for the pages the site chapter at `page_url` showed,
+/// wherever they were first read.
+pub fn earlier_site_items(db: &Db, page_url: &str, seq: i64, pages: u32) -> Res<Vec<(i64, String)>> {
+    let mut st = db.prepare(
+        "SELECT seq, items FROM (
+             SELECT s.seq, r.items FROM SitePage s JOIN ReaderPage r ON r.key = s.key
+             WHERE s.page_url = ?1 AND s.seq < ?2 AND r.items IS NOT NULL ORDER BY s.seq DESC LIMIT ?3
+         ) ORDER BY seq",
+    )?;
+    let rows = st.query_map(params![page_url, seq, pages], |r| Ok((r.get(0)?, r.get(1)?)))?;
     rows.collect()
 }
 
@@ -390,11 +431,26 @@ pub fn picture_place(db: &Db, picture_id: i64) -> Res<Option<(i64, i64)>> {
 }
 
 /// The reader page's shapes, laid out again: its placements are replaced.
+/// A row already kept changes only its cover, which carries the new shape
+/// as `at` ([`laid_out`]); its columns stay as first saved.
 pub fn replace_reader_placements(db: &Db, key: &str, rows: &[PlacementRow]) -> Res<()> {
     let Some(pic) = reader_page(db, key)? else { return Ok(()) };
-    db.execute("DELETE FROM Placement WHERE picture_id = ?1 AND fingerprint GLOB ?2", params![pic, format!("page:{key}:*")])?;
+    let keep: Vec<&str> = rows.iter().map(|r| r.fingerprint.as_str()).collect();
+    let old: Vec<String> = {
+        let mut st = db.prepare("SELECT fingerprint FROM Placement WHERE picture_id = ?1 AND fingerprint GLOB ?2")?;
+        let found = st.query_map(params![pic, format!("page:{key}:*")], |r| r.get(0))?;
+        found.collect::<Res<_>>()?
+    };
+    for gone in old.iter().filter(|f| !keep.contains(&f.as_str())) {
+        db.execute("DELETE FROM Placement WHERE picture_id = ?1 AND fingerprint = ?2", params![pic, gone])?;
+    }
     for row in rows {
-        insert_placement(db, pic, row)?;
+        let mut cover = row.cover.as_deref().and_then(|c| serde_json::from_str::<serde_json::Value>(c).ok()).unwrap_or_else(|| serde_json::json!({}));
+        cover["at"] = serde_json::json!([row.x, row.y, row.w, row.h, row.radius, row.font_px]);
+        let n = db.execute("UPDATE Placement SET cover = ?3 WHERE picture_id = ?1 AND fingerprint = ?2", params![pic, row.fingerprint, cover.to_string()])?;
+        if n == 0 {
+            insert_placement(db, pic, row)?;
+        }
     }
     Ok(())
 }

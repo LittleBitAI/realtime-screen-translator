@@ -60,7 +60,7 @@
       html.rst-off .rst-layer{display:none}
       .rst-box{position:absolute;box-sizing:border-box;pointer-events:auto}
       .rst-fill{position:absolute;inset:0;background:#fff}
-      .rst-patch{position:absolute;background-size:100% 100%}
+      .rst-patch{position:absolute}
       .rst-text{position:absolute;z-index:1;display:flex;align-items:center;justify-content:center;color:#111;text-align:center;
         line-height:1.2;font-family:system-ui,'Noto Sans KR',sans-serif;font-weight:600;word-break:keep-all;
         white-space:pre-line;text-wrap:balance;overflow:hidden;
@@ -397,14 +397,20 @@
       // Under lettering with no balloon round it, the art's own tone
       // carried in over the letters (a picture the app made).
       if (b.patch) {
-        const tone = document.createElement('div');
+        // Painted from its bytes, not loaded from a `data:` address: a
+        // site's image policy may refuse those, and the lettering would show.
+        const tone = document.createElement('canvas');
         tone.className = 'rst-patch';
         const [px, py, pw, ph] = b.patch.at;
+        [tone.width, tone.height] = [pw, ph];
         tone.style.left = pct(px - b.x, b.w);
         tone.style.top = pct(py - b.y, b.h);
         tone.style.width = pct(pw, b.w);
         tone.style.height = pct(ph, b.h);
-        tone.style.backgroundImage = `url(data:image/png;base64,${b.patch.png})`;
+        const png = Uint8Array.from(atob(b.patch.png), (c) => c.charCodeAt(0));
+        createImageBitmap(new Blob([png], { type: 'image/png' }))
+          .then((bmp) => tone.getContext('2d').drawImage(bmp, 0, 0))
+          .catch(() => {});
         box.appendChild(tone);
       }
       // The white follows the balloon's own outline where the app found it,
@@ -688,6 +694,7 @@
     text.style.textWrap = '';
     text.style.overflowWrap = 'normal';
     text.style.overflow = '';
+    text.style.transform = '';
     const f = text.rstFlow;
     if (f) {
       squeeze(text, 0);
@@ -713,11 +720,14 @@
     if (!shrink(READABLE, true) || !shrink(READABLE)) return 1;
     text.style.overflowWrap = 'anywhere';
     if (!shrink(2)) return 1;
-    // Over even at the floor: the Korean takes the cover's whole box, and
-    // past that it shows rather than a line being cut off.
-    Object.assign(text.style, { left: '0%', top: '0%', width: '100%', height: '100%' });
-    if (!shrink(2)) return 1;
+    // Over even at the floor: the lines are scaled down whole into the text
+    // area, which lies under the cover, so none is cut off and none leaves
+    // the balloon; pinch zoom still reads them.
+    lines.selectNodeContents(text);
+    const [l, a] = [lines.getBoundingClientRect(), text.getBoundingClientRect()];
+    const k = Math.min(1, a.width / (l.width || 1), a.height / (l.height || 1));
     text.style.overflow = 'visible';
+    text.style.transform = `scale(${k.toFixed(4)})`;
     return 0;
   }
 

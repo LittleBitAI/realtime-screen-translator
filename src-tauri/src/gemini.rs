@@ -260,9 +260,9 @@ pub fn parse_page(full: &str) -> Option<Vec<PageItem>> {
 
 /// The items of a whole answer (its list closed) that is not JSON as a
 /// whole: each item read on its own, a key left without a value before the
-/// next key dropped (`"label": "balloon_2d": [...]`, seen once), an item
-/// still unreadable left out. A cut-off answer (the model ran out of room)
-/// is not salvaged: it may be missing its last balloons.
+/// next key dropped (`"label": "balloon_2d": [...]`, seen once). An item
+/// still unreadable fails the whole answer, as a cut-off one (the model ran
+/// out of room) does: kept, the page would lack that balloon for good.
 fn salvage(full: &str) -> Option<Vec<Value>> {
     let body = full.trim_end().strip_suffix("]}")?;
     let body = body.strip_prefix(PAGE_PREFILL)?;
@@ -282,8 +282,7 @@ fn salvage(full: &str) -> Option<Vec<Value>> {
                 depth -= 1;
                 if depth == 0 {
                     let obj = &body[start..=i];
-                    let fixed = serde_json::from_str(obj).ok().or_else(|| serde_json::from_str(&drop_bare_keys(obj)).ok());
-                    items.extend(fixed);
+                    items.push(serde_json::from_str(obj).ok().or_else(|| serde_json::from_str(&drop_bare_keys(obj)).ok())?);
                 }
             }
             _ => {}
@@ -419,5 +418,22 @@ mod tests {
         assert_eq!(page[1].balloon, Some([0.51, 0.842, 0.68, 0.985]));
         let cut = r#"{"box_2d": [256, 825, 285, 915], "src": "Do take care.", "ko": "조심히 다녀오세요."}, {"box_2d": [26, 540, 276, 725], "ko": "안녕, 하카아아아"#;
         assert_eq!(parse_page(cut), None);
+    }
+
+    /// An answer is read whole or not at all: one item no repair reads (a
+    /// value left unquoted), in the middle or at either end, fails the
+    /// answer, so the page is not kept short of a balloon.
+    #[test]
+    fn an_answer_with_an_item_no_repair_reads_is_unreadable() {
+        let good = |n: u32| format!(r#"{{"box_2d": [{n}, 100, {}, 200], "src": "LINE {n}", "ko": "줄 {n}"}}"#, n + 50);
+        let broken = r#"{"box_2d": [400, 100, 450, 200], "src": "LINE", "ko": 줄}"#;
+        for at in 0..3 {
+            let mut items: Vec<String> = (0..2).map(|k| good(100 + 200 * k)).collect();
+            items.insert(at, broken.to_string());
+            let answer = format!("{}
+]}}", items.join(",
+"));
+            assert_eq!(parse_page(&answer), None, "broken item at {at}: {answer}");
+        }
     }
 }

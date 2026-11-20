@@ -646,18 +646,28 @@ pub fn blocks(page: &Page, vertical: bool) -> Vec<Block> {
     out
 }
 
-/// How many letter-sized marks lie wholly inside `r` (picture pixels):
+/// How many letter-sized marks are centred inside `r` (picture pixels):
 /// whether a box Gemini gave holds lettering at all, or only the art (a
-/// shout fused with the panel frame, hair under it). Dark marks, or where
-/// the box is mostly dark, light ones too: white letters on a black balloon
-/// are lettering as much as black letters on white.
+/// shout fused with the panel frame, hair under it). Marks are sought in
+/// `r` grown by its shorter side, so a box drawn tight on the letters, or
+/// cutting through them, still finds them whole. Dark marks, or where the
+/// box is mostly dark, light ones too: white letters on a black balloon are
+/// lettering as much as black letters on white.
 pub fn marks_in(page: &Page, r: [f64; 4]) -> usize {
-    let dark = marks_within(page, r, false).len();
+    let m = (r[2] - r[0]).min(r[3] - r[1]).max(0.0);
+    let around = [r[0] - m, r[1] - m, r[2] + m, r[3] + m];
+    let count = |light| {
+        marks_within(page, around, light).iter().filter(|k| {
+            let (cx, cy) = ((k[0] + k[2]) / 2.0, (k[1] + k[3]) / 2.0);
+            cx >= r[0] && cx <= r[2] && cy >= r[1] && cy <= r[3]
+        }).count()
+    };
+    let dark = count(false);
     let (x0, y0) = (r[0].max(0.0) as usize, r[1].max(0.0) as usize);
     let (x1, y1) = ((r[2].max(0.0) as usize).min(page.w as usize), (r[3].max(0.0) as usize).min(page.h as usize));
     let all = x1.saturating_sub(x0) * y1.saturating_sub(y0);
     let inked = (y0..y1).flat_map(|y| (x0..x1).map(move |x| (x, y))).filter(|&(x, y)| page.px[y * page.w as usize + x] < INK).count();
-    if 2 * inked > all { dark.max(marks_within(page, r, true).len()) } else { dark }
+    if 2 * inked > all { dark.max(count(true)) } else { dark }
 }
 
 /// One block of lettering cut in two for two lines lettered so close that
