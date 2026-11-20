@@ -323,7 +323,10 @@
     const w = img.offsetWidth;
     const h = img.offsetHeight;
     const key = `${img.offsetLeft},${img.offsetTop},${w},${h}`;
-    if (layer.dataset.at === key) return;
+    // Hidden while the original is shown, the layer has no box to measure
+    // from: placed then, it was placed a scroll away (ch256 p15's Korean
+    // over p18). It is placed as the translation comes back on.
+    if (layer.dataset.at === key || document.documentElement.classList.contains('rst-off')) return;
     layer.style.left = '0px';
     layer.style.top = '0px';
     layer.style.width = `${w}px`;
