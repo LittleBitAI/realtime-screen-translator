@@ -646,11 +646,18 @@ pub fn blocks(page: &Page, vertical: bool) -> Vec<Block> {
     out
 }
 
-/// How many letter-sized dark marks lie wholly inside `r` (picture pixels):
+/// How many letter-sized marks lie wholly inside `r` (picture pixels):
 /// whether a box Gemini gave holds lettering at all, or only the art (a
-/// shout fused with the panel frame, hair under it).
+/// shout fused with the panel frame, hair under it). Dark marks, or where
+/// the box is mostly dark, light ones too: white letters on a black balloon
+/// are lettering as much as black letters on white.
 pub fn marks_in(page: &Page, r: [f64; 4]) -> usize {
-    marks_within(page, r).len()
+    let dark = marks_within(page, r, false).len();
+    let (x0, y0) = (r[0].max(0.0) as usize, r[1].max(0.0) as usize);
+    let (x1, y1) = ((r[2].max(0.0) as usize).min(page.w as usize), (r[3].max(0.0) as usize).min(page.h as usize));
+    let all = x1.saturating_sub(x0) * y1.saturating_sub(y0);
+    let inked = (y0..y1).flat_map(|y| (x0..x1).map(move |x| (x, y))).filter(|&(x, y)| page.px[y * page.w as usize + x] < INK).count();
+    if 2 * inked > all { dark.max(marks_within(page, r, true).len()) } else { dark }
 }
 
 /// One block of lettering cut in two for two lines lettered so close that
@@ -662,12 +669,13 @@ pub fn marks_in(page: &Page, r: [f64; 4]) -> usize {
 /// of them, wherever no letter straddles it. Each side goes to the line
 /// (Gemini's box and its letter count) whose box lies more on it than on
 /// the other side, and the cut taken is the one whose sides' letters come
-/// nearest their lines' counts; each side must hold a word. The parts come
+/// nearest their lines' counts; each side must hold a word, or all of a
+/// line shorter than a word. The parts come
 /// in the lines' order. None when no cut does.
 pub fn split(page: &Page, block: &Block, lines: [([f64; 4], usize); 2]) -> Option<[Block; 2]> {
     let b = block.bounds;
     let lo = LETTER_MIN * page.w as f64;
-    let marks: Vec<[f64; 4]> = marks_within(page, [b[0] - 3.0, b[1] - 3.0, b[2] + 3.0, b[3] + 3.0]).into_iter().filter(|m| (m[2] - m[0]).max(m[3] - m[1]) >= lo).collect();
+    let marks: Vec<[f64; 4]> = marks_within(page, [b[0] - 3.0, b[1] - 3.0, b[2] + 3.0, b[3] + 3.0], false).into_iter().filter(|m| (m[2] - m[0]).max(m[3] - m[1]) >= lo).collect();
     let part = |ms: &[[f64; 4]]| {
         let bounds = ms.iter().fold([f64::MAX, f64::MAX, f64::MIN, f64::MIN], |r, m| [r[0].min(m[0]), r[1].min(m[1]), r[2].max(m[2]), r[3].max(m[3])]);
         // A letter's size: its larger side.
@@ -697,9 +705,6 @@ pub fn split(page: &Page, block: &Block, lines: [([f64; 4], usize); 2]) -> Optio
                 continue;
             }
             let (one, two) = ms.split_at(bands[s - 1].2);
-            if one.len() < WORD_LETTERS || two.len() < WORD_LETTERS {
-                continue;
-            }
             let (p1, p2) = (part(one).bounds, part(two).bounds);
             let ((a, ac), (c, cc)) = (lines[0], lines[1]);
             let sides = if overlap(a, p1) > overlap(a, p2) && overlap(c, p2) > overlap(c, p1) {
@@ -709,6 +714,11 @@ pub fn split(page: &Page, block: &Block, lines: [([f64; 4], usize); 2]) -> Optio
             } else {
                 continue;
             };
+            // Each side holds a word, or the whole of a line shorter than
+            // one ("NO" beside "GO").
+            if sides[0].len() < WORD_LETTERS.min(ac.max(1)) || sides[1].len() < WORD_LETTERS.min(cc.max(1)) {
+                continue;
+            }
             let cost = miss(sides[0].len(), ac) + miss(sides[1].len(), cc);
             if best.as_ref().is_none_or(|(c, _)| cost < *c) {
                 best = Some((cost, sides));
@@ -719,8 +729,9 @@ pub fn split(page: &Page, block: &Block, lines: [([f64; 4], usize); 2]) -> Optio
     Some([part(&one), part(&two)])
 }
 
-/// The bounds of the letter-sized dark marks lying wholly inside `r`.
-fn marks_within(page: &Page, r: [f64; 4]) -> Vec<[f64; 4]> {
+/// The bounds of the letter-sized dark marks (or `light` ones) lying wholly
+/// inside `r`.
+fn marks_within(page: &Page, r: [f64; 4], light: bool) -> Vec<[f64; 4]> {
     let x0 = r[0].max(0.0) as usize;
     let y0 = r[1].max(0.0) as usize;
     let x1 = (r[2].max(0.0) as usize).min(page.w as usize);
@@ -730,7 +741,7 @@ fn marks_within(page: &Page, r: [f64; 4]) -> Vec<[f64; 4]> {
     }
     let (bw, bh) = (x1 - x0, y1 - y0);
     let hi = LETTER_MAX * page.w as f64;
-    let dark = |x: usize, y: usize| page.px[y * page.w as usize + x] < INK;
+    let dark = |x: usize, y: usize| if light { page.px[y * page.w as usize + x] >= LIGHT } else { page.px[y * page.w as usize + x] < INK };
     let mut seen = vec![false; bw * bh];
     let mut out = vec![];
     for start in 0..bw * bh {
@@ -1778,7 +1789,13 @@ mod tests {
         assert_eq!((a.bounds, a.letters, b.bounds, b.letters), ([380.0, 300.0, 472.0, 364.0], 15, [300.0, 300.0, 352.0, 364.0], 9));
         // A cut the boxes do not lie either side of is not taken.
         assert!(split(&p, &beside, [top, bottom]).is_none());
+        // Two short replies side by side ("NO" beside "GO") part even though
+        // neither holds a word's letters.
         let one = Block { bounds: [100.0, 100.0, 172.0, 116.0], ..stacked };
-        assert!(split(&p, &one, [([90.0, 95.0, 130.0, 120.0], 2), ([131.0, 95.0, 180.0, 120.0], 2)]).is_none());
+        let (no, go) = ([90.0, 95.0, 130.0, 120.0], [131.0, 95.0, 180.0, 120.0]);
+        let [a, b] = split(&p, &one, [(no, 2), (go, 2)]).expect("a cut");
+        assert_eq!((a.bounds, a.letters, b.bounds, b.letters), ([100.0, 100.0, 132.0, 116.0], 2, [140.0, 100.0, 172.0, 116.0], 2));
+        // But a side short of a word is not taken for a longer line.
+        assert!(split(&p, &one, [(no, 4), (go, 4)]).is_none());
     }
 }

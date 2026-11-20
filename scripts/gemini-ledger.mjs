@@ -4,8 +4,9 @@
 //   RST_GEMINI_BASE_URL=http://127.0.0.1:<port>  (default port 8787)
 //
 // Every request is keyed by the page picture it carries and the source
-// language its prompt names. A key whose answer is saved is answered from
-// `<ledger>/answers/` with nothing sent out, whatever the prompt around it.
+// language its prompt's first line names. A key whose answer is saved is
+// answered from `<ledger>/answers/` with nothing sent out, whatever the
+// prompt around it, unless an approved further attempt is still unused.
 // A new key may go out once; any further attempt for it (the app's own
 // retry, the BLOCK_NONE fallback, a reworded prompt) is refused until
 // `<ledger>/approvals.json` grants it, as {"<key>": extra attempts}. Every
@@ -35,7 +36,9 @@ function keyOf(body) {
   const parts = body?.contents?.[0]?.parts ?? [];
   const image = parts.find((p) => p.inline_data)?.inline_data?.data;
   if (!image) return null;
-  const text = parts.map((p) => p.text ?? '').join(' ');
+  // The language the instruction names: its first line, ahead of the
+  // chapter's earlier lines, which may quote any language.
+  const text = parts.map((p) => p.text ?? '').join(' ').split('\n')[0];
   const lang = /\bEnglish\b/.test(text) ? 'en' : /\bJapanese\b/.test(text) ? 'ja' : 'unknown';
   return `${createHash('sha256').update(Buffer.from(image, 'base64')).digest('hex')}:${lang}`;
 }
@@ -66,7 +69,11 @@ createServer(async (req, res) => {
     return reply(res, 429, { error: { message: 'ledger: only page requests are budgeted here' } });
   }
   const saved = join(dir, 'answers', `${key.replace(':', '-')}.json`);
-  if (existsSync(saved)) {
+  const sent = attempts().filter((a) => a.kind === 'outbound' && a.key === key).length;
+  const allowed = 1 + (approvals()[key] ?? 0);
+  // A granted attempt not yet used goes out over the saved answer, which
+  // may be the unreadable reply it was granted for.
+  if (existsSync(saved) && (process.env.LEDGER_OFFLINE === '1' || sent === 0 || sent >= allowed)) {
     record({ kind: 'replay', key });
     return reply(res, 200, readFileSync(saved, 'utf8'));
   }
@@ -75,8 +82,7 @@ createServer(async (req, res) => {
     console.log(`refused ${key}: offline, no saved answer`);
     return reply(res, 429, { error: { message: 'ledger: offline, no saved answer for this page' } });
   }
-  const sent = attempts().filter((a) => a.kind === 'outbound' && a.key === key).length;
-  if (sent >= 1 + (approvals()[key] ?? 0)) {
+  if (sent >= allowed) {
     record({ kind: 'refused', key, why: 'needs approval' });
     console.log(`refused ${key}: ${sent} attempt(s) already, waiting for approval`);
     return reply(res, 429, { error: { message: 'ledger: another request for this page needs approval' } });

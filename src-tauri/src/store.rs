@@ -3,6 +3,7 @@
 //! down the picture, 0 is the top of the first screen seen in it.
 
 use rusqlite::{params, Connection, OptionalExtension};
+use std::collections::HashMap;
 use std::path::Path;
 
 pub type Db = Connection;
@@ -346,6 +347,27 @@ pub fn insert_reader_page(db: &Db, key: &str, picture_id: i64, page_url: &str, i
 /// Gemini's answer (JSON) kept for a reader page, if it was kept.
 pub fn reader_items(db: &Db, key: &str) -> Res<Option<String>> {
     db.query_row("SELECT items FROM ReaderPage WHERE key = ?1", [key], |r| r.get(0)).optional().map(Option::flatten)
+}
+
+/// Keeps Gemini's answer (JSON) for a reader page saved without one.
+pub fn set_reader_items(db: &Db, key: &str, items: &str) -> Res<()> {
+    db.execute("UPDATE ReaderPage SET items = ?2 WHERE key = ?1", params![key, items])?;
+    Ok(())
+}
+
+/// A reader page's placements, in order, each with the source text of its
+/// translation: what a page saved before its answer was kept still holds.
+pub fn reader_lines(db: &Db, key: &str) -> Res<Vec<(PlacementRow, String)>> {
+    let Some(id) = reader_page(db, key)? else { return Ok(vec![]) };
+    let sources: HashMap<String, String> = {
+        let mut st = db.prepare("SELECT t.fingerprint, COALESCE(t.source_ja, '') FROM Placement p JOIN Translation t ON t.fingerprint = p.fingerprint WHERE p.picture_id = ?1")?;
+        let rows = st.query_map([id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        rows.collect::<Res<_>>()?
+    };
+    Ok(reader_placements(db, key)?.into_iter().map(|p| {
+        let src = sources.get(&p.fingerprint).cloned().unwrap_or_default();
+        (p, src)
+    }).collect())
 }
 
 /// The kept answers (JSON) of the pages read just before `seq` in `book`,

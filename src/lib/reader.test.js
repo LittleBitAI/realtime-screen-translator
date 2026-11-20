@@ -132,6 +132,34 @@ describe('reader page script', () => {
     expect(text.textContent).toBe('아⁠—?! 13일의...?!');
   });
 
+  it('gives Korean too long for its text area the cover\'s box, and past that lets it show rather than cutting a line off', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('cors'); }));
+    const area = { x: 100, y: 200, w: 120, h: 80, radius: 0, font_px: 20, outline: [], text: [150, 230, 16, 10] };
+    const invoke = vi.fn().mockResolvedValue(null)
+      .mockResolvedValueOnce({ ...page(null), boxes: [{ ...area, ko: '가'.repeat(20) }, { ...area, y: 400, ko: '가'.repeat(100) }] });
+    window.__TAURI_INTERNALS__ = { invoke };
+    // The lines overflow the text area at every size, and the cover's box
+    // only where fewer than 50 syllables are set in it.
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(10);
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function () {
+      return this.style.width === '100%' && this.textContent.length < 50 ? 10 : 1000;
+    });
+    pagePicture('https://cdn.example/5.jpg');
+
+    new Function(script)();
+
+    const texts = await vi.waitFor(() => {
+      const t = [...document.querySelectorAll('.rst-text')];
+      expect(t).toHaveLength(2);
+      return t;
+    });
+    expect(texts.map((t) => [t.style.left, t.style.top, t.style.width, t.style.height, t.style.overflow])).toEqual([
+      ['0%', '0%', '100%', '100%', ''],
+      ['0%', '0%', '100%', '100%', 'visible'],
+    ]);
+    expect(texts[1].style.fontSize).toBe('2px');
+  });
+
   it('loads and translates a chapter picture only as it approaches the view', async () => {
     history.replaceState(null, '', '/chapter.html?id=4');
     document.head.innerHTML = '<meta name="rst-app"><meta name="rst-chapter">';

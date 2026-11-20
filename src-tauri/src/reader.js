@@ -25,6 +25,7 @@
   const pics = new Map(); // img -> { src, layer, state }
   const queue = new Set();
   let running = 0;
+  let sending = Promise.resolve(); // the last page call started, once sent
   let on = true;
   let bar;
   let barText;
@@ -220,14 +221,18 @@
   }
 
   function pump() {
-    while (running < PARALLEL && queue.size && on) {
-      // The picture nearest the view first.
+    const picked = [];
+    while (running + picked.length < PARALLEL && queue.size && on) {
+      // The pictures nearest the view first.
       const img = [...queue].sort((a, b) => distance(a) - distance(b))[0];
       queue.delete(img);
       const p = pics.get(img);
       if (!p || p.state !== 'new' || distance(img) > NEAR) continue;
-      translate(img, p);
+      picked.push(img);
     }
+    // Started in reading order: the app has a later page wait for the
+    // earlier ones it is reading, so its request carries their lines.
+    picked.sort((a, b) => order(a) - order(b)).forEach((img) => translate(img, pics.get(img)));
     status();
   }
 
@@ -268,9 +273,24 @@
     p.state = 'busy';
     chip(img, p, '번역 중…');
     try {
-      const answer = chapter
-        ? await invoke('post_chapter_page', { picture_id: p.src })
-        : await invoke('post_reader_page', { src: p.src, image: await bytes(p.src), page_url: location.href, title: document.title, index: order(img) });
+      // Sent in the order started, even where a later page's picture is
+      // fetched sooner.
+      // ponytail: two calls sent in order still race into the app's threads
+      // for a moment; a book-wide turn in the app would close it.
+      const image = chapter ? null : bytes(p.src);
+      const before = sending;
+      let sent;
+      sending = new Promise((ok) => (sent = ok));
+      let call;
+      try {
+        await before;
+        call = chapter
+          ? invoke('post_chapter_page', { picture_id: p.src })
+          : invoke('post_reader_page', { src: p.src, image: await image, page_url: location.href, title: document.title, index: order(img) });
+      } finally {
+        sent();
+      }
+      const answer = await call;
       p.state = 'done';
       problem = answer.save_error ? messages[answer.save_error] ?? messages.storage_full : null;
       // Not kept in the library: drawn, but asked again so the app saves it.
@@ -667,6 +687,7 @@
     text.style.wordBreak = '';
     text.style.textWrap = '';
     text.style.overflowWrap = 'normal';
+    text.style.overflow = '';
     const f = text.rstFlow;
     if (f) {
       squeeze(text, 0);
@@ -691,7 +712,13 @@
     text.style.textWrap = 'wrap';
     if (!shrink(READABLE, true) || !shrink(READABLE)) return 1;
     text.style.overflowWrap = 'anywhere';
-    return shrink(2) ? 0 : 1;
+    if (!shrink(2)) return 1;
+    // Over even at the floor: the Korean takes the cover's whole box, and
+    // past that it shows rather than a line being cut off.
+    Object.assign(text.style, { left: '0%', top: '0%', width: '100%', height: '100%' });
+    if (!shrink(2)) return 1;
+    text.style.overflow = 'visible';
+    return 0;
   }
 
   function status() {

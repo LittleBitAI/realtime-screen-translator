@@ -358,6 +358,56 @@ fn copies_of_one_page_read_at_once_send_it_to_gemini_once() {
     assert_eq!(books[0].pictures.len(), 1, "kept once");
 }
 
+/// A page asked for while the page before it is still with Gemini waits
+/// for it, and its request carries that page's lines: for a site chapter
+/// and an imported one alike.
+#[test]
+fn a_page_read_while_the_one_before_is_with_gemini_carries_its_lines() {
+    let numbered = |n: u8| {
+        let mut bytes = page();
+        bytes.push(n);
+        bytes
+    };
+    for form in ["site", "imported"] {
+        let dirs = Dirs::new();
+        let gemini = PageGemini::answering_after(std::time::Duration::from_millis(400));
+        let b = keyed(&gemini, &dirs);
+        let pages: Vec<Box<dyn Fn() -> realtime_screen_translator::api::PageOut + Send>> = if form == "site" {
+            (1..=2u8)
+                .map(|n| {
+                    let b = b.clone();
+                    Box::new(move || {
+                        let req = PageIn { src: format!("https://cdn.example/{n}.jpg"), image: Some(numbered(n)), page_url: "https://manga.example/c/1".into(), title: "Fixture".into(), index: n as i64 };
+                        b.read_page(req).unwrap()
+                    }) as Box<dyn Fn() -> _ + Send>
+                })
+                .collect()
+        } else {
+            let folder = dirs.data.with_file_name("Fixture");
+            fs::create_dir_all(&folder).unwrap();
+            (1..=2u8).for_each(|n| fs::write(folder.join(format!("{n}.jpg")), numbered(n)).unwrap());
+            let book = b.import_folder(&folder).unwrap();
+            b.chapter(book).unwrap().pages.into_iter().map(|p| {
+                let b = b.clone();
+                Box::new(move || b.read_chapter_page(p.id).unwrap()) as Box<dyn Fn() -> _ + Send>
+            }).collect()
+        };
+        let mut pages = pages.into_iter();
+        let (first, second) = (pages.next().unwrap(), pages.next().unwrap());
+        let first = std::thread::spawn(move || first());
+        // The first page's request is with Gemini when the second is asked for.
+        while gemini.count() == 0 {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let second = std::thread::spawn(move || second());
+        assert!(!first.join().unwrap().saved, "{form}");
+        assert!(!second.join().unwrap().saved, "{form}");
+        assert_eq!(gemini.count(), 2, "{form}");
+        let prompt = gemini.last()["contents"][0]["parts"][0]["text"].as_str().unwrap().to_string();
+        assert!(prompt.contains("HELLO => 안녕"), "{form}: {prompt}");
+    }
+}
+
 #[test]
 fn a_page_whose_saving_fails_says_so_and_is_saved_by_the_next_call_without_gemini() {
     let dirs = Dirs::new();

@@ -159,12 +159,14 @@ pub fn page_prompt(lang: &str, context: &[PageItem]) -> String {
     let order = if lang == "en" { "left to right, top to bottom" } else { "right to left, top to bottom" };
     let mut text = format!(
         "This is one manga page. Find every speech balloon, thought bubble and narration box that holds \
-         {source} dialogue. Leave out sound effects, onomatopoeia, signs, screens and any text drawn as \
-         part of the art. Give exactly one item per balloon: never merge two balloons into one item, even \
+         {source} dialogue, and every line a character speaks, shouts or thinks that is lettered straight \
+         on the art with no balloon round it; each such line counts as a balloon here. Leave out sound \
+         effects, onomatopoeia, signs and screens. Give exactly one item per balloon: never merge two balloons into one item, even \
          when they touch or one character says both, and never split one balloon into two items. For each \
          item give box_2d as [ymin, xmin, ymax, xmax] scaled to 0-1000 tightly around all of its text, from \
          the first letter of the first line to the last letter of the last line, and balloon_2d the same way \
-         around the whole balloon or box up to its outline; speaker, the name of the character who says it \
+         around the whole balloon or box up to its outline (for a line with no balloon, around its \
+         lettering); speaker, the name of the character who says it \
          (as named on earlier pages, or a short description when the name is not known); the {source} text \
          as src; and as ko a natural Korean translation that fits the balloon, in the voice the character \
          uses there (casual only where the {source} is). Work out who speaks each balloon from its tail, the \
@@ -367,6 +369,20 @@ mod tests {
         assert!(prompt.contains("\nRin: LINE 5 => 줄 5") && prompt.contains(&format!("LINE {}", CONTEXT_LINES + 4)));
         assert!(!prompt.contains("LINE 4 =>"));
         assert!(!page_prompt("en", &[]).contains("pages before this one"));
+    }
+
+    /// Dialogue lettered on the art with no balloon is asked for (the reader
+    /// covers it with the art's tone), and only sound effects, signs and
+    /// screens are left out: nothing tells the model to drop text drawn on
+    /// the art, in either language.
+    #[test]
+    fn the_prompt_asks_for_dialogue_lettered_on_the_art() {
+        for lang in ["en", "ja"] {
+            let prompt = page_prompt(lang, &[]);
+            assert!(prompt.contains("lettered straight on the art with no balloon"), "{lang}");
+            assert!(prompt.contains("Leave out sound effects, onomatopoeia, signs and screens."), "{lang}");
+            assert!(!prompt.contains("part of the art"), "{lang}");
+        }
     }
 
     #[test]

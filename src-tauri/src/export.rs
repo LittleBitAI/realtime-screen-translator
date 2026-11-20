@@ -602,8 +602,17 @@ fn draw_words(img: &mut Rgb, p: &PlacementRow, top: i64) {
     let text = cover.as_ref().map_or([p.x + PAD as i64, p.y + PAD as i64, p.w.saturating_sub(2 * PAD) as i64, p.h.saturating_sub(2 * PAD) as i64], |c| c.text);
     match cover.as_ref().filter(|c| !c.parts.is_empty()) {
         // A line lettered in several balloons: each share in its own.
-        Some(c) => c.parts.iter().for_each(|part| draw_text(img, &part.ko, part.font_px, part.text, top)),
-        None => draw_text(img, &p.ko, p.font_px, text, top),
+        Some(c) => c.parts.iter().for_each(|part| draw_text(img, &part.ko, part.font_px, part.text, top, true)),
+        None => draw_text(img, &p.ko, p.font_px, text, top, cover.is_some()),
+    }
+}
+
+/// The lines [`draw_text`] sets `ko` in.
+fn text_lines(ko: &str, size: u32, width: u32, by_words: bool) -> Vec<Vec<char>> {
+    if by_words {
+        layout::wrap(ko, size as f64, width as f64).iter().map(|l| l.chars().collect()).collect()
+    } else {
+        layout::lines(ko, size, width)
     }
 }
 
@@ -612,10 +621,12 @@ fn draw_words(img: &mut Rgb, p: &PlacementRow, top: i64) {
 const HALO: f32 = 0.14;
 
 /// `ko` at `font_px`, centred in text area `x, y, w, h` (page pixels; the
-/// image starts at page row `top`).
-fn draw_text(img: &mut Rgb, ko: &str, font_px: u16, [tx, ty, tw, th]: [i64; 4], top: i64) {
+/// image starts at page row `top`). A reader placement (`by_words`) is
+/// wrapped as its size was chosen ([`layout::wrap`]), the capture overlay's
+/// as [`layout::fit`] sized it.
+fn draw_text(img: &mut Rgb, ko: &str, font_px: u16, [tx, ty, tw, th]: [i64; 4], top: i64, by_words: bool) {
     let size = font_px.max(1) as u32;
-    let lines = layout::lines(ko, size, (tw.max(1)) as u32);
+    let lines = text_lines(ko, size, tw.max(1) as u32, by_words);
     let line_h = size as f32 * 1.2;
     let top = (ty - top) as f32 + (th as f32 - lines.len() as f32 * line_h) / 2.0;
     let cx = tx as f32 + tw as f32 / 2.0;
@@ -738,6 +749,21 @@ mod tests {
         assert_eq!(at(10, 10), 90);
         let dark = (24..96).flat_map(|y| (44..156).map(move |x| (x, y))).filter(|&(x, y)| at(x, y) < 128).count();
         assert!(dark > 0);
+    }
+
+    /// A reader line is drawn in the lines its size was chosen for: short
+    /// words set three a line, not one word a line past the text area.
+    #[test]
+    fn a_reader_line_is_drawn_inside_the_area_its_size_was_chosen_for() {
+        let (ko, area) = ("가 나 다 라 마 바", [20, 20, 76, 48]);
+        let font = layout::font_for(ko, 76, 48, Some(40.0));
+        assert_eq!((font, layout::wrap(ko, font as f64, 76.0).len()), (20, 2));
+        assert_eq!(text_lines(ko, font as u32, 76, true).len(), 2);
+        let mut img = Rgb { w: 120, h: 120, px: vec![255; 120 * 120 * 3] };
+        draw_text(&mut img, ko, font, area, 0, true);
+        let rows: Vec<u32> = (0..120).filter(|&y| (0..120).any(|x| img.px[((y * 120 + x) * 3) as usize] < 128)).collect();
+        assert!(!rows.is_empty());
+        assert!(rows.iter().all(|&y| (20..=68).contains(&y)), "{rows:?}");
     }
 
     /// The export draws what the reader shows: the balloon's outline (a

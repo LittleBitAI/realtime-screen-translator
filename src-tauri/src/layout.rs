@@ -188,35 +188,40 @@ fn em(c: char) -> f64 {
     }
 }
 
-/// How many lines `ko` takes at `font` px in `width` px, wrapped at spaces
-/// as the reader wraps it (`word-break: keep-all`), a word too long for a
-/// line broken anywhere.
-pub fn wrapped_lines(ko: &str, font: f64, width: f64) -> usize {
-    let mut lines = 0;
+/// The lines `ko` takes at `font` px in `width` px, wrapped at spaces as the
+/// reader wraps it (`word-break: keep-all`), a word too long for a line
+/// broken anywhere. The size is chosen and the export drawn by these lines.
+pub fn wrap(ko: &str, font: f64, width: f64) -> Vec<String> {
+    let mut lines = vec![];
     for part in ko.trim().split('\n') {
-        let mut used = 0.0;
-        lines += 1;
-        for (i, word) in part.split(' ').enumerate() {
+        let (mut line, mut used) = (String::new(), 0.0);
+        for word in part.split(' ') {
             let w: f64 = word.chars().map(|c| em(c) * font).sum();
-            let space = if i == 0 || used == 0.0 { 0.0 } else { em(' ') * font };
+            let space = if used == 0.0 { 0.0 } else { em(' ') * font };
             if used > 0.0 && used + space + w > width {
-                lines += 1;
+                lines.push(std::mem::take(&mut line));
                 used = 0.0;
+            } else if used > 0.0 {
+                line.push(' ');
+                used += space;
             }
             if w > width {
                 // Broken across lines like `overflow-wrap: anywhere`.
                 for c in word.chars() {
                     let cw = em(c) * font;
                     if used > 0.0 && used + cw > width {
-                        lines += 1;
+                        lines.push(std::mem::take(&mut line));
                         used = 0.0;
                     }
+                    line.push(c);
                     used += cw;
                 }
             } else {
-                used += if used == 0.0 { w } else { space + w };
+                line.push_str(word);
+                used += w;
             }
         }
+        lines.push(line);
     }
     lines
 }
@@ -226,7 +231,7 @@ pub fn wrapped_lines(ko: &str, font: f64, width: f64) -> usize {
 /// keeps the space around it, and smaller only as far as the whole text
 /// needs to fit. The reader steps it down further if its own lines overflow.
 pub fn font_for(ko: &str, w: u32, h: u32, glyph: Option<f64>) -> u16 {
-    let fits = |f: u32| wrapped_lines(ko, f as f64, w as f64) as f64 * f as f64 * LINE <= h as f64;
+    let fits = |f: u32| wrap(ko, f as f64, w as f64).len() as f64 * f as f64 * LINE <= h as f64;
     let target = glyph.map_or(FIT_MAX, |g| (g * KO_SCALE).round().max(1.0) as u32);
     (1..=target.min(h.max(1))).rev().find(|&f| fits(f)).unwrap_or(1) as u16
 }
@@ -256,7 +261,7 @@ mod tests {
         assert_eq!(font_for("응!", 200, 200, Some(20.0)), 23);
         let long = "그러니까 우리 집 구독 스트리밍 서비스에는 그 영화가 없어서 폰으로도 볼 수가 없다는 거야";
         let f = font_for(long, 100, 120, Some(20.0));
-        assert!(f < 23 && wrapped_lines(long, f as f64, 100.0) as f64 * f as f64 * LINE <= 120.0, "{f}");
+        assert!(f < 23 && wrap(long, f as f64, 100.0).len() as f64 * f as f64 * LINE <= 120.0, "{f}");
     }
 
     /// A line Gemini gave for two balloons is cut at a sentence end, nearest
