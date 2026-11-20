@@ -646,21 +646,26 @@ pub fn blocks(page: &Page, vertical: bool) -> Vec<Block> {
     out
 }
 
-/// How many letter-sized marks are centred inside `r` (picture pixels):
-/// whether a box Gemini gave holds lettering at all, or only the art (a
-/// shout fused with the panel frame, hair under it). Marks are sought in
-/// `r` grown by its shorter side, so a box drawn tight on the letters, or
-/// cutting through them, still finds them whole. Dark marks, or where the
-/// box is mostly dark, light ones too: white letters on a black balloon are
-/// lettering as much as black letters on white.
+/// How many marks of lettering `r` (picture pixels) holds: whether a box
+/// Gemini gave holds lettering at all, or only the art (a shout fused with
+/// the panel frame, hair under it). The marks wholly inside it, or, where
+/// more, the letter-sized ones centred in it, sought in `r` grown by its
+/// shorter side: a box drawn tight on the letters, or cut through them,
+/// still finds them whole. Marks smaller than a letter (`LETTER_MIN`, as
+/// [`split`] takes) count only wholly inside, so the dots of "...!" are not
+/// taken for the letters a box lying beside them misses. Dark marks, or
+/// where the box is mostly dark, light ones too: white letters on a black
+/// balloon are lettering as much as black letters on white.
 pub fn marks_in(page: &Page, r: [f64; 4]) -> usize {
     let m = (r[2] - r[0]).min(r[3] - r[1]).max(0.0);
     let around = [r[0] - m, r[1] - m, r[2] + m, r[3] + m];
+    let lo = LETTER_MIN * page.w as f64;
     let count = |light| {
-        marks_within(page, around, light).iter().filter(|k| {
+        let centred = marks_within(page, around, light).iter().filter(|k| {
             let (cx, cy) = ((k[0] + k[2]) / 2.0, (k[1] + k[3]) / 2.0);
-            cx >= r[0] && cx <= r[2] && cy >= r[1] && cy <= r[3]
-        }).count()
+            (k[2] - k[0]).max(k[3] - k[1]) >= lo && cx >= r[0] && cx <= r[2] && cy >= r[1] && cy <= r[3]
+        }).count();
+        marks_within(page, r, light).len().max(centred)
     };
     let dark = count(false);
     let (x0, y0) = (r[0].max(0.0) as usize, r[1].max(0.0) as usize);
@@ -1770,6 +1775,34 @@ mod tests {
     /// (p11, "THIS IS FALSE ADVERTISING!" beside "WHAT THE HELL DID I JUST
     /// WATCH?!"). Each part goes to the line whose box lies on it, in the
     /// lines' order; one line of letters is never cut.
+    /// ch256 p16: Gemini's box for "RIN...!" lay below its letters, on the
+    /// edge of the dots. Dots it does not wholly hold are not taken for
+    /// lettering, so the box holds none; a box tight on the letters, or cut
+    /// through them, holds the letters, and one round it all every mark.
+    #[test]
+    fn a_box_counts_the_letters_centred_in_it_and_not_dots() {
+        let (w, h) = (600usize, 600usize);
+        let mut px = vec![255u8; w * h];
+        let mut ink = |x0: usize, y0: usize, x1: usize, y1: usize| (y0..y1).for_each(|y| (x0..x1).for_each(|x| px[y * w + x] = 0));
+        // Three 16 x 20 "L"s, then three 3 x 3 dots on their baseline.
+        for x0 in [236, 258, 280] {
+            ink(x0, 270, x0 + 4, 290);
+            ink(x0, 286, x0 + 16, 290);
+        }
+        for x0 in [302, 310, 318] {
+            ink(x0, 287, x0 + 3, 290);
+        }
+        let p = Page { w: w as u32, h: h as u32, px: &px };
+        for (name, r, want) in [
+            ("below, on the dots", [230.0, 288.0, 340.0, 380.0], 0),
+            ("tight", [236.0, 270.0, 296.0, 290.0], 3),
+            ("cut through", [240.0, 276.0, 292.0, 286.0], 3),
+            ("loose", [226.0, 260.0, 330.0, 300.0], 6),
+        ] {
+            assert_eq!(marks_in(&p, r), want, "{name}");
+        }
+    }
+
     #[test]
     fn a_block_of_two_lines_is_cut_where_they_part() {
         let (w, h) = (600usize, 600usize);

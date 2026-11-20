@@ -1125,7 +1125,9 @@ mod tests {
     /// A page saved by an older library kept its rectangles and each line's
     /// source and Korean, but not Gemini's answer. Reopened, it is laid out
     /// again by this version (its cover follows the balloon's outline), its
-    /// answer is kept from then on, and no request is sent.
+    /// answer is kept from then on, and no request is sent. The columns that
+    /// version draws from stay as it saved them, should it read the library
+    /// again.
     #[test]
     fn a_page_saved_by_an_earlier_version_is_laid_out_again_and_keeps_what_that_version_reads() {
         // Saved by a version that kept no cover, and by one that kept a
@@ -1187,10 +1189,11 @@ mod tests {
         }
     }
 
-    /// White letters on a solid black balloon, with a tight box round them:
-    /// the line is lettering, not a box on the art, so it gets a cover over
-    /// its letters and its Korean, where before it was kept with nothing
-    /// drawn and the source showed.
+    /// White letters on a solid black balloon, or black on white, with
+    /// Gemini's box loose round them or on their very edge: the line is
+    /// lettering, not a box on the art, so it gets a cover over its letters
+    /// and its Korean, where white letters were kept with nothing drawn and
+    /// the source showed.
     #[test]
     fn letters_in_a_balloon_are_covered_whether_the_box_is_loose_or_tight_on_them() {
         // Light letters on a black balloon and dark ones on a white one;
