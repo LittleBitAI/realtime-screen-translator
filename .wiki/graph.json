@@ -113,7 +113,7 @@
   "read": 2,
   "orphans": 2,
   "pages": 8,
-  "decisions": 6,
-  "injectable_decisions": 2
+  "decisions": 14,
+  "injectable_decisions": 4
  }
 }
