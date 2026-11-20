@@ -653,51 +653,70 @@ pub fn marks_in(page: &Page, r: [f64; 4]) -> usize {
     marks_within(page, r).len()
 }
 
-/// One block of lettering cut in two between its lines, for two items
-/// lettered so close that they were grouped as one (ch256 p12, the
-/// narration "SURELY, HER FRIEND MUST HAVE NOTICED HER" ending on the top
-/// edge of the balloon "THE PEOPLE DEMAND MORE 13!"). The cut falls between
-/// two lines, where each side's letters come nearest the letters of the
-/// line read there (`counts`, first in reading order first); each side must
-/// hold a word. None when no cut does.
-pub fn split(page: &Page, block: &Block, counts: [usize; 2], vertical: bool) -> Option<[Block; 2]> {
+/// One block of lettering cut in two for two lines lettered so close that
+/// they were grouped as one: stacked (ch256 p12, the narration "SURELY, HER
+/// FRIEND MUST HAVE NOTICED HER" ending on the top edge of the balloon "THE
+/// PEOPLE DEMAND MORE 13!") or side by side in one balloon (ch256 p11, "THIS
+/// IS FALSE ADVERTISING!" beside "WHAT THE HELL DID I JUST WATCH?!"). The
+/// cut runs across the block, between rows of letters or between columns
+/// of them, wherever no letter straddles it. Each side goes to the line
+/// (Gemini's box and its letter count) whose box lies more on it than on
+/// the other side, and the cut taken is the one whose sides' letters come
+/// nearest their lines' counts; each side must hold a word. The parts come
+/// in the lines' order. None when no cut does.
+pub fn split(page: &Page, block: &Block, lines: [([f64; 4], usize); 2]) -> Option<[Block; 2]> {
     let b = block.bounds;
     let lo = LETTER_MIN * page.w as f64;
-    // Along the reading: lines down the page, or columns from the right.
-    let along = |m: &[f64; 4]| if vertical { [-m[2], -m[0]] } else { [m[1], m[3]] };
-    let size = |m: &[f64; 4]| if vertical { m[2] - m[0] } else { m[3] - m[1] };
-    let mut marks: Vec<[f64; 4]> = marks_within(page, [b[0] - 3.0, b[1] - 3.0, b[2] + 3.0, b[3] + 3.0]).into_iter().filter(|m| size(m) >= lo).collect();
-    marks.sort_by(|p, q| (along(p)[0] + along(p)[1]).total_cmp(&(along(q)[0] + along(q)[1])));
-    // Lines: marks whose middles fall within the line so far.
-    let mut lines: Vec<(f64, f64, Vec<[f64; 4]>)> = vec![];
-    for m in marks {
-        let [a0, a1] = along(&m);
-        let mid = (a0 + a1) / 2.0;
-        match lines.last_mut() {
-            Some(l) if mid >= l.0 && mid <= l.1 => {
-                (l.0, l.1) = (l.0.min(a0), l.1.max(a1));
-                l.2.push(m);
-            }
-            _ => lines.push((a0, a1, vec![m])),
-        }
-    }
-    let miss = |n: usize, c: usize| ((n as f64 + 1.0) / (c as f64 + 1.0)).ln().abs();
-    let total: usize = lines.iter().map(|l| l.2.len()).sum();
-    let (cut, _) = (1..lines.len())
-        .filter(|&s| lines[s - 1].1 <= lines[s].0)
-        .map(|s| (s, lines[..s].iter().map(|l| l.2.len()).sum::<usize>()))
-        .filter(|&(_, first)| first >= WORD_LETTERS && total - first >= WORD_LETTERS)
-        .map(|(s, first)| (s, miss(first, counts[0]) + miss(total - first, counts[1])))
-        .min_by(|p, q| p.1.total_cmp(&q.1))?;
-    let part = |ls: &[(f64, f64, Vec<[f64; 4]>)]| {
-        let ms: Vec<&[f64; 4]> = ls.iter().flat_map(|l| &l.2).collect();
+    let marks: Vec<[f64; 4]> = marks_within(page, [b[0] - 3.0, b[1] - 3.0, b[2] + 3.0, b[3] + 3.0]).into_iter().filter(|m| (m[2] - m[0]).max(m[3] - m[1]) >= lo).collect();
+    let part = |ms: &[[f64; 4]]| {
         let bounds = ms.iter().fold([f64::MAX, f64::MAX, f64::MIN, f64::MIN], |r, m| [r[0].min(m[0]), r[1].min(m[1]), r[2].max(m[2]), r[3].max(m[3])]);
-        let mut sizes: Vec<f64> = ms.iter().map(|m| size(m)).collect();
+        // A letter's size: its larger side.
+        let mut sizes: Vec<f64> = ms.iter().map(|m| (m[2] - m[0]).max(m[3] - m[1])).collect();
         sizes.sort_by(f64::total_cmp);
         let glyph = sizes[sizes.len() / 2];
         Block { bounds, letters: ms.len(), glyph, in_balloon: find(page, bounds, glyph, &[]).is_some() }
     };
-    Some([part(&lines[..cut]), part(&lines[cut..])])
+    let overlap = |t: [f64; 4], r: [f64; 4]| (t[2].min(r[2]) - t[0].max(r[0])).max(0.0) * (t[3].min(r[3]) - t[1].max(r[1])).max(0.0);
+    let miss = |n: usize, c: usize| ((n as f64 + 1.0) / (c as f64 + 1.0)).ln().abs();
+    let mut best: Option<(f64, [Vec<[f64; 4]>; 2])> = None;
+    // Across x (columns side by side), then across y (rows).
+    for axis in [0, 1] {
+        let mut ms = marks.clone();
+        ms.sort_by(|p, q| (p[axis] + p[axis + 2]).total_cmp(&(q[axis] + q[axis + 2])));
+        // Bands: marks whose middles fall within the band so far.
+        let mut bands: Vec<(f64, f64, usize)> = vec![];
+        for (n, m) in ms.iter().enumerate() {
+            let mid = (m[axis] + m[axis + 2]) / 2.0;
+            match bands.last_mut() {
+                Some(l) if mid >= l.0 && mid <= l.1 => (l.0, l.1, l.2) = (l.0.min(m[axis]), l.1.max(m[axis + 2]), n + 1),
+                _ => bands.push((m[axis], m[axis + 2], n + 1)),
+            }
+        }
+        for s in 1..bands.len() {
+            if bands[s - 1].1 > bands[s].0 {
+                continue;
+            }
+            let (one, two) = ms.split_at(bands[s - 1].2);
+            if one.len() < WORD_LETTERS || two.len() < WORD_LETTERS {
+                continue;
+            }
+            let (p1, p2) = (part(one).bounds, part(two).bounds);
+            let ((a, ac), (c, cc)) = (lines[0], lines[1]);
+            let sides = if overlap(a, p1) > overlap(a, p2) && overlap(c, p2) > overlap(c, p1) {
+                [one.to_vec(), two.to_vec()]
+            } else if overlap(a, p2) > overlap(a, p1) && overlap(c, p1) > overlap(c, p2) {
+                [two.to_vec(), one.to_vec()]
+            } else {
+                continue;
+            };
+            let cost = miss(sides[0].len(), ac) + miss(sides[1].len(), cc);
+            if best.as_ref().is_none_or(|(c, _)| cost < *c) {
+                best = Some((cost, sides));
+            }
+        }
+    }
+    let [one, two] = best?.1;
+    Some([part(&one), part(&two)])
 }
 
 /// The bounds of the letter-sized dark marks lying wholly inside `r`.
@@ -1724,27 +1743,42 @@ mod tests {
         assert_eq!(find(&p, [100.0, 80.0, 200.0, 120.0], 20.0, &[]), None);
     }
 
-    /// ch256 p12: the narration "SURELY, HER FRIEND MUST HAVE NOTICED HER"
-    /// (33 letters) and the balloon under it, "THE PEOPLE DEMAND MORE 13!"
-    /// (21), lettered as one block. It is cut between the lines where each
-    /// side's letters come nearest its line's; one line is never cut.
+    /// Two lines lettered as one block are cut where they part: stacked
+    /// (ch256 p12, the narration "SURELY, HER FRIEND..." ending on the top
+    /// of "THE PEOPLE DEMAND MORE 13!") or side by side in one balloon
+    /// (p11, "THIS IS FALSE ADVERTISING!" beside "WHAT THE HELL DID I JUST
+    /// WATCH?!"). Each part goes to the line whose box lies on it, in the
+    /// lines' order; one line of letters is never cut.
     #[test]
-    fn a_block_of_two_lines_close_together_is_cut_between_them() {
+    fn a_block_of_two_lines_is_cut_where_they_part() {
         let (w, h) = (600usize, 600usize);
         let mut px = vec![255u8; w * h];
-        // Five lines of four 12 x 16 letters, 8 px apart.
-        for y in [100, 124, 148, 172, 196] {
-            for x in [100, 120, 140, 160] {
-                (y..y + 16).for_each(|y| (x..x + 12).for_each(|x| px[y * w + x] = 0));
+        let mut letters = |xs: &[usize], ys: &[usize]| {
+            for &y in ys {
+                for &x in xs {
+                    (y..y + 16).for_each(|y| (x..x + 12).for_each(|x| px[y * w + x] = 0));
+                }
             }
-        }
+        };
+        // Five lines of four 12 x 16 letters, 8 px apart.
+        letters(&[100, 120, 140, 160], &[100, 124, 148, 172, 196]);
+        // Three lines of three letters, and 28 px to their right three of five.
+        letters(&[300, 320, 340], &[300, 324, 348]);
+        letters(&[380, 400, 420, 440, 460], &[300, 324, 348]);
         let p = Page { w: w as u32, h: h as u32, px: &px };
-        let block = Block { bounds: [100.0, 100.0, 172.0, 212.0], letters: 20, glyph: 16.0, in_balloon: false };
-        let [a, b] = split(&p, &block, [12, 8], false).expect("a cut");
+        let stacked = Block { bounds: [100.0, 100.0, 172.0, 212.0], letters: 20, glyph: 16.0, in_balloon: false };
+        let (top, bottom) = (([90.0, 95.0, 180.0, 166.0], 12), ([90.0, 168.0, 180.0, 220.0], 8));
+        let [a, b] = split(&p, &stacked, [top, bottom]).expect("a cut");
         assert_eq!((a.bounds, a.letters, b.bounds, b.letters), ([100.0, 100.0, 172.0, 164.0], 12, [100.0, 172.0, 172.0, 212.0], 8));
-        let [a, b] = split(&p, &block, [8, 12], false).expect("a cut");
+        let [a, b] = split(&p, &stacked, [bottom, top]).expect("a cut");
         assert_eq!((a.letters, b.letters), (8, 12));
-        let one = Block { bounds: [100.0, 100.0, 172.0, 116.0], ..block };
-        assert!(split(&p, &one, [2, 2], false).is_none());
+        let beside = Block { bounds: [300.0, 300.0, 472.0, 364.0], letters: 24, glyph: 16.0, in_balloon: false };
+        let (left, right) = (([290.0, 290.0, 360.0, 370.0], 9), ([370.0, 290.0, 480.0, 370.0], 15));
+        let [a, b] = split(&p, &beside, [right, left]).expect("a cut");
+        assert_eq!((a.bounds, a.letters, b.bounds, b.letters), ([380.0, 300.0, 472.0, 364.0], 15, [300.0, 300.0, 352.0, 364.0], 9));
+        // A cut the boxes do not lie either side of is not taken.
+        assert!(split(&p, &beside, [top, bottom]).is_none());
+        let one = Block { bounds: [100.0, 100.0, 172.0, 116.0], ..stacked };
+        assert!(split(&p, &one, [([90.0, 95.0, 130.0, 120.0], 2), ([131.0, 95.0, 180.0, 120.0], 2)]).is_none());
     }
 }

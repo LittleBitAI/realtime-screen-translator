@@ -374,24 +374,13 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
     let mut wanted: Vec<([f64; 4], usize)> = items.iter().map(|it| (px(it.text, w, h), letters(&it.src))).collect();
     let mut on = balloon::assign(&wanted, &blocks, w);
     balloon::nudge(&mut wanted, &blocks, &mut on);
-    // A line lettered in another's block gets its own lines of it where
-    // the block parts between the two (ch256 p12, a narration on the art
-    // and the balloon it ends on): each is then covered as what it is.
+    // A line lettered in another's block gets its own part of it where
+    // the block parts between the two, stacked or side by side (ch256 p12,
+    // a narration on the art and the balloon it ends on; p11, two shouts in
+    // one balloon): each is then covered as what it is.
     for (i, k) in hosts(&wanted, &blocks, &on).into_iter().enumerate().filter_map(|(i, k)| Some((i, k?))) {
         let Some(j) = on[k] else { continue };
-        let at = |t: [f64; 4]| if vertical { -(t[0] + t[2]) } else { t[1] + t[3] };
-        let k_first = at(wanted[k].0) <= at(wanted[i].0);
-        let counts = if k_first { [wanted[k].1, wanted[i].1] } else { [wanted[i].1, wanted[k].1] };
-        if let Some([first, second]) = balloon::split(&pg, &blocks[j], counts, vertical) {
-            let (own, other) = if k_first { (first, second) } else { (second, first) };
-            // Each line's box lies more on its own side than on the other:
-            // lines set side by side are not parted by a cut between rows
-            // (ch256 p11, "THIS IS FALSE ADVERTISING!" beside "WHAT THE
-            // HELL DID I JUST WATCH?!").
-            let on_side = |t: [f64; 4], b: &balloon::Block| (t[2].min(b.bounds[2]) - t[0].max(b.bounds[0])).max(0.0) * (t[3].min(b.bounds[3]) - t[1].max(b.bounds[1])).max(0.0);
-            if on_side(wanted[k].0, &own) <= on_side(wanted[k].0, &other) || on_side(wanted[i].0, &other) <= on_side(wanted[i].0, &own) {
-                continue;
-            }
+        if let Some([own, other]) = balloon::split(&pg, &blocks[j], [wanted[k], wanted[i]]) {
             blocks[j] = own;
             blocks.push(other);
             on[i] = Some(blocks.len() - 1);

@@ -564,10 +564,12 @@
     if (!(k > 0)) return false;
     const tol = 1 / k;
     // A band too narrow for a line leaves a gap among them (ch256 p12,
-    // "아... 아버 / / 지...!"): set smaller, the lines run on.
+    // "아... 아버 / / 지...!"), and a quarter line already shows (p11, "이건
+    // 허위 / / 광고야!" in the narrow half of a joined balloon): set
+    // smaller, the lines run on.
     const rs = rects();
     const tops = [...new Set(rs.map((r) => Math.round(r.top)))].sort((p, q) => p - q);
-    if (tops.some((t, i) => i > 0 && t - tops[i - 1] > step * 1.5)) return true;
+    if (tops.some((t, i) => i > 0 && t - tops[i - 1] > step * 1.25)) return true;
     return rs.some((r) => {
       const [y0, y1] = [f.y + (r.top - a.top) / k, f.y + (r.bottom - a.top) / k];
       const [x0, x1] = [f.x + (r.left - a.left) / k, f.x + (r.right - a.left) / k];
