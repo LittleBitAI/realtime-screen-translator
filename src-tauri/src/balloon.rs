@@ -254,12 +254,17 @@ pub fn find(page: &Page, text: [f64; 4], glyph: f64, others: &[[f64; 4]]) -> Opt
         let ink: Vec<usize> = ink.iter().copied().filter(|&i| dist[i] > 1).collect();
         let area = solid.iter().filter(|&&s| s).count() as f64;
         let nearest_ink = ink.iter().map(|&i| dist[i]).min()?;
-        let inset = ((INSET * area.sqrt()).round() as i32).clamp(INSET_MIN, INSET_MAX).min(nearest_ink - 1).max(1);
+        // A pixel past the nearest stroke too, where the paper has it: a
+        // stroke's soft edge is lighter than ink, and left out it showed as
+        // a gray sliver (ch258 p4, the "I" of "NUREMI").
+        let inset = ((INSET * area.sqrt()).round() as i32).clamp(INSET_MIN, INSET_MAX).min(nearest_ink - 2).max(1);
         let cover: Vec<bool> = dist.iter().map(|&d| d > inset).collect();
         let (ix0, ix1) = ink.iter().fold((i64::MAX, i64::MIN), |(a, b), &i| (a.min(grid.xy(i).0), b.max(grid.xy(i).0)));
         let rows = grid.runs(&cover, &ink, (ix0 + ix1) / 2);
+        // The rim where the steps can keep it, but no shape is given up for it.
         let ink_xy: Vec<(i64, i64)> = ink.iter().map(|&i| grid.xy(i)).collect();
-        let s = [STEP_SLACK, 0].into_iter().map(|slack| steps(&rows, slack)).find(|s| covers(s, &ink_xy))?;
+        let rim: Vec<(i64, i64)> = ink.iter().flat_map(|&i| grid.neighbours(i)).filter(|&n| cover[n]).map(|i| grid.xy(i)).chain(ink_xy.iter().copied()).collect();
+        let s = [(STEP_SLACK, &rim), (0, &rim), (STEP_SLACK, &ink_xy), (0, &ink_xy)].into_iter().map(|(slack, must)| (steps(&rows, slack), must)).find(|(s, must)| covers(s, must))?.0;
         Some((solid, cover, ink, s))
     };
     let r0 = (ROUND * glyph).round() as i32;
@@ -1447,6 +1452,30 @@ mod tests {
         assert_eq!(f.glyph, Some(18.0));
         let t = f.text;
         assert!(t[0] > f.bounds[0] && t[2] < f.bounds[2] && t[1] > f.bounds[1] && t[3] < f.bounds[3]);
+    }
+
+    /// A line lettered up to the balloon's edge, its strokes' soft edge
+    /// lighter than ink: the cover takes in that edge too, where the paper
+    /// has room (ch258 p4, a gray sliver beside the "I" of "NUREMI").
+    #[test]
+    fn a_strokes_soft_edge_is_covered_too() {
+        let e = (200.0, 150.0, 120.0, 80.0);
+        let bars = [[160, 110, 240, 128], [120, 141, 316, 159], [160, 172, 240, 190]];
+        let mut px = page(400, 300, &[e], &bars);
+        for y in 141..159 {
+            px[y * 400 + 316] = 205;
+        }
+        let p = Page { w: 400, h: 300, px: &px };
+        let f = find(&p, [120.0, 110.0, 316.0, 190.0], 18.0, &[]).unwrap();
+        // Even-odd across the staircase's upright edges, right of the pixel.
+        let covered = |x: i64, y: i64| {
+            let o = &f.outline;
+            (0..o.len()).filter(|&k| {
+                let (a, b) = (o[k], o[(k + 1) % o.len()]);
+                a[0] == b[0] && a[0] > x && y >= a[1].min(b[1]) && y < a[1].max(b[1])
+            }).count() % 2 == 1
+        };
+        assert!((141..159).all(|y| covered(315, y) && covered(316, y)), "{:?}", f.outline);
     }
 
     /// Two balloons side by side: each cover keeps to its own.
