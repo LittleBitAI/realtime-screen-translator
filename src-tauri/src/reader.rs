@@ -36,6 +36,9 @@ const WIDEN: f64 = 1.5;
 /// How much larger than the original letters Korean set over the art may
 /// be: its white rim hides what the original lettering's area still shows.
 const OVER_ART: f64 = 1.5;
+/// The share of a balloon's width and height the Korean set along its
+/// outline is sized for at first (an oval's text runs about this far).
+const FLOW: f64 = 0.85;
 /// A letter's size, as a share of the page's width, where no lettering was
 /// measured: what a rim round unmeasured lettering is sized from.
 const GLYPH_GUESS: f64 = 0.02;
@@ -384,7 +387,9 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
             // that a cover over `cover` leaves out, and the Korean shared
             // out at its sentence ends between the cover (first) and them,
             // as the letters each holds.
-            let glyph = on[i].map(|j| blocks[j].glyph);
+            // The line's lettering size: its largest, where a reading is
+            // lettered small over it ("nana" over "7!", ch256 p4).
+            let glyph = on[i].map(|j| pieces[i].iter().filter_map(|p| blocks.iter().find(|b| b.bounds == *p)).map(|b| b.glyph).fold(blocks[j].glyph, f64::max));
             let within = |p: &[f64; 4], c: [f64; 4]| p[0] >= c[0] && p[1] >= c[1] && p[2] <= c[2] && p[3] <= c[3];
             let letters_in = |c: [f64; 4]| -> f64 {
                 pieces[i].iter().filter(|p| within(p, c)).filter_map(|p| blocks.iter().find(|b| b.bounds == *p)).map(|b| b.letters as f64).sum()
@@ -467,8 +472,8 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
             // The white edging lettering on the art may have: a quarter letter.
             let edging = |glyph: Option<f64>| (0.25 * glyph.unwrap_or(GLYPH_GUESS * w as f64)).round() as i64;
             let around = |t: [f64; 4], glyph: f64| balloon::find(&pg, t, glyph, &others).map(|f| balloon::Found { glyph: Some(glyph), ..f });
-            let found = on[i].and_then(|j| {
-                let (own, glyph) = (blocks[j].bounds, blocks[j].glyph);
+let found = on[i].and_then(|j| {
+                let (own, glyph) = (blocks[j].bounds, glyph.unwrap_or(blocks[j].glyph));
                 if texts[i] == own {
                     return around(own, glyph);
                 }
@@ -494,13 +499,26 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                     let tone: Vec<[i64; 4]> = more.iter().flat_map(|m| m.1.iter().copied()).collect();
                     let (outline, b) = joined(std::iter::once(f.outline).chain(more.into_iter().map(|m| m.0)).collect());
                     let b = tone.iter().fold(b, |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
+                    // A line in one balloon the reader sets along its
+                    // outline, wider through the middle than any rectangle
+                    // in it: the size starts from the cover's own extent
+                    // round the text, and the reader steps it down until
+                    // every line is inside.
+                    let flow = {
+                        let [l, t, r, btm] = f.bounds;
+                        let cy = (y0 + y1) / 2;
+                        let fh = 2 * (cy - t).min(btm - cy);
+                        layout::font_for(&it.ko, (FLOW * (r - l) as f64) as u32, (FLOW * fh as f64) as u32, f.glyph)
+                    };
+                    let font = layout::font_for(&it.ko, tw, th, f.glyph);
                     PageBox {
                         x: b[0],
                         y: b[1],
                         w: (b[2] - b[0]) as u32,
                         h: (b[3] - b[1]) as u32,
                         radius: 0,
-                        font_px: layout::font_for(&it.ko, tw, th, f.glyph),
+                        font_px: font,
+                        flow_px: parts.is_empty().then_some(font.max(flow)),
                         ko: it.ko.clone(),
                         outline,
                         text: [x0, y0, tw as i64, th as i64],
@@ -515,11 +533,11 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                 // below it): a white box there would wipe the art and leave
                 // the lettering. The line is kept, with nothing drawn.
                 // Lettered in another item's block: drawn in its cover.
-                None if host[i].is_some() => PageBox { x: 0, y: 0, w: 0, h: 0, radius: 0, font_px: 0, ko: it.ko.clone(), outline: vec![], text: [0, 0, 0, 0], parts: vec![], patch: None },
+                None if host[i].is_some() => PageBox { x: 0, y: 0, w: 0, h: 0, radius: 0, font_px: 0, ko: it.ko.clone(), outline: vec![], text: [0, 0, 0, 0], parts: vec![], patch: None, flow_px: None },
                 None if on[i].is_none() && balloon::marks_in(&pg, wanted[i].0) < (wanted[i].1 / 2).max(1) => {
                     let t = wanted[i].0;
                     let (x, y) = (t[0].max(0.0) as i64, t[1].max(0.0) as i64);
-                    PageBox { x, y, w: 0, h: 0, radius: 0, font_px: 0, ko: it.ko.clone(), outline: vec![], text: [x, y, 0, 0], parts: vec![], patch: None }
+                    PageBox { x, y, w: 0, h: 0, radius: 0, font_px: 0, ko: it.ko.clone(), outline: vec![], text: [x, y, 0, 0], parts: vec![], patch: None, flow_px: None }
                 }
                 None => {
                     // The lettering found, and as much of Gemini's box as lies
@@ -774,7 +792,7 @@ fn joined(parts: Vec<Vec<[i64; 2]>>) -> (Vec<[i64; 2]>, [i64; 4]) {
 
 /// The library row of a shape.
 fn row(fingerprint: String, b: &PageBox) -> store::PlacementRow {
-    let cover = layout::Cover { outline: b.outline.clone(), text: b.text, parts: b.parts.clone(), patch: b.patch.clone() };
+    let cover = layout::Cover { outline: b.outline.clone(), text: b.text, parts: b.parts.clone(), patch: b.patch.clone(), flow_px: b.flow_px };
     let cover = serde_json::to_string(&cover).ok();
     store::PlacementRow { id: 0, fingerprint, x: b.x, y: b.y, w: b.w, h: b.h, radius: b.radius, font_px: b.font_px, ko: b.ko.clone(), cover }
 }
@@ -783,11 +801,11 @@ fn row(fingerprint: String, b: &PageBox) -> store::PlacementRow {
 fn page_box(p: &store::PlacementRow) -> PageBox {
     let pad = PAD as i64;
     let cover: Option<layout::Cover> = p.cover.as_deref().and_then(|c| serde_json::from_str(c).ok());
-    let (outline, text, parts, patch) = match cover {
-        Some(c) => (c.outline, c.text, c.parts, c.patch),
-        None => (vec![], [p.x + pad, p.y + pad, (p.w as i64 - 2 * pad).max(1), (p.h as i64 - 2 * pad).max(1)], vec![], None),
+    let (outline, text, parts, patch, flow_px) = match cover {
+        Some(c) => (c.outline, c.text, c.parts, c.patch, c.flow_px),
+        None => (vec![], [p.x + pad, p.y + pad, (p.w as i64 - 2 * pad).max(1), (p.h as i64 - 2 * pad).max(1)], vec![], None, None),
     };
-    PageBox { x: p.x, y: p.y, w: p.w, h: p.h, radius: p.radius, font_px: p.font_px, ko: p.ko.clone(), outline, text, parts, patch }
+    PageBox { x: p.x, y: p.y, w: p.w, h: p.h, radius: p.radius, font_px: p.font_px, flow_px, ko: p.ko.clone(), outline, text, parts, patch }
 }
 
 /// The white shape for one balloon: its text, grown towards the middle of
@@ -820,7 +838,7 @@ pub(crate) fn shape(it: &PageItem, w: u32, h: u32) -> PageBox {
     let (cw, ch) = (((cover[2] - cover[0]) - 2.0 * pad).max(1.0) as u32, ((cover[3] - cover[1]) - 2.0 * pad).max(1.0) as u32);
     let area = (area[0].max(0.0) as i64, area[1].max(0.0) as i64, (area[2].min(w as f64)) as i64, (area[3].min(h as f64)) as i64);
     let s = layout::fit_within(x0, y0, cw, ch, &it.ko, area);
-    PageBox { x: s.x, y: s.y, w: s.w, h: s.h, radius: s.radius, font_px: s.font_px, ko: it.ko.clone(), outline: vec![], text: [s.x, s.y, s.w as i64, s.h as i64], parts: vec![], patch: None }
+    PageBox { x: s.x, y: s.y, w: s.w, h: s.h, radius: s.radius, font_px: s.font_px, ko: it.ko.clone(), outline: vec![], text: [s.x, s.y, s.w as i64, s.h as i64], parts: vec![], patch: None, flow_px: None }
 }
 
 #[cfg(test)]
@@ -943,7 +961,7 @@ mod tests {
         let parts = vec![rect_outline([10, 10, 40, 40]), rect_outline([30, 30, 50, 50]), rect_outline([70, 20, 90, 60])];
         let (outline, b) = joined(parts);
         assert_eq!(b, [10, 10, 90, 60]);
-        let shape = PageBox { x: b[0], y: b[1], w: 80, h: 50, radius: 0, font_px: 10, ko: String::new(), outline, text: [12, 12, 26, 26], parts: vec![], patch: None };
+        let shape = PageBox { x: b[0], y: b[1], w: 80, h: 50, radius: 0, font_px: 10, ko: String::new(), outline, text: [12, 12, 26, 26], parts: vec![], patch: None, flow_px: None };
         let mut img = export::Rgb { w: 100, h: 100, px: vec![0; 100 * 100 * 3] };
         export::draw_placement(&mut img, &row(String::new(), &shape), 0);
         let white = |x: usize, y: usize| img.px[(y * 100 + x) * 3] == 255;
@@ -958,7 +976,7 @@ mod tests {
     /// the other's text area and keeps its own lettering covered.
     #[test]
     fn a_rectangle_never_covers_another_covers_korean() {
-        let rect = |x: i64, y: i64, w: u32, h: u32| PageBox { x, y, w, h, radius: 8, font_px: 20, ko: "이런 걸 하려면 방에 숨어야 하거든.".into(), outline: vec![], text: [x + PAD as i64, y + PAD as i64, w as i64 - 2 * PAD as i64, h as i64 - 2 * PAD as i64], parts: vec![], patch: None };
+        let rect = |x: i64, y: i64, w: u32, h: u32| PageBox { x, y, w, h, radius: 8, font_px: 20, ko: "이런 걸 하려면 방에 숨어야 하거든.".into(), outline: vec![], text: [x + PAD as i64, y + PAD as i64, w as i64 - 2 * PAD as i64, h as i64 - 2 * PAD as i64], parts: vec![], patch: None, flow_px: None };
         let (left, right) = (rect(560, 60, 160, 90), rect(700, 10, 230, 80));
         let texts = [[580.0, 70.0, 690.0, 140.0], [740.0, 20.0, 900.0, 80.0]];
         let out = clear_texts(vec![left.clone(), right.clone()], &texts, &[true, true]);
@@ -1002,10 +1020,10 @@ mod tests {
         assert_eq!(share_out("응. 알았어.", &[left, above], &[1.0, 1.0]).unwrap(), ["알았어.", "응."]);
         assert_eq!(share_out("그 모든 것, 아니 그 이상으로.", &[left, right], &[1.0, 1.0]), None);
 
-        // The shares survive the library.
+        // The shares, and the size set along the outline, survive the library.
         let parts = vec![layout::Part { text: [210, 95, 40, 40], font_px: 12, ko: "수영부 부장이야.".into() }, layout::Part { text: [15, 105, 50, 30], font_px: 11, ko: "3학년 5반, 누레미 스이무.".into() }];
         let (outline, b) = joined(vec![rect_outline([0, 80, 80, 150]), rect_outline([190, 80, 270, 150])]);
-        let shape = PageBox { x: b[0], y: b[1], w: 270, h: 70, radius: 0, font_px: 12, ko: two.into(), outline, text: [15, 105, 50, 30], parts, patch: None };
+        let shape = PageBox { x: b[0], y: b[1], w: 270, h: 70, radius: 0, font_px: 12, ko: two.into(), outline, text: [15, 105, 50, 30], parts, patch: None, flow_px: Some(14) };
         assert_eq!(page_box(&row(String::new(), &shape)), shape);
     }
 
@@ -1049,7 +1067,8 @@ mod tests {
     /// ch256 p6: "RIIIN." in its balloon, the block of it only "R" (the
     /// "III" thin), gathered brick lines beside the balloon that Gemini's box
     /// reached into, and the tone wiped the bricks. The balloon is covered,
-    /// and the art beside it is not.
+    /// and the art beside it is not. The wall is drawn with its joints round
+    /// the marks: marks alone on blank paper are lettering with no outline.
     #[test]
     fn art_beside_a_found_balloon_is_not_gathered_into_its_cover() {
         let (w, h) = (600u32, 600u32);
@@ -1070,6 +1089,12 @@ mod tests {
         }
         for x in [160, 182, 204, 226] {
             mark(x, 255);
+        }
+        // The rest of the wall: the bricks' joints, short dashes all round.
+        for y in [238, 292, 318] {
+            for x in (64..232).step_by(24) {
+                (x..x + 12).for_each(|x| (y..y + 2).for_each(|y| ink(x, y)));
+            }
         }
         let it = PageItem { src: "RIIN".into(), ko: "따르릉.".into(), ..item([140.0 / 600.0, 232.0 / 600.0, 275.0 / 600.0, 380.0 / 600.0], None) };
         let b = &shapes(&[it], &page, "en")[0];

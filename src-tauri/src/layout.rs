@@ -102,6 +102,9 @@ pub struct Cover {
     /// its letters, in place of white.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub patch: Option<Patch>,
+    /// The size the line starts from set along the outline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flow_px: Option<u16>,
 }
 
 /// The art's tone over lettering with no balloon: an RGBA PNG (base64)

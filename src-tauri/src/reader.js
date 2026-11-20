@@ -64,6 +64,8 @@
         line-height:1.2;font-family:system-ui,'Noto Sans KR',sans-serif;font-weight:600;word-break:keep-all;
         white-space:pre-line;text-wrap:balance;overflow:hidden;
         text-shadow:${HALO}}
+      .rst-text.rst-flow{display:block}
+      .rst-side{shape-margin:min(0.5em,6%)}
       .rst-box.rst-peek{opacity:.12}
       .rst-chip{position:absolute;left:6px;top:6px;padding:4px 8px;border-radius:12px;background:rgba(17,24,39,.85);
         color:#fff;font:600 12px system-ui,sans-serif;pointer-events:auto}
@@ -357,6 +359,10 @@
   function draw(img, p, answer) {
     const layer = layerFor(img, p);
     layer.replaceChildren();
+    // Drawn while the original is shown, the Korean has no lines to measure
+    // and keeps its first size: it is fitted again as the translation comes
+    // back on (ch258 p14 came back cut off).
+    if (document.documentElement.classList.contains('rst-off')) delete layer.dataset.at;
     const pct = (v, of) => `${(v / of) * 100}%`;
     for (const b of answer.boxes) {
       // A line kept without a shape: no lettering was found for it.
@@ -404,7 +410,14 @@
         text.style.width = pct(tw, b.w);
         text.style.height = pct(th, b.h);
         text.dataset.font = String(part.font_px / answer.width);
-        text.textContent = part.ko;
+        // A dash stays on the line of the word it follows: "아—?!" broke
+        // after "아" (ch256 p7). A word joiner holds them together.
+        text.textContent = part.ko.replace(/(\S)(?=[—–])/g, '$1⁠');
+        // A line alone in its balloon runs along the balloon's outline:
+        // short lines where it narrows, long ones through its middle, as the
+        // original was lettered. A rectangle inside an oval leaves its
+        // middle unused, and the Korean set small (ch258 p15).
+        if (parts.length === 1 && b.outline?.length > 2) flowIn(text, part, b, pct, (b.flow_px ?? part.font_px) / answer.width);
         box.appendChild(text);
       }
       // A tap shows the original under it for a moment.
@@ -431,7 +444,196 @@
     for (const text of box.querySelectorAll('.rst-text')) fitText(text, shownWidth);
   }
 
+  // Where the outline is crossed at height `y`, the stretch of it round `x`
+  // ([left, right] in page pixels), or null where `x` is not inside it.
+  function spanAt(outline, y, x) {
+    const xs = [];
+    for (let i = 0; i < outline.length; i++) {
+      const [x0, y0] = outline[i];
+      const [x1, y1] = outline[(i + 1) % outline.length];
+      if (y0 <= y !== y1 <= y) xs.push(x0 + ((y - y0) / (y1 - y0)) * (x1 - x0));
+    }
+    xs.sort((a, b) => a - b);
+    for (let i = 0; i + 1 < xs.length; i += 2) if (xs[i] <= x && x <= xs[i + 1]) return [xs[i], xs[i + 1]];
+    return null;
+  }
+
+  // Sets `text` across its balloon's width, centred on its text area, with
+  // the outside of the outline taken up by two floats shaped to it: the
+  // browser breaks each line where the balloon is as wide as it there.
+  const BANDS = 48;
+  function flowIn(text, part, b, pct, font) {
+    const xs = b.outline.map((p) => p[0]);
+    const ys = b.outline.map((p) => p[1]);
+    const [ax, ar, oy0, oy1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    const [tx, ty, tw, th] = part.text;
+    // Across, the middle of the balloon where the lettering's middle is:
+    // a text area off to one side of it narrowed every line to its own
+    // side's room (ch256 p16, "너무..." set below its middle).
+    const cy = ty + th / 2;
+    const row = spanAt(b.outline, cy, tx + tw / 2);
+    const cx = row ? (row[0] + row[1]) / 2 : tx + tw / 2;
+    const half = Math.min(cy - oy0, oy1 - cy);
+    if (!(half > 0) || !(cx > ax && cx < ar)) return;
+    const f = { outline: b.outline, x: ax, y: cy - half, w: ar - ax, h: 2 * half, cx };
+    f.rect = [text.style.left, text.style.top, text.style.width, text.style.height, text.dataset.font];
+    f.area = [pct(f.x - b.x, b.w), pct(f.y - b.y, b.h), pct(f.w, b.w), pct(f.h, b.h), String(font)];
+    // Each band of rows keeps out what any of its rows has outside, as
+    // much on both sides of the text's middle: the lines stay centred on
+    // it, as lettering is (off it, a line beside a bulge of the outline
+    // was set off to one side, ch256 p11).
+    const [lw, rw] = [cx - ax, ar - cx];
+    const left = ['0% 0%'];
+    const right = ['100% 0%'];
+    for (let k = 0; k < BANDS; k++) {
+      let [l, r] = [ax, ar];
+      for (let j = 0; j < 4; j++) {
+        const s = spanAt(b.outline, f.y + ((k + (j + 0.5) / 4) / BANDS) * f.h, cx);
+        [l, r] = s ? [Math.max(l, s[0]), Math.min(r, s[1])] : [cx, cx];
+      }
+      const half = Math.max(0, Math.min(cx - l, r - cx));
+      [l, r] = [cx - half, cx + half];
+      const [y0, y1] = [(k / BANDS) * 100, ((k + 1) / BANDS) * 100];
+      const lx = (Math.min(Math.max(l - ax, 0), lw) / lw) * 100;
+      const rx = (Math.min(Math.max(r - cx, 0), rw) / rw) * 100;
+      left.push(`${lx}% ${y0}%`, `${lx}% ${y1}%`);
+      right.push(`${rx}% ${y0}%`, `${rx}% ${y1}%`);
+    }
+    left.push('0% 100%');
+    right.push('100% 100%');
+    const side = (float, width, shape) => {
+      const d = document.createElement('div');
+      d.className = 'rst-side';
+      d.style.cssText = `float:${float};width:${(width / f.w) * 100}%;height:100%;shape-outside:polygon(${shape.join(',')})`;
+      return d;
+    };
+    // A short last word is not left alone on the last line ("보면 안 /
+    // 돼?", ch256 p3): it goes down with the word before it, where the two
+    // fit on a line.
+    f.plain = text.textContent;
+    f.tied = f.plain.replace(/ (\S{1,3})$/, '\u00a0$1');
+    f.words = document.createElement('span');
+    f.lift = document.createElement('div');
+    f.nodes = [side('left', lw, left), side('right', rw, right), f.lift, f.words];
+    text.rstShape = f;
+  }
+
+  // The Korean set along the outline (`on`), or in the lettering's own
+  // area, centred.
+  function flowing(text, on) {
+    const f = text.rstShape;
+    const [left, top, width, height, font] = on ? f.area : f.rect;
+    Object.assign(text.style, { left, top, width, height, wordBreak: '', textWrap: '', overflowWrap: 'normal' });
+    text.dataset.font = font;
+    text.classList.toggle('rst-flow', on);
+    text.rstFlow = on ? f : null;
+    if (on) text.replaceChildren(...f.nodes);
+    else text.textContent = f.plain;
+  }
+
+  // Lines set along the outline: centred in height, and each inside the
+  // balloon where it is set (a word wider than the balloon there is set
+  // below it, or past the outline).
+  function flowOver(text, lines) {
+    const f = text.rstFlow;
+    const rects = () => {
+      lines.selectNodeContents(f.words);
+      return [...lines.getClientRects()].filter((r) => r.width > 0);
+    };
+    let lift = 0;
+    f.lift.style.height = '0px';
+    for (let k = 0; k < 4; k++) {
+      const rs = rects();
+      if (!rs.length) return false;
+      // As much room above the lines as below: where the outline is too
+      // narrow at the top for a line, the line is pushed down past the
+      // spacer, and the spacer is cut by as much ("너무...", ch256 p16).
+      const at = text.getBoundingClientRect();
+      const want = Math.max(0, lift + (at.bottom - rs[rs.length - 1].bottom - (rs[0].top - at.top)) / 2);
+      if (Math.abs(want - lift) < 1) break;
+      lift = want;
+      f.lift.style.height = `${lift}px`;
+    }
+    const a = text.getBoundingClientRect();
+    // Pushed off the middle by a narrow outline above them, the lines are
+    // set smaller rather than low in the balloon.
+    const first = rects();
+    const step = parseFloat(getComputedStyle(text).fontSize) * 1.2;
+    if (Math.abs(a.bottom - first[first.length - 1].bottom - (first[0].top - a.top)) > step) return true;
+    const k = a.width / f.w;
+    if (!(k > 0)) return false;
+    const tol = 1 / k;
+    // A band too narrow for a line leaves a gap among them (ch256 p12,
+    // "아... 아버 / / 지...!"): set smaller, the lines run on.
+    const rs = rects();
+    const tops = [...new Set(rs.map((r) => Math.round(r.top)))].sort((p, q) => p - q);
+    if (tops.some((t, i) => i > 0 && t - tops[i - 1] > step * 1.5)) return true;
+    return rs.some((r) => {
+      const [y0, y1] = [f.y + (r.top - a.top) / k, f.y + (r.bottom - a.top) / k];
+      const [x0, x1] = [f.x + (r.left - a.left) / k, f.x + (r.right - a.left) / k];
+      if (y0 < f.y - tol || y1 > f.y + f.h + tol) return true;
+      return [y0 + tol, (y0 + y1) / 2, y1 - tol].some((y) => {
+        const s = spanAt(f.outline, y, Math.min(Math.max((x0 + x1) / 2, f.x), f.x + f.w));
+        return !s || x0 < s[0] - tol || x1 > s[1] + tol;
+      });
+    });
+  }
+
+  // Lines set along the outline are filled in turn: the browser balances
+  // no lines beside floats. Both sides are drawn in as far as the lines
+  // stay as many, as tall, and inside the balloon, as balancing would.
+  function squeeze(text, px) {
+    for (const side of text.querySelectorAll('.rst-side')) side.style.shapeMargin = px ? `calc(min(0.5em, 6%) + ${px}px)` : '';
+  }
+
+  function balance(text, lines) {
+    const f = text.rstFlow;
+    // How many lines, and how tall: a band too narrow for any line opens
+    // a gap among them.
+    const shape = () => {
+      lines.selectNodeContents(f.words);
+      const rs = [...lines.getClientRects()].filter((r) => r.width > 0);
+      return rs.length ? [new Set(rs.map((r) => Math.round(r.top))).size, rs[rs.length - 1].bottom - rs[0].top] : [0, 0];
+    };
+    const [n, tall] = shape();
+    let [lo, hi] = [0, text.clientWidth / 2];
+    for (let k = 0; k < 6; k++) {
+      const mid = (lo + hi) / 2;
+      squeeze(text, mid);
+      const over = flowOver(text, lines);
+      const [m, t] = shape();
+      if (!over && m === n && t <= tall + 1) lo = mid;
+      else hi = mid;
+    }
+    squeeze(text, lo);
+    flowOver(text, lines);
+  }
+
+  // Set along the outline only where it reads larger than in the
+  // lettering's own area: a notch in a caption's outline left a gap among
+  // the lines, and them small (ch256 p17, "난 그래도 네가 좋아!"); a word
+  // too long for an oval's narrow rows was broken a syllable a line
+  // ("이 / 히 / 히...", ch256 p8).
+  // Words kept whole come first, then the size: "아빠 / 가", "돌려 /
+  // 주마!" set larger along the outline read worse than whole words in
+  // the area (ch256 p5).
   function fitText(text, shownWidth) {
+    if (!text.rstShape) return fitIn(text, shownWidth);
+    flowing(text, true);
+    const flowed = fitIn(text, shownWidth);
+    const along = parseFloat(text.style.fontSize);
+    flowing(text, false);
+    const plain = fitIn(text, shownWidth);
+    if (flowed > plain || (flowed === plain && flowed && along > parseFloat(text.style.fontSize) * 1.03)) {
+      flowing(text, true);
+      fitIn(text, shownWidth);
+    }
+  }
+
+  // Fits the Korean at the largest size it takes: 2 with its words whole,
+  // 1 broken between syllables (in the area only), 0 where it does not
+  // fit (along the outline; in the area it is set anyway).
+  function fitIn(text, shownWidth) {
     const start = Math.max(READABLE, Number(text.dataset.font) * shownWidth);
     // A centred line wider than the text area spills past both sides, and
     // past the left the browser does not count as scrolled: the lines'
@@ -442,11 +644,20 @@
       const [l, a] = [lines.getBoundingClientRect(), text.getBoundingClientRect()];
       return l.width > 0 && (l.left < a.left - 1 || l.right > a.right + 1 || l.top < a.top - 1 || l.bottom > a.bottom + 1);
     };
-    const shrink = (floor) => {
+    // A syllable alone on a line, cut from its word ("이 / 히 / 히...",
+    // ch256 p8): set smaller, its word keeps two a line.
+    const lonely = () => {
+      lines.selectNodeContents(text.rstFlow?.words ?? text);
+      const rs = [...lines.getClientRects()].filter((r) => r.width > 0);
+      return rs.length > 1 && rs.some((r) => r.width < 1.3 * parseFloat(text.style.fontSize));
+    };
+    const shrink = (floor, alone) => {
       let px = start;
       for (;;) {
         text.style.fontSize = `${px}px`;
-        const over = text.scrollHeight > text.clientHeight + 1 || text.scrollWidth > text.clientWidth + 1 || spills();
+        const over = (text.rstFlow
+          ? flowOver(text, lines)
+          : text.scrollHeight > text.clientHeight + 1 || text.scrollWidth > text.clientWidth + 1 || spills()) || (alone && lonely());
         if (!over || px <= floor) return over;
         px = Math.max(floor, px * 0.92);
       }
@@ -454,19 +665,31 @@
     text.style.wordBreak = '';
     text.style.textWrap = '';
     text.style.overflowWrap = 'normal';
-    if (shrink(Math.max(READABLE, start * WORDS_KEEP))) {
-      // Between syllables, as Korean may break, but never ahead of the
-      // punctuation that ends a word: "무서워하지 않았어...?" keeps its
-      // "...?", "젠장...!" its "!" (ch257 p18, p19). Lines filled in turn,
-      // not balanced: balanced, a short word is split too ("너 / 무 달",
-      // ch257 p6).
-      text.style.wordBreak = 'normal';
-      text.style.textWrap = 'wrap';
-      if (shrink(READABLE)) {
-        text.style.overflowWrap = 'anywhere';
-        shrink(2);
-      }
+    const f = text.rstFlow;
+    if (f) {
+      squeeze(text, 0);
+      f.words.textContent = f.tied;
     }
+    let kept = !shrink(Math.max(READABLE, start * WORDS_KEEP));
+    if (!kept && f && f.tied !== f.plain) {
+      f.words.textContent = f.plain;
+      kept = !shrink(Math.max(READABLE, start * WORDS_KEEP));
+    }
+    if (f && kept) balance(text, lines);
+    if (kept) return 2;
+    // Along the outline the words stay whole: broken there, "걸 / 로 잡 /
+    // 아줄 / 게—!" (ch257 p17).
+    if (f) return 0;
+    // Between syllables, as Korean may break, but never ahead of the
+    // punctuation that ends a word: "무서워하지 않았어...?" keeps its
+    // "...?", "젠장...!" its "!" (ch257 p18, p19). Lines filled in turn,
+    // not balanced: balanced, a short word is split too ("너 / 무 달",
+    // ch257 p6).
+    text.style.wordBreak = 'normal';
+    text.style.textWrap = 'wrap';
+    if (!shrink(READABLE, true) || !shrink(READABLE)) return 1;
+    text.style.overflowWrap = 'anywhere';
+    return shrink(2) ? 0 : 1;
   }
 
   function status() {

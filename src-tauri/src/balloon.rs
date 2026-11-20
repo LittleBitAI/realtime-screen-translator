@@ -33,6 +33,15 @@ const STRAY: f64 = 0.5;
 /// The least share of the lettering's width, and of its area, a balloon's
 /// text area keeps.
 const ROOM: f64 = 0.5;
+/// How far, in letters, a balloon's cover may fall short of its lettering
+/// on a side (an outline drawn through the edge of a letter).
+const SHORT: f64 = 0.5;
+/// The most, in letters, a mark running past the lettering's margin may
+/// measure across its narrower side and still be lettering.
+const LINE_THICK: f64 = 1.5;
+/// Half the width, in letters, of the disk a balloon's cover is rounded by:
+/// a leak or sliver narrower than it is not the balloon.
+const ROUND: f64 = 0.75;
 /// Rows of the cover's outline may be merged into one step while the step
 /// gives up at most this many pixels of any row.
 const STEP_SLACK: i32 = 2;
@@ -67,8 +76,8 @@ impl Page<'_> {
 /// The balloon around the lettering at `text` (`[x0, y0, x1, y1]`, picture
 /// pixels, letters `glyph` tall), with `others` the lettering of the page's
 /// other balloons. Its interior is the paper around the text up to the
-/// printed outline, and no further from the text than [`REACH`] letters
-/// (plus a quarter of the text's size): where a balloon opens onto the white
+/// printed outline, and within an ellipse round the text reaching
+/// [`REACH`] letters (plus a quarter of the text's size) past each side of it: where a balloon opens onto the white
 /// of the panel or the page margin, the cover stops in that white instead of
 /// running into it. None when there is no paper around the text (text over
 /// art, a dark box).
@@ -79,12 +88,23 @@ pub fn find(page: &Page, text: [f64; 4], glyph: f64, others: &[[f64; 4]]) -> Opt
     }
     let size = tw.max(th);
     let reach = REACH * glyph + 0.25 * size;
-    let m = reach + 4.0;
+    // The reach is an ellipse round the text, as a balloon is: cut at a
+    // distance from the text's rectangle, paper running out through a gap in
+    // the outline ended in straight lines across the art (ch256 p9, "DU"
+    // beside "OOOH!"; ch258 p4, the ball beside "NUREMI SUIMU"). It runs
+    // through the corners of the reach round the rectangle, so it holds all
+    // that held: a balloon beside the text whose outline that took in still
+    // keeps the text's paper from being one (ch256 p6, bricks beside
+    // "RIIIN.").
+    let (ox, oy) = ((text[0] + text[2]) / 2.0, (text[1] + text[3]) / 2.0);
+    let (ea, eb) = (tw / 2.0 * std::f64::consts::SQRT_2 + reach, th / 2.0 * std::f64::consts::SQRT_2 + reach);
+    let beyond = |x: i64, y: i64| ((x as f64 - ox) / ea).powi(2) + ((y as f64 - oy) / eb).powi(2) > 1.0;
+    // The window holds the ellipse, so its edge cuts nothing straight.
     let win = [
-        (text[0] - m).max(0.0).floor() as i64,
-        (text[1] - m).max(0.0).floor() as i64,
-        (text[2] + m).min(page.w as f64).ceil() as i64,
-        (text[3] + m).min(page.h as f64).ceil() as i64,
+        (ox - ea - 4.0).max(0.0).floor() as i64,
+        (oy - eb - 4.0).max(0.0).floor() as i64,
+        (ox + ea + 4.0).min(page.w as f64).ceil() as i64,
+        (oy + eb + 4.0).min(page.h as f64).ceil() as i64,
     ];
     let grid = Grid::new(win);
     if grid.w < 3 || grid.h < 3 {
@@ -113,11 +133,10 @@ pub fn find(page: &Page, text: [f64; 4], glyph: f64, others: &[[f64; 4]]) -> Opt
     let ring = 0.25 * th.min(tw);
     let paper = vote(core(text)).or_else(|| vote([text[0] - ring, text[1] - ring, text[2] + ring, text[3] + ring]))?;
     let mut comp: Vec<bool> = label.iter().map(|&l| l == paper).collect();
-    let reach2 = reach * reach;
     // Whether the paper runs on past the reach: no outline closes it.
     let mut open_paper = false;
     for (i, (x, y)) in grid.cells().enumerate() {
-        if comp[i] && rect_dist2(text, x, y) > reach2 {
+        if comp[i] && beyond(x, y) {
             comp[i] = false;
             open_paper = true;
         }
@@ -148,13 +167,37 @@ pub fn find(page: &Page, text: [f64; 4], glyph: f64, others: &[[f64; 4]]) -> Opt
     // the page margin the paper runs into is not.
     let g = 0.5 * glyph;
     let letters = [text[0] - g, text[1] - g, text[2] + g, text[3] + g];
-    let ink: Vec<usize> = grid
-        .inside(letters)
-        .filter(|&i| {
-            let (x, y) = grid.xy(i);
-            solid[i] && !comp[i] && page.at(x, y) < LIGHT
+    let dark: Vec<bool> = grid.cells().enumerate().map(|(i, (x, y))| solid[i] && !comp[i] && page.at(x, y) < LIGHT).collect();
+    // Only marks the text holds, or no thicker than a line of it: one
+    // running out past the margin that is thick is not lettering, but a
+    // sound effect drawn over the balloon (ch256 p9, the "D" of "DU" beside
+    // "WITH A CRAZY", which the cover took in whole).
+    let marks = grid.components(&dark);
+    let mut extent: std::collections::HashMap<u32, [i64; 4]> = std::collections::HashMap::new();
+    for (i, (x, y)) in grid.cells().enumerate().filter(|&(i, _)| dark[i]) {
+        let e = extent.entry(marks[i]).or_insert([x, y, x, y]);
+        *e = [e[0].min(x), e[1].min(y), e[2].max(x), e[3].max(y)];
+    }
+    let held = |l: &u32| {
+        extent.get(l).is_some_and(|e| {
+            let inside = e[0] as f64 >= letters[0] && e[1] as f64 >= letters[1] && e[2] as f64 <= letters[2] && e[3] as f64 <= letters[3];
+            inside || ((e[2] - e[0]).min(e[3] - e[1]) as f64) <= LINE_THICK * glyph
         })
-        .collect();
+    };
+    let own: std::collections::HashSet<u32> = grid.inside(text).filter(|&i| dark[i]).map(|i| marks[i]).filter(held).collect();
+    let lettering = |i: usize| dark[i] && own.contains(&marks[i]);
+    // All of each the size of a letter, though it reach past the margin
+    // (the top of an "AH..." lettered over the balloon's edge, ch258 p15).
+    let letter_px = LETTER_MAX * page.w as f64;
+    let small = |l: u32| extent.get(&l).is_some_and(|e| (((e[2] - e[0]).max(e[3] - e[1])) as f64) < letter_px);
+    let in_letters = |i: usize| { let (x, y) = grid.xy(i); x as f64 >= letters[0] && x as f64 <= letters[2] && y as f64 >= letters[1] && y as f64 <= letters[3] };
+    let ink: Vec<usize> = (0..dark.len()).filter(|&i| lettering(i) && (in_letters(i) || small(marks[i]))).collect();
+    // Marks the size of a letter that the interior holds beside the text:
+    // lettering too, this text's or a neighbour's ("..." beside a large
+    // "?!", ch256 p8). Not a speaker's portrait in a lobe of its own
+    // (ch256 p5), which rounding may leave out.
+    let near = |e: &[i64; 4]| e[0] as f64 <= text[2] + glyph && e[2] as f64 >= text[0] - glyph && e[1] as f64 <= text[3] + glyph && e[3] as f64 >= text[1] - glyph;
+    let enclosed: Vec<usize> = (0..dark.len()).filter(|&i| dark[i] && extent.get(&marks[i]).is_some_and(|e| near(e) && (((e[2] - e[0]).max(e[3] - e[1])) as f64) < letter_px)).collect();
     if ink.is_empty() {
         return None;
     }
@@ -176,28 +219,118 @@ pub fn find(page: &Page, text: [f64; 4], glyph: f64, others: &[[f64; 4]]) -> Opt
         return None;
     }
 
-    // The inset: a share of the interior's size, but always short of the
-    // nearest letter so every stroke stays under the cover. A stroke pixel
-    // touching the boundary is where the lettering meets an outline (a tail
-    // drawn from the text): it stays with the outline.
-    let dist = grid.distance(&solid);
-    let ink: Vec<usize> = ink.into_iter().filter(|&i| dist[i] > 1).collect();
-    let area = solid.iter().filter(|&&s| s).count() as f64;
-    let nearest_ink = ink.iter().map(|&i| dist[i]).min()?;
-    let inset = ((INSET * area.sqrt()).round() as i32).clamp(INSET_MIN, INSET_MAX).min(nearest_ink - 1).max(1);
-    let cover: Vec<bool> = dist.iter().map(|&d| d > inset).collect();
-
+    // Rounded as a balloon is: the paper, its lettering filled in, is what
+    // a disk [`ROUND`] letters across reaches rolled round inside it, from
+    // the text. Paper past a gap narrower than the disk is not this
+    // balloon's, however wide it opens up again: the white of an outlined
+    // sound effect drawn over the outline (ch256 p9, the "D" of "DU", whose
+    // bar the cover took in), or a sliver between the outline and the art
+    // (ch258 p4, beside the ball). The widest disk that still leaves every
+    // stroke under the cover is taken, down to none.
+    let lettered: Vec<bool> = (0..comp.len()).map(|i| comp[i] || lettering(i)).collect();
+    let inner = grid.distance(&lettered);
+    let shape = |r: i32| -> Option<(Vec<bool>, Vec<bool>, Vec<usize>, Vec<Step>)> {
+        let solid = if r == 0 {
+            solid.clone()
+        } else {
+            let core: Vec<bool> = inner.iter().map(|&d| d > r).collect();
+            let label = grid.components(&core);
+            let held: std::collections::HashSet<u32> = grid.inside(text).map(|i| label[i]).filter(|&l| l != 0).collect();
+            let core: Vec<bool> = label.iter().map(|l| held.contains(l)).collect();
+            let near = grid.distance(&core.iter().map(|c| !c).collect::<Vec<bool>>());
+            let paper: Vec<bool> = (0..comp.len()).map(|i| lettered[i] && (core[i] || near[i] <= r)).collect();
+            let outside = grid.reach_from(&paper, &given);
+            (0..comp.len()).map(|i| paper[i] || !outside[i]).collect()
+        };
+        // Rounding gives up no letter: only paper and the art.
+        if ink.iter().chain(&enclosed).any(|&i| !solid[i]) {
+            return None;
+        }
+        // The inset: a share of the interior's size, but always short of
+        // the nearest letter so every stroke stays under the cover. A stroke
+        // pixel touching the boundary is where the lettering meets an
+        // outline (a tail drawn from the text): it stays with the outline.
+        let dist = grid.distance(&solid);
+        let ink: Vec<usize> = ink.iter().copied().filter(|&i| dist[i] > 1).collect();
+        let area = solid.iter().filter(|&&s| s).count() as f64;
+        let nearest_ink = ink.iter().map(|&i| dist[i]).min()?;
+        let inset = ((INSET * area.sqrt()).round() as i32).clamp(INSET_MIN, INSET_MAX).min(nearest_ink - 1).max(1);
+        let cover: Vec<bool> = dist.iter().map(|&d| d > inset).collect();
+        let (ix0, ix1) = ink.iter().fold((i64::MAX, i64::MIN), |(a, b), &i| (a.min(grid.xy(i).0), b.max(grid.xy(i).0)));
+        let rows = grid.runs(&cover, &ink, (ix0 + ix1) / 2);
+        let ink_xy: Vec<(i64, i64)> = ink.iter().map(|&i| grid.xy(i)).collect();
+        let s = [STEP_SLACK, 0].into_iter().map(|slack| steps(&rows, slack)).find(|s| covers(s, &ink_xy))?;
+        Some((solid, cover, ink, s))
+    };
+    let r0 = (ROUND * glyph).round() as i32;
+    let (picked, (interior, _, ink, steps)) = (0..=4).map(|k| r0 * (4 - k) / 4).find_map(|r| shape(r).map(|s| (r, s)))?;
     let (ix0, ix1) = ink.iter().fold((i64::MAX, i64::MIN), |(a, b), &i| (a.min(grid.xy(i).0), b.max(grid.xy(i).0)));
-    let cx = (ix0 + ix1) / 2;
-    let rows = grid.runs(&cover, &ink, cx);
-    let ink_xy: Vec<(i64, i64)> = ink.iter().map(|&i| grid.xy(i)).collect();
-    let steps = [STEP_SLACK, 0].into_iter().map(|slack| steps(&rows, slack)).find(|s| covers(s, &ink_xy))?;
+    // Across, the middle of the lettering's ink, not of its extent: a few
+    // letters off to one side (an "WH...?!" above the man's head, ch256 p7)
+    // do not draw the Korean off the bulk of it.
+    let cx = (ink.iter().map(|&i| grid.xy(i).0).sum::<i64>() as f64 / ink.len().max(1) as f64).round() as i64;
     // All a balloon holds is its lettering. A cover that would also take in
     // art away from the lettering, well inside its edge (white skin round a
     // closed eye, with lettering on it), is on the picture, not in a
     // balloon. A sliver of art at the edge, where a balloon meets the panel
     // border, is not that.
     let held = |x: i64, y: i64| steps.iter().any(|s| y >= s.top && y < s.bottom && x >= s.l && x < s.r);
+    // Every letter of the text in the balloon: one lettered over its edge,
+    // half out on the art, is not hidden by its cover (ch258 p15,
+    // "AH..." over "SORRY... I JUST..."), and the lettering is left to the
+    // cover drawn round lettering on the art.
+    let inked: Vec<bool> = grid.cells().map(|(x, y)| page.at(x, y) < LIGHT).collect();
+    let pieces = grid.components(&inked);
+    let mut tally: std::collections::HashMap<u32, ([i64; 4], usize, usize, usize)> = std::collections::HashMap::new();
+    for (i, (x, y)) in grid.cells().enumerate().filter(|&(i, _)| inked[i]) {
+        let t = tally.entry(pieces[i]).or_insert(([x, y, x, y], 0, 0, 0));
+        t.0 = [t.0[0].min(x), t.0[1].min(y), t.0[2].max(x), t.0[3].max(y)];
+        t.1 += 1;
+        t.2 += usize::from(!interior[i]);
+        t.3 += usize::from(held(x, y));
+    }
+    let of_text: std::collections::HashSet<u32> = grid.inside(text).filter(|&i| inked[i]).map(|i| pieces[i]).collect();
+    let mut letters_of = vec![];
+    for &(e, n, out, _) in of_text.iter().filter_map(|l| tally.get(l)) {
+        let inside = e[0] as f64 >= letters[0] && e[1] as f64 >= letters[1] && e[2] as f64 <= letters[2] && e[3] as f64 <= letters[3];
+        let thin = ((e[2] - e[0]).min(e[3] - e[1]) as f64) <= LINE_THICK * glyph;
+        let side = (e[2] - e[0]).max(e[3] - e[1]) as f64;
+        let letter = side >= LETTER_MIN * page.w as f64 && side < letter_px;
+        let (mx, my) = ((e[0] + e[2]) as f64 / 2.0, (e[1] + e[3]) as f64 / 2.0);
+        let theirs = others.iter().any(|o| mx >= o[0] && mx <= o[2] && my >= o[1] && my <= o[3]);
+        if (inside || thin) && letter && !theirs {
+            letters_of.push((n, out));
+        }
+    }
+    // Half in: art wholly beyond the outline is not the text's.
+    let across = letters_of.iter().any(|&(n, out)| out * 4 > n && out * 10 < n * 9);
+    // And most of the letters in the balloon: a patch of paper on the art
+    // that a few of them touch is none (ch257 p7, which then took the line
+    // "UM, UM...!" from its balloon).
+    let out_of = letters_of.iter().filter(|&&(n, out)| out * 2 > n).count();
+    // Nor may it cut the art: a mark of solid ink the size of a letter,
+    // not the text's, partly under it (a burst beside "AH!" lettered on a
+    // white wall, ch256 p9, whose cover took half of it). Not a strand of
+    // toned hair reaching into a balloon (ch257 p21).
+    let solid_ink: Vec<bool> = grid.cells().map(|(x, y)| page.at(x, y) < INK).collect();
+    let strokes = grid.components(&solid_ink);
+    let mut drawn: std::collections::HashMap<u32, ([i64; 4], usize, usize)> = std::collections::HashMap::new();
+    for (i, (x, y)) in grid.cells().enumerate().filter(|&(i, _)| solid_ink[i]) {
+        let t = drawn.entry(strokes[i]).or_insert(([x, y, x, y], 0, 0));
+        t.0 = [t.0[0].min(x), t.0[1].min(y), t.0[2].max(x), t.0[3].max(y)];
+        t.1 += 1;
+        t.2 += usize::from(held(x, y));
+    }
+    let least = 2.0 * (LETTER_MIN * page.w as f64).powi(2);
+    let cut = drawn.values().any(|&(e, n, under)| {
+        let side = (e[2] - e[0]).max(e[3] - e[1]) as f64;
+        let (mx, my) = ((e[0] + e[2]) as f64 / 2.0, (e[1] + e[3]) as f64 / 2.0);
+        let lettering = mx >= letters[0] && mx <= letters[2] && my >= letters[1] && my <= letters[3];
+        !lettering && n as f64 >= least && side < letter_px && under * 5 > n && under * 5 < n * 4
+    });
+    if across || cut || out_of * 2 > letters_of.len() {
+        return None;
+    }
     let d = (0.5 * glyph).round() as i64;
     let stray = steps
         .iter()
@@ -208,6 +341,21 @@ pub fn find(page: &Page, text: [f64; 4], glyph: f64, others: &[[f64; 4]]) -> Opt
     if stray as f64 > STRAY * glyph * glyph {
         return None;
     }
+    // Lettering edged in white over paper with art in it is drawn on the
+    // art, though an outline closes the paper round it (the sky's clouds,
+    // which the girl's head and the panel's edge close, ch257 p21): a toned
+    // balloon round white-edged lettering holds none (ch256 p8).
+    if halo(page, &grid, &comp, &ink) {
+        let faint = steps
+            .iter()
+            .flat_map(|s| (s.top..s.bottom).flat_map(move |y| (s.l..s.r).map(move |x| (x, y))))
+            .filter(|&(x, y)| page.at(x, y) < LIGHT && rect_dist2(letters, x, y) > 0.0)
+            .filter(|&(x, y)| held(x - d, y) && held(x + d, y) && held(x, y - d) && held(x, y + d))
+            .count();
+        if faint as f64 > STRAY * glyph * glyph {
+            return None;
+        }
+    }
 
     let outline = outline(&steps);
     let bounds = [
@@ -216,6 +364,17 @@ pub fn find(page: &Page, text: [f64; 4], glyph: f64, others: &[[f64; 4]]) -> Opt
         steps.iter().map(|s| s.r).max()?,
         steps.last()?.bottom,
     ];
+    // A balloon holds all its lettering, with paper round it. A cover
+    // falling more than [`SHORT`] letters short of the lettering on a side
+    // is not round it (a speck's patch of paper on the art, ch257 p7, which
+    // then took the line "UM, UM...!" from its balloon). One no disk rounds
+    // must keep a tenth of a letter clear of it: lettering wedged into nooks
+    // of the art (the lines of a hand, ch257 p17), or spilling out of a
+    // thought cloud (ch257 p8).
+    let gap = [text[0] - bounds[0] as f64, text[1] - bounds[1] as f64, bounds[2] as f64 - text[2], bounds[3] as f64 - text[3]].into_iter().fold(f64::MAX, f64::min) / glyph;
+    if gap < -SHORT || picked == 0 && gap < 0.1 {
+        return None;
+    }
     // Centred where the letterer centred the original.
     let (ink_y0, ink_y1) = ink.iter().fold((i64::MAX, i64::MIN), |(a, b), &i| (a.min(grid.xy(i).1), b.max(grid.xy(i).1)));
     let r = largest_rect(&steps, (cx, (ink_y0 + ink_y1) / 2))?;
@@ -227,8 +386,18 @@ pub fn find(page: &Page, text: [f64; 4], glyph: f64, others: &[[f64; 4]]) -> Opt
     if rw < ROOM * lw || rw * rh < ROOM * lw * lh {
         return None;
     }
-    let pad =((TEXT_PAD * (r[2] - r[0]).min(r[3] - r[1]) as f64).round() as i64).max(1);
+    let pad = ((TEXT_PAD * (r[2] - r[0]).min(r[3] - r[1]) as f64).round() as i64).max(1);
     let text = [r[0] + pad, r[1] + pad, (r[2] - pad).max(r[0] + pad + 1), (r[3] - pad).max(r[1] + pad + 1)];
+    // The room the letterer used, where it is more and its lines no
+    // narrower, and all of it is under the cover: the centred rectangle is
+    // narrower than wide lines set off the middle. Nearly all is not
+    // enough: a "!" lettered beside the balloon took the Korean over its
+    // outline (ch256 p10, "HEE... HOO!").
+    let lettered = [ix0, ink_y0, ix1 + 1, ink_y1 + 1];
+    let held_in = |y: i64| steps.iter().find(|s| y >= s.top && y < s.bottom).map_or(0, |s| (s.r.min(lettered[2]) - s.l.max(lettered[0])).max(0));
+    let under = (lettered[1]..lettered[3]).all(|y| held_in(y) == lettered[2] - lettered[0]);
+    let area = |t: [i64; 4]| (t[2] - t[0]) * (t[3] - t[1]);
+    let text = if under && area(lettered) > area(text) && lettered[2] - lettered[0] >= text[2] - text[0] { lettered } else { text };
     Some(Found { outline, bounds, text, glyph: Some(glyph) })
 }
 
@@ -667,9 +836,19 @@ pub fn assign(items: &[([f64; 4], usize)], blocks: &[Block], page_w: u32) -> Vec
     let mut sizes: Vec<f64> = blocks.iter().filter(|b| b.letters >= 6).map(|b| b.glyph).collect();
     sizes.sort_by(f64::total_cmp);
     let usual = sizes.get(sizes.len() / 2).copied();
+    // How much of `r` lies in Gemini's box `t`, drawn loosely: a tenth of
+    // the box round it still counts (ch256 p4, the "34!" below its box).
+    let held = |t: [f64; 4], r: [f64; 4]| {
+        let (gx, gy) = (MATCH_LOOSE * (t[2] - t[0]), MATCH_LOOSE * (t[3] - t[1]));
+        let w = ((t[2] + gx).min(r[2]) - (t[0] - gx).max(r[0])).max(0.0);
+        w * ((t[3] + gy).min(r[3]) - (t[1] - gy).max(r[1])).max(0.0) / ((r[2] - r[0]) * (r[3] - r[1])).max(1.0)
+    };
     let mut pairs = vec![];
     for (i, &(t, chars)) in items.iter().enumerate() {
         let (ix, iy) = centre(t);
+        // The largest lettering in the box: smaller marks beside it there
+        // are its dots, not the line (ch256 p21, "..." in "3... 4...?").
+        let largest = blocks.iter().filter(|b| held(t, b.bounds) >= 0.5).map(|b| b.glyph).fold(0.0, f64::max);
         for (j, b) in blocks.iter().enumerate() {
             let (bx, by) = centre(b.bounds);
             let d = ((ix - bx).powi(2) + (iy - by).powi(2)).sqrt() / page_w as f64;
@@ -683,7 +862,15 @@ pub fn assign(items: &[([f64; 4], usize)], blocks: &[Block], page_w: u32) -> Vec
             let within = inter / ((r[2] - r[0]) * (r[3] - r[1])).max(1.0) * (b.letters as f64 / chars.max(1) as f64).min(1.0);
             let filled = (inter / ((t[2] - t[0]) * (t[3] - t[1])).max(1.0)).max(within);
             let bare = if b.in_balloon { 0.0 } else { MATCH_BARE * (1.0 - filled) };
-            let cost = d + MATCH_COUNT * count + MATCH_SMALL * small + bare;
+            // Lettering lying within the box, the largest there, is the
+            // item's (one with letters; "...!" has none to tell), though it
+            // has more letters or smaller ones than the item reads: a reading
+            // lettered over the line ("san yon" over "34!", ch256 p4, whose
+            // "34!" went to the "7!" in the next balloon). Not with fewer:
+            // that is another line, under a box Gemini set a balloon over
+            // (ch258 p14, "THE RIVER STYX-" under the box of "THERE...").
+            let theirs = if chars > 0 && b.letters >= chars && b.glyph * 1.6 >= largest { held(t, r) } else { 0.0 };
+            let cost = d + (MATCH_COUNT * count + MATCH_SMALL * small) * (1.0 - theirs) + bare;
             if cost <= MATCH_MAX {
                 pairs.push((cost, i, j));
             }
@@ -752,7 +939,8 @@ pub fn nudge(items: &mut [([f64; 4], usize)], blocks: &[Block], on: &mut [Option
 /// Each item's lettering: its block, joined by blocks no item took that
 /// are lettered at its size and either lie almost wholly inside the item's
 /// box or, half inside it or reaching into it within a few letters of the
-/// lettering, bring the letter count nearer the item's source text. Gemini gives two texts
+/// lettering, bring the letter count nearer the item's source text; or that
+/// lie inside the box touching the lettering, at any size. Gemini gives two texts
 /// lettered apart as one item ("IGNORE IT!" above "JUST AS LONG AS...",
 /// "WHAT DO I..." beside "OH, I KNOW!"). The bounds of each piece, its own
 /// block first; none for an item with no block.
@@ -790,7 +978,11 @@ pub fn gather(items: &[([f64; 4], usize)], blocks: &[Block], on: &[Option<usize>
                 let near = gap <= reach && inter > 0.0 || inter >= 0.5 * (r[2] - r[0]) * (r[3] - r[1]);
                 let closer = near && other.letters >= WORD_LETTERS && miss(letters + other.letters) < miss(letters);
                 let alike = other.glyph.max(own.glyph) <= 1.6 * other.glyph.min(own.glyph);
-                !taken[j] && other.letters >= 3 && alike && (inside || closer)
+                // Lettering of another size inside the box and touching the
+                // item's is the same line: a reading lettered small over it
+                // ("nana" over "7!", ch256 p4).
+                let touching = inside && gap <= other.glyph.min(own.glyph) && other.in_balloon && other.letters >= WORD_LETTERS;
+                !taken[j] && other.letters >= 3 && (alike && (inside || closer) || touching)
             });
             let Some((j, other)) = next else { break };
             taken[j] = true;
@@ -815,6 +1007,9 @@ const MATCH_COUNT: f64 = 0.25;
 /// of the page's usual lettering size.
 const MATCH_SMALL: f64 = 0.5;
 const MATCH_MAX: f64 = 0.6;
+/// How far past Gemini's box, as a share of its size, lettering still lies
+/// within it.
+const MATCH_LOOSE: f64 = 0.1;
 /// For a block with no balloon around it, less the share of Gemini's box it
 /// fills (or of itself, and of the item's letters, inside that box):
 /// dialogue Gemini placed off its balloon goes to the lettering in a
@@ -936,11 +1131,13 @@ fn largest_rect(steps: &[Step], at: (i64, i64)) -> Option<[i64; 4]> {
         r = r.min(steps[up].r).min(steps[down].r);
         let half_w = (cx - l).min(r - cx);
         let half_h = (cy - steps[up].top).min(steps[down].bottom - cy);
-        if half_w <= 0 || half_h <= 0 {
+        if half_w <= 0 {
             break;
         }
+        // A step starting at the centre row has no height above it yet: the
+        // rectangle grows on (a rounded cover is many one-row steps).
         let area = half_w * half_h;
-        if best.is_none_or(|(_, a)| area > a) {
+        if half_h > 0 && best.is_none_or(|(_, a)| area > a) {
             best = Some(([cx - half_w, cy - half_h, cx + half_w, cy + half_h], area));
         }
         let can_up = up > 0 && steps[up - 1].bottom == steps[up].top;
@@ -1363,6 +1560,32 @@ mod tests {
         ];
         let texts = gather(&[([12.0, 834.0, 266.0, 1160.0], 39)], &blocks, &[Some(0)]);
         assert_eq!(texts, vec![vec![blocks[0].bounds]]);
+    }
+
+    /// ch256 p4: each of "7!" and "34!" lettered with its reading small
+    /// over it ("nana", "san yon"). "34!" keeps the block in its own box,
+    /// though that block has more letters than the item, and "7!" takes its
+    /// reading in with it, though lettered smaller. A mark on the art
+    /// touching a line is not joined so (ch257 p8, by "OH, I KNOW!"; its
+    /// three marks counted a word here, so only its place on the art keeps
+    /// it out). Boxes and blocks are from those pages.
+    #[test]
+    fn a_reading_lettered_over_its_line_goes_with_it() {
+        let block = |bounds: [f64; 4], letters, glyph| Block { bounds, letters, glyph, in_balloon: true };
+        let blocks = [
+            block([684.0, 1539.0, 781.0, 1673.0], 18, 23.0),
+            block([316.0, 1563.0, 354.0, 1573.0], 4, 10.0),
+            block([316.0, 1578.0, 354.0, 1613.0], 3, 33.0),
+            block([467.0, 1585.0, 535.0, 1633.0], 9, 10.0),
+        ];
+        let items = [([300.0, 1466.9, 420.0, 1611.3], 1), ([465.6, 1466.9, 585.6, 1611.3], 2), ([630.0, 1466.9, 750.0, 1611.3], 19)];
+        let on = assign(&items, &blocks, 1200);
+        assert_eq!(on, vec![Some(2), Some(3), Some(0)]);
+        assert_eq!(gather(&items, &blocks, &on)[0], vec![blocks[2].bounds, blocks[1].bounds]);
+
+        let own = Block { bounds: [796.0, 937.0, 967.0, 1157.0], letters: 38, glyph: 21.0, in_balloon: false };
+        let face = Block { bounds: [889.0, 899.0, 906.0, 926.0], letters: 4, glyph: 11.0, in_balloon: false };
+        assert_eq!(gather(&[([858.0, 834.6, 1050.0, 1160.7], 64)], &[own.clone(), face], &[Some(0)]), vec![vec![own.bounds]]);
     }
 
     /// ch257 p10: the footnote's box sits 24 px above its line, which the

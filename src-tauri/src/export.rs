@@ -748,7 +748,7 @@ mod tests {
         let mut img = Rgb { w: 200, h: 120, px: vec![90; 200 * 120 * 3] };
         // Picture rows 100..220: a wide step 120..160, a narrow one 160..200.
         let outline = vec![[160, 120], [160, 160], [130, 160], [130, 200], [70, 200], [70, 160], [40, 160], [40, 120]];
-        let cover = serde_json::to_string(&layout::Cover { outline, text: [75, 125, 50, 70], parts: vec![], patch: None }).unwrap();
+        let cover = serde_json::to_string(&layout::Cover { outline, text: [75, 125, 50, 70], parts: vec![], patch: None, flow_px: None }).unwrap();
         let p = PlacementRow { id: 1, fingerprint: String::new(), x: 40, y: 120, w: 120, h: 80, radius: 0, font_px: 14, ko: "안녕".into(), cover: Some(cover) };
         draw_placement(&mut img, &p, 100);
         let at = |x: u32, y: u32| img.px[((y * 200 + x) * 3) as usize];

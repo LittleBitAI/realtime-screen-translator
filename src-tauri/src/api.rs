@@ -310,6 +310,10 @@ pub struct PageBox {
     pub h: u32,
     pub radius: u16,
     pub font_px: u16,
+    /// The size a line alone in its balloon starts from where the reader
+    /// sets it along the outline (wider than `text` through its middle).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub flow_px: Option<u16>,
     pub ko: String,
     /// The shape's outline (picture pixels, clockwise) when it follows the
     /// balloon; empty for the rounded rectangle `x, y, w, h, radius`.

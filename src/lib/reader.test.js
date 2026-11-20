@@ -24,6 +24,7 @@ beforeEach(() => {
   vi.stubGlobal('requestAnimationFrame', (f) => setTimeout(f, 0));
   // jsdom lays nothing out: the lines' extent is empty, as no spill.
   Range.prototype.getBoundingClientRect ??= () => new DOMRect();
+  Range.prototype.getClientRects ??= () => [];
 });
 
 afterEach(() => {
@@ -113,6 +114,22 @@ describe('reader page script', () => {
       return t;
     });
     expect(texts.map((t) => [t.textContent, t.style.left, t.style.width])).toEqual([['응.', '75%', '20%'], ['알았어.', '5%', '20%']]);
+  });
+
+  it('keeps a dash on the line of the word before it', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('cors'); }));
+    const invoke = vi.fn().mockResolvedValue(null).mockResolvedValueOnce({ ...page(null), boxes: [{ ...page(null).boxes[0], ko: '아—?! 13일의...?!' }] });
+    window.__TAURI_INTERNALS__ = { invoke };
+    pagePicture('https://cdn.example/4.jpg');
+
+    new Function(script)();
+
+    const text = await vi.waitFor(() => {
+      const t = document.querySelector('.rst-text');
+      expect(t).not.toBeNull();
+      return t;
+    });
+    expect(text.textContent).toBe('아⁠—?! 13일의...?!');
   });
 
   it('loads and translates a chapter picture only as it approaches the view', async () => {
