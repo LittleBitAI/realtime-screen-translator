@@ -1,7 +1,9 @@
 // Galaxy S21+ read-through: opens each chapter address in the installed reader
 // (the command the address bar uses), turns MangaFire's page slider one page
 // at a time, waits for that page's shapes, and captures the screen with the
-// translation on and off. Usage: node balloonfit-phone.mjs <out dir> <url>...
+// translation on and off. Usage: node phone-walk.mjs <out dir> <url>...
+// With WALK_PORT set, the installed Windows app instead: its WebView2's
+// debugging port, each capture the page as the window shows it.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -9,9 +11,13 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { tab, targets } from './cdp.mjs';
 
 const adb = 'C:/Users/dasdk/AppData/Local/Android/Sdk/platform-tools/adb.exe';
-const port = 18847;
+const port = Number(process.env.WALK_PORT ?? 18847);
+const desktop = 'WALK_PORT' in process.env;
 const [out, ...urls] = process.argv.slice(2);
-const shot = (file) => writeFileSync(file, execFileSync(adb, ['exec-out', 'screencap', '-p'], { maxBuffer: 64 << 20 }));
+let site;
+const shot = async (file) => writeFileSync(file, desktop
+  ? Buffer.from((await site.cdp('Page.captureScreenshot', { format: 'png' })).data, 'base64')
+  : execFileSync(adb, ['exec-out', 'screencap', '-p'], { maxBuffer: 64 << 20 }));
 async function wait(read, name, tries = 240) {
   let problem;
   for (let i = 0; i < tries; i++) {
@@ -45,7 +51,7 @@ for (const url of urls) {
   await app.run(`window.__TAURI_INTERNALS__.invoke('post_reader_open', { url: ${JSON.stringify(url)} })`);
   app.close();
   await delay(3000);
-  const site = await tab(await page((p) => p.url === url));
+  site = await tab(await page((p) => p.url === url));
   const slides = await wait(() => site.run(`document.querySelector('.swiper')?.swiper?.slides?.length`), 'slider');
   const chapter = url.split('/').pop();
   const dir = `${out}/${chapter}`;
@@ -53,41 +59,53 @@ for (const url of urls) {
   const pages = [];
   for (let k = 0; k < slides; k++) {
     await site.run(`document.querySelector('.swiper').swiper.slideTo(${k}, 0)`);
-    // The page picture on this slide (none on the chapter's closing slide),
-    // and its layer: shapes drawn, or a chip saying why not.
+    // The page pictures on this slide (one on the phone, two side by side on
+    // the desktop's wider page, none on the chapter's closing slide), each
+    // with its layer: shapes drawn, or a chip saying why not. A slide's
+    // pictures may be put in a moment after it is shown.
+    const shown = Date.now();
     const state = await wait(() => site.run(`(() => { const s = document.querySelector('.swiper').swiper.slides[${k}];
-      const i = s.querySelector('img.reader-img'); if (!i) return { picture: false };
-      // A picture the site failed to send is asked for again, as a reload would.
-      if (i.complete && !i.naturalWidth && i.src) { const u = i.src; i.removeAttribute('src'); i.src = u; return null; }
-      if (!i.complete || !i.naturalWidth) return null;
-      const layer = i.nextElementSibling?.classList.contains('rst-layer') ? i.nextElementSibling : null;
-      const chip = layer?.querySelector('.rst-chip')?.textContent;
-      if (chip) return chip.startsWith('번역 중') ? null : { picture: true, chip };
-      const boxes = layer?.querySelectorAll('.rst-box').length ?? 0;
-      return layer && layer.dataset.at ? { picture: true, boxes, w: i.naturalWidth, h: i.naturalHeight, texts: [...layer.querySelectorAll('.rst-text')].map(t => parseFloat(t.style.fontSize)) } : null; })()`), `slide ${k + 1}`, 480);
-    if (!state.picture) { console.log(chapter, 'slide', k + 1, 'no page picture'); continue; }
+      const imgs = [...s.querySelectorAll('img.reader-img')];
+      if (!imgs.length) return null;
+      const out = [];
+      for (const i of imgs) {
+        // A picture the site failed to send is asked for again, as a reload would.
+        if (i.complete && !i.naturalWidth && i.src) { const u = i.src; i.removeAttribute('src'); i.src = u; return null; }
+        if (!i.complete || !i.naturalWidth) return null;
+        const layer = i.nextElementSibling?.classList.contains('rst-layer') ? i.nextElementSibling : null;
+        const chip = layer?.querySelector('.rst-chip')?.textContent;
+        if (chip) { if (chip.startsWith('번역 중')) return null; out.push({ picture: true, chip }); continue; }
+        if (!layer || !layer.dataset.at) return null;
+        out.push({ picture: true, boxes: layer.querySelectorAll('.rst-box').length, w: i.naturalWidth, h: i.naturalHeight });
+      }
+      return out; })()`).then((r) => r ?? (Date.now() - shown > 6000 && site.run(`document.querySelector('.swiper').swiper.slides[${k}].querySelectorAll('img.reader-img').length`).then((n) => (n ? null : [])))), `slide ${k + 1}`, 480);
+    if (!state.length) { console.log(chapter, 'slide', k + 1, 'no page picture'); continue; }
     await delay(500);
     // The sizes as captured: read after the layer's last refit, not when it first appears.
-    if (state.texts) state.texts = await site.run(`[...document.querySelector('.swiper').swiper.slides[${k}].querySelectorAll('.rst-layer .rst-text')].map(t => parseFloat(t.style.fontSize))`);
+    const texts = await site.run(`[...document.querySelector('.swiper').swiper.slides[${k}].querySelectorAll('img.reader-img')].map((i) => [...(i.nextElementSibling?.querySelectorAll('.rst-text') ?? [])].map(t => parseFloat(t.style.fontSize)))`);
+    state.forEach((p, j) => { if (!p.chip) p.texts = texts[j]; });
     const name = `${dir}/${String(pages.length + 1).padStart(2, '0')}`;
     // Each capture after the page has drawn twice since the switch: the
     // screen grab may hold the frame from before it (ch257 p6, one pair
     // the same with nine shapes). A pair still the same is recorded.
     const drawn = () => site.run(`new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(() => ok(true))))`);
     const sum = (file) => createHash('sha256').update(readFileSync(file)).digest('hex');
-    shot(`${name}-after.png`);
+    const boxes = state.reduce((a, p) => a + (p.boxes ?? 0), 0);
+    await shot(`${name}-after.png`);
     await site.run(`document.documentElement.classList.add('rst-off')`);
     let same = true;
     for (let tries = 0; tries < 5 && same; tries++) {
       await drawn();
       await delay(200 * (tries + 1));
-      shot(`${name}-before.png`);
-      same = state.boxes > 0 && sum(`${name}-before.png`) === sum(`${name}-after.png`);
+      await shot(`${name}-before.png`);
+      same = boxes > 0 && sum(`${name}-before.png`) === sum(`${name}-after.png`);
     }
     await site.run(`document.documentElement.classList.remove('rst-off')`);
     await drawn();
-    pages.push({ page: pages.length + 1, ...state, same_capture: same });
-    console.log(chapter, 'page', pages.length, JSON.stringify({ ...state, texts: undefined, min_font: Math.min(...(state.texts ?? [0])) }));
+    for (const p of state) {
+      pages.push({ page: pages.length + 1, slide: k + 1, ...p, same_capture: same });
+      console.log(chapter, 'page', pages.length, JSON.stringify({ ...p, texts: undefined, min_font: Math.min(...(p.texts ?? [0])) }));
+    }
   }
   site.close();
   report.chapters.push({ url, slides, pages: pages.length, chips: pages.filter((p) => p.chip).length, same_captures: pages.filter((p) => p.same_capture).length, detail: pages });

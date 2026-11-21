@@ -22,6 +22,8 @@ export async function tab(target) {
         else resolve(answer.result);
       };
       ws.addEventListener('message', listener);
+      // A window closed under the call (the reader closing its site) ends it.
+      ws.addEventListener('close', () => reject(new Error(`${method}: connection closed`)), { once: true });
       ws.send(JSON.stringify({ id: req, method, params }));
     });
   }
