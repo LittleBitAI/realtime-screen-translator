@@ -191,11 +191,17 @@
     }
     status();
     if (!on && !chapter) return;
-    // A chapter's page in range whose picture is still loading holds back
-    // the pages after it: the app has a page wait only for the earlier ones
-    // it has been sent, so its request carries their lines.
+    // A page in range whose picture is still loading holds back the pages
+    // after it: the app has a page wait only for the earlier ones it has
+    // been sent, so its request carries their lines. On a site that is any
+    // page-wide picture not yet loaded; one that failed (loaded, no size)
+    // holds nothing.
     let held = false;
     for (const img of document.images) {
+      if (!chapter && !img.complete) {
+        held ||= on && img.offsetWidth >= 120 && !img.closest('.rst-layer') && distance(img) <= NEAR;
+        continue;
+      }
       if (chapter ? !img.dataset.pictureId : !isPage(img)) continue;
       const src = chapter ? Number(img.dataset.pictureId) : img.currentSrc || img.src;
       const near = distance(img);

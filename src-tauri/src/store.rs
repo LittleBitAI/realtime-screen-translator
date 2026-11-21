@@ -391,19 +391,20 @@ pub fn reader_lines(db: &Db, key: &str) -> Res<Vec<(PlacementRow, String)>> {
     }).collect())
 }
 
-/// The kept answers (JSON) of the pages read just before `seq` in `book`,
-/// with their places, nearest last: a site page's own, or the page an
-/// imported picture shares.
-pub fn earlier_items(db: &Db, book: i64, seq: i64, pages: u32, lang: &str) -> Res<Vec<(i64, String)>> {
+/// The pages read just before `seq` in `book`, with their places, nearest
+/// last: a site page's own, or the page an imported picture shares. Each as
+/// its reader page key and its kept answer (JSON), none if an older library
+/// saved it without one (its lines are then in [`reader_lines`]).
+pub fn earlier_items(db: &Db, book: i64, seq: i64, pages: u32, lang: &str) -> Res<Vec<(i64, String, Option<String>)>> {
     let mut st = db.prepare(
-        "SELECT seq, items FROM (
-             SELECT p.seq, r.items FROM Picture p LEFT JOIN ChapterPage c ON c.picture_id = p.id
+        "SELECT seq, key, items FROM (
+             SELECT p.seq, r.key, r.items FROM Picture p LEFT JOIN ChapterPage c ON c.picture_id = p.id
              JOIN ReaderPage r ON r.key = substr(c.translated_key, 1, instr(c.translated_key, ':')) || ?4
                  OR (c.picture_id IS NULL AND r.picture_id = p.id AND substr(r.key, instr(r.key, ':') + 1) = ?4)
-             WHERE p.book_id = ?1 AND p.seq < ?2 AND r.items IS NOT NULL ORDER BY p.seq DESC LIMIT ?3
+             WHERE p.book_id = ?1 AND p.seq < ?2 ORDER BY p.seq DESC LIMIT ?3
          ) ORDER BY seq",
     )?;
-    let rows = st.query_map(params![book, seq, pages, lang], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    let rows = st.query_map(params![book, seq, pages, lang], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
     rows.collect()
 }
 
@@ -415,14 +416,14 @@ pub fn set_site_page(db: &Db, page_url: &str, seq: i64, key: &str) -> Res<()> {
 
 /// [`earlier_items`] for the pages the site chapter at `page_url` showed,
 /// wherever they were first read.
-pub fn earlier_site_items(db: &Db, page_url: &str, seq: i64, pages: u32, lang: &str) -> Res<Vec<(i64, String)>> {
+pub fn earlier_site_items(db: &Db, page_url: &str, seq: i64, pages: u32, lang: &str) -> Res<Vec<(i64, String, Option<String>)>> {
     let mut st = db.prepare(
-        "SELECT seq, items FROM (
-             SELECT s.seq, r.items FROM SitePage s JOIN ReaderPage r ON r.key = substr(s.key, 1, instr(s.key, ':')) || ?4
-             WHERE s.page_url = ?1 AND s.seq < ?2 AND r.items IS NOT NULL ORDER BY s.seq DESC LIMIT ?3
+        "SELECT seq, key, items FROM (
+             SELECT s.seq, r.key, r.items FROM SitePage s JOIN ReaderPage r ON r.key = substr(s.key, 1, instr(s.key, ':')) || ?4
+             WHERE s.page_url = ?1 AND s.seq < ?2 ORDER BY s.seq DESC LIMIT ?3
          ) ORDER BY seq",
     )?;
-    let rows = st.query_map(params![page_url, seq, pages, lang], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    let rows = st.query_map(params![page_url, seq, pages, lang], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
     rows.collect()
 }
 

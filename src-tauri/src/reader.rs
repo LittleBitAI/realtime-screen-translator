@@ -262,17 +262,26 @@ impl Backend {
             ReaderSource::Site(req) => store::reader_book(&st.db, &req.page_url)?.map(|b| (b, req.index)),
             ReaderSource::Chapter(pic) => store::picture_place(&st.db, pic)?,
         };
-        let mut pages: std::collections::BTreeMap<i64, String> = match place {
-            Some((book, seq)) => store::earlier_items(&st.db, book, seq, CONTEXT_PAGES, lang)?.into_iter().collect(),
+        let mut pages: std::collections::BTreeMap<i64, (String, Option<String>)> = match place {
+            Some((book, seq)) => store::earlier_items(&st.db, book, seq, CONTEXT_PAGES, lang)?.into_iter().map(|(s, k, j)| (s, (k, j))).collect(),
             None => Default::default(),
         };
         // A site chapter's pages answered from the library under another
         // address count too, at the place this chapter showed them.
         if let ReaderSource::Site(req) = source {
-            pages.extend(store::earlier_site_items(&st.db, &req.page_url, req.index, CONTEXT_PAGES, lang)?);
+            pages.extend(store::earlier_site_items(&st.db, &req.page_url, req.index, CONTEXT_PAGES, lang)?.into_iter().map(|(s, k, j)| (s, (k, j))));
         }
         let skip = pages.len().saturating_sub(CONTEXT_PAGES as usize);
-        Ok(pages.values().skip(skip).filter_map(|j| serde_json::from_str::<Vec<PageItem>>(j).ok()).flatten().collect())
+        let mut lines = vec![];
+        for (key, answer) in pages.values().skip(skip) {
+            match answer.as_deref().and_then(|j| serde_json::from_str::<Vec<PageItem>>(j).ok()) {
+                Some(items) => lines.extend(items),
+                // Saved by an older library without its answer: the source
+                // and Korean it kept with each line (the box goes unused here).
+                None => lines.extend(store::reader_lines(&st.db, key)?.iter().map(|(p, src)| kept_item(p, src, 1, 1))),
+            }
+        }
+        Ok(lines)
     }
 
     /// One Gemini request for the whole page (R9, R10 in `gemini::read_page`).
@@ -485,7 +494,8 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
     // the block parts between the two, stacked or side by side (ch256 p12,
     // a narration on the art and the balloon it ends on; p11, two shouts in
     // one balloon): each is then covered as what it is.
-    for (i, k) in hosts(&wanted, &blocks, &on).into_iter().enumerate().filter_map(|(i, k)| Some((i, k?))) {
+    let speakers: Vec<&str> = items.iter().map(|it| it.speaker.as_str()).collect();
+    for (i, k) in hosts(&wanted, &blocks, &on, &speakers).into_iter().enumerate().filter_map(|(i, k)| Some((i, k?))) {
         let Some(j) = on[k] else { continue };
         if let Some([own, other]) = balloon::split(&pg, &blocks[j], [wanted[k], wanted[i]]) {
             blocks[j] = own;
@@ -496,7 +506,7 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
     let pieces = balloon::gather(&wanted, &blocks, &on);
     let union = |p: &[[f64; 4]]| p.iter().fold([f64::MAX, f64::MAX, f64::MIN, f64::MIN], |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
     let texts: Vec<[f64; 4]> = pieces.iter().zip(&wanted).map(|(p, &(t, _))| if p.is_empty() { t } else { union(p) }).collect();
-    let host = hosts(&wanted, &blocks, &on);
+    let host = hosts(&wanted, &blocks, &on, &speakers);
     let boxes: Vec<(PageBox, bool)> = items
         .iter()
         .enumerate()
@@ -875,8 +885,13 @@ fn in_line(marks: Vec<[i64; 4]>, block: [f64; 4], space: i64, vertical: bool) ->
 /// lettering too: Gemini's box touches that block, and the block's letters
 /// come nearer the two lines' letters together than the other's alone
 /// (ch256 p12, "SURELY, HER FRIEND..." and "THE PEOPLE DEMAND MORE 13!"
-/// lettered as one block, Gemini's boxes off to one side).
-fn hosts(wanted: &[([f64; 4], usize)], blocks: &[balloon::Block], on: &[Option<usize>]) -> Vec<Option<usize>> {
+/// lettered as one block, Gemini's boxes off to one side). Never the line
+/// of another speaker: drawn in one cover, two speakers' lines would read
+/// as one, so such a line keeps a place of its own (`speakers`, blank or
+/// "Unknown" where Gemini could not tell, which may be either).
+fn hosts(wanted: &[([f64; 4], usize)], blocks: &[balloon::Block], on: &[Option<usize>], speakers: &[&str]) -> Vec<Option<usize>> {
+    let known = |s: &str| !s.trim().is_empty() && !s.trim().eq_ignore_ascii_case("unknown");
+    let apart = |a: &str, b: &str| known(a) && known(b) && !a.trim().eq_ignore_ascii_case(b.trim());
     let mut host = vec![None; wanted.len()];
     let mut held: Vec<usize> = wanted.iter().map(|w| w.1).collect();
     for i in (0..wanted.len()).filter(|&i| on[i].is_none()) {
@@ -884,6 +899,7 @@ fn hosts(wanted: &[([f64; 4], usize)], blocks: &[balloon::Block], on: &[Option<u
         let overlap = |b: [f64; 4]| (r[2].min(b[2]) - r[0].max(b[0])).max(0.0) * (r[3].min(b[3]) - r[1].max(b[1])).max(0.0);
         let best = (0..wanted.len())
             .filter_map(|k| on[k].map(|j| (k, j)))
+            .filter(|&(k, _)| !apart(speakers[k], speakers[i]))
             .filter(|&(k, j)| {
                 let n = blocks[j].letters as f64;
                 overlap(blocks[j].bounds) > 0.0 && (n - (held[k] + wanted[i].1) as f64).abs() < (n - held[k] as f64).abs()
@@ -1100,6 +1116,50 @@ mod tests {
             let prompts = prompts.lock().unwrap();
             assert_eq!(prompts.len(), 2, "{form}");
             assert!(prompts[1].contains("HELLO => 안녕"), "{form}: {}", prompts[1]);
+        }
+    }
+
+    /// A library an older version made kept no answer with its pages: the
+    /// next page's request still carries an earlier page's lines, from what
+    /// was kept with each line, before that page is ever opened again. For a
+    /// site chapter and an imported one alike.
+    #[test]
+    fn an_earlier_page_kept_without_its_answer_still_gives_the_next_request_its_lines() {
+        let fixture = std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/page.jpg")).unwrap();
+        let numbered = |n: u8| {
+            let mut v = fixture.clone();
+            v.push(n);
+            v
+        };
+        for form in ["site", "imported"] {
+            let dir = std::env::temp_dir().join(format!("rst-upgraded-{form}-{}-{}", std::process::id(), now_ms()));
+            let (url, prompts) = page_gemini();
+            let open = || {
+                let b = Backend::open(dir.clone(), Some(url.clone()), Arc::new(Quiet(dir.join("export")))).unwrap();
+                b.lock().key = Some("k".into());
+                b
+            };
+            let b = open();
+            let reqs: Vec<PageIn> = (1..=2).map(|n| PageIn { src: format!("https://cdn.example/{n}.jpg"), image: None, page_url: "https://manga.example/c/1".into(), title: "Fixture".into(), index: n }).collect();
+            let pics: Vec<i64> = if form == "imported" {
+                let folder = dir.with_extension("pages");
+                std::fs::create_dir_all(&folder).unwrap();
+                (1..=2u8).for_each(|n| std::fs::write(folder.join(format!("{n}.jpg")), numbered(n)).unwrap());
+                let book = b.import_folder(&folder).unwrap();
+                b.chapter(book).unwrap().pages.into_iter().map(|p| p.id).collect()
+            } else {
+                vec![]
+            };
+            let source = |k: usize| if form == "site" { ReaderSource::Site(&reqs[k]) } else { ReaderSource::Chapter(pics[k]) };
+            b.read_picture(source(0), || Ok(numbered(1))).unwrap();
+            assert_eq!(b.lock().db.execute("UPDATE ReaderPage SET items = NULL", []).unwrap(), 1, "{form}");
+            drop(b);
+            let b = open();
+            b.read_picture(source(1), || Ok(numbered(2))).unwrap();
+            let prompts = prompts.lock().unwrap();
+            assert_eq!(prompts.len(), 2, "{form}");
+            assert!(prompts[1].contains("HELLO => 안녕"), "{form}: {}", prompts[1]);
+            let _ = std::fs::remove_dir_all(&dir);
         }
     }
 
@@ -1355,14 +1415,26 @@ mod tests {
     /// first's block: [`balloon::split`] parts the two where the block cuts
     /// between them, and where it does not, the line is drawn in the
     /// first's cover. A line whose box only touches a block that already
-    /// fits its owner is not.
+    /// fits its owner is not, and neither is another speaker's line: in one
+    /// cover the two would read as one speaker, so it keeps its own place.
+    /// A speaker Gemini left blank or "Unknown" may be either.
     #[test]
     fn a_line_lettered_in_another_items_block_is_drawn_in_its_cover() {
         let block = |bounds, letters| balloon::Block { bounds, letters, glyph: 23.0, in_balloon: false };
         let blocks = [block([917.0, 719.0, 1141.0, 1066.0], 51), block([583.0, 874.0, 737.0, 1019.0], 13)];
         let wanted = [([1034.0, 815.0, 1170.0, 991.0], 33), ([1026.0, 991.0, 1170.0, 1132.0], 21), ([630.0, 815.0, 786.0, 1132.0], 20), ([700.0, 900.0, 760.0, 1000.0], 8)];
         let on = [Some(0), None, Some(1), None];
-        assert_eq!(hosts(&wanted, &blocks, &on), [None, Some(0), None, None]);
+        for (owner, line, hosted) in [
+            ("Speaker A", "Speaker A", true),
+            ("Speaker A", "speaker a ", true),
+            ("Speaker A", "", true),
+            ("", "Speaker B", true),
+            ("Unknown", "Speaker B", true),
+            ("Speaker A", "Speaker B", false),
+        ] {
+            let speakers = [owner, line, "Speaker C", "Speaker A"];
+            assert_eq!(hosts(&wanted, &blocks, &on, &speakers), [None, hosted.then_some(0), None, None], "{owner:?} / {line:?}");
+        }
     }
 
     /// ch256 p12: Gemini's box for "WHAT IS SHE EVEN ON ABOUT?!" took in the

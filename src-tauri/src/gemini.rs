@@ -238,8 +238,9 @@ fn frac_box(v: &Value) -> Option<[f64; 4]> {
     (b[2] > b[0] && b[3] > b[1]).then_some(b)
 }
 
-/// Prefill + continuation must read as JSON `{"items": [...]}`. An item
-/// without a usable text box or translation is dropped, not the page.
+/// Prefill + continuation must read as JSON `{"items": [...]}`, every item
+/// with a usable text box and translation; otherwise the answer is
+/// unreadable and nothing of it is kept.
 pub fn parse_page(full: &str) -> Option<Vec<PageItem>> {
     let full = with_prefill(PAGE_PREFILL, full);
     let items = match serde_json::from_str::<Value>(&full) {
@@ -248,19 +249,21 @@ pub fn parse_page(full: &str) -> Option<Vec<PageItem>> {
         Ok(v) => Some(v["items"].as_array()?).filter(|a| a.iter().all(Value::is_object))?.clone(),
         Err(_) => salvage(&full)?,
     };
-    Some(
-        items
-            .iter()
-            .filter_map(|it| {
-                let ko = it["ko"].as_str()?.trim().to_string();
-                if ko.is_empty() {
-                    return None;
-                }
-                let field = |k: &str| it[k].as_str().unwrap_or("").trim().to_string();
-                Some(PageItem { text: frac_box(&it["box_2d"])?, balloon: frac_box(&it["balloon_2d"]), speaker: field("speaker"), src: field("src"), ko })
-            })
-            .collect(),
-    )
+    // Every balloon or none: one without its Korean or its text box (left
+    // out, blank, or not four numbers) fails the answer, as an unreadable
+    // one does, so the page is not kept with that balloon's lettering
+    // showing.
+    items
+        .iter()
+        .map(|it| {
+            let ko = it["ko"].as_str()?.trim().to_string();
+            if ko.is_empty() {
+                return None;
+            }
+            let field = |k: &str| it[k].as_str().unwrap_or("").trim().to_string();
+            Some(PageItem { text: frac_box(&it["box_2d"])?, balloon: frac_box(&it["balloon_2d"]), speaker: field("speaker"), src: field("src"), ko })
+        })
+        .collect()
 }
 
 /// The items of a whole answer (its list closed) that is not JSON as a
@@ -406,8 +409,8 @@ mod tests {
     }
 
     #[test]
-    fn a_page_answer_keeps_whole_balloons_only() {
-        let page = parse_page("{\"box_2d\":[100,200,300,400],\"balloon_2d\":[50,150,350,450],\"speaker\":\"Rentaro\",\"src\":\"HI\",\"ko\":\"안녕\"},{\"box_2d\":[1,2],\"ko\":\"x\"},{\"box_2d\":[0,0,9,9],\"ko\":\"\"}]}").unwrap();
+    fn a_page_answer_is_read_into_its_balloons() {
+        let page = parse_page("{\"box_2d\":[100,200,300,400],\"balloon_2d\":[50,150,350,450],\"speaker\":\"Rentaro\",\"src\":\"HI\",\"ko\":\"안녕\"}]}").unwrap();
         assert_eq!(page, vec![PageItem { text: [0.1, 0.2, 0.3, 0.4], balloon: Some([0.05, 0.15, 0.35, 0.45]), speaker: "Rentaro".into(), src: "HI".into(), ko: "안녕".into() }]);
         assert_eq!(parse_page("]}"), Some(vec![]));
         assert_eq!(parse_page("죄송합니다"), None);
@@ -446,6 +449,46 @@ mod tests {
 ]}}", items.join(",
 "));
             assert_eq!(parse_page(&answer), None, "broken item at {at}: {answer}");
+        }
+    }
+
+    /// Every balloon or none: an item without its Korean or its text box
+    /// (left out, blank, not a string, not four numbers, no area), at either
+    /// end or between two good ones, makes the answer unreadable, whether
+    /// it is JSON or read item by item after a repair (a key left without a
+    /// value in another item). With every item whole it is read.
+    #[test]
+    fn an_answer_with_a_balloon_missing_its_korean_or_box_is_unreadable() {
+        let good = |n: u32| format!(r#"{{"box_2d": [{n}, 100, {}, 200], "src": "LINE {n}", "ko": "줄 {n}"}}"#, n + 50);
+        let repaired = r#"{"box_2d": [700, 100, 750, 200], "label": "balloon_2d": [690, 90, 760, 210], "src": "LINE", "ko": "줄"}"#;
+        let missing = [
+            r#"{"box_2d": [400, 100, 450, 200], "src": "LINE"}"#,
+            r#"{"box_2d": [400, 100, 450, 200], "src": "LINE", "ko": "  "}"#,
+            r#"{"box_2d": [400, 100, 450, 200], "src": "LINE", "ko": 7}"#,
+            r#"{"src": "LINE", "ko": "줄"}"#,
+            r#"{"box_2d": [400, 100], "src": "LINE", "ko": "줄"}"#,
+            r#"{"box_2d": [400, 100, "450", 200], "src": "LINE", "ko": "줄"}"#,
+            r#"{"box_2d": [400, 200, 400, 200], "src": "LINE", "ko": "줄"}"#,
+        ];
+        for extra in ["", repaired] {
+            let answer = |bad: &str, at: usize| {
+                let mut parts = vec![good(100), good(300)];
+                if !extra.is_empty() {
+                    parts.push(extra.to_string());
+                }
+                if !bad.is_empty() {
+                    parts.insert(at, bad.to_string());
+                }
+                format!("{}
+]}}", parts.join(",
+"))
+            };
+            assert_eq!(parse_page(&answer("", 0)).map(|p| p.len()), Some(2 + usize::from(!extra.is_empty())), "whole, repaired {}", !extra.is_empty());
+            for bad in missing {
+                for at in 0..3 {
+                    assert_eq!(parse_page(&answer(bad, at)), None, "{bad} at {at}, repaired {}", !extra.is_empty());
+                }
+            }
         }
     }
 
