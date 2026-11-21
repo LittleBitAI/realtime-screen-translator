@@ -105,14 +105,15 @@
  ],
  "orphans": [
   "docs/research/review-fit-korean-dialogue-inside-manga-balloons-f1-1.md",
+  "docs/research/review-fit-korean-dialogue-inside-manga-balloons-f10-1.md",
   "docs/research/review-oneshot-initial-f1-1.md",
   "docs/research/review-oneshot-initial-f1-2.md"
  ],
  "counts": {
-  "docs": 7,
+  "docs": 8,
   "linked": 2,
   "read": 2,
-  "orphans": 3,
+  "orphans": 4,
   "pages": 8,
   "decisions": 14,
   "injectable_decisions": 4
