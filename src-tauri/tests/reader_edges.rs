@@ -358,6 +358,130 @@ fn copies_of_one_page_read_at_once_send_it_to_gemini_once() {
     assert_eq!(books[0].pictures.len(), 1, "kept once");
 }
 
+/// A page asked for while the page before it is still with Gemini waits
+/// for it, and its request carries that page's lines: for a site chapter
+/// and an imported one alike.
+#[test]
+fn a_page_read_while_the_one_before_is_with_gemini_carries_its_lines() {
+    let numbered = |n: u8| {
+        let mut bytes = page();
+        bytes.push(n);
+        bytes
+    };
+    for form in ["site", "imported"] {
+        let dirs = Dirs::new();
+        let gemini = PageGemini::answering_after(std::time::Duration::from_millis(400));
+        let b = keyed(&gemini, &dirs);
+        let pages: Vec<Box<dyn Fn() -> realtime_screen_translator::api::PageOut + Send>> = if form == "site" {
+            (1..=2u8)
+                .map(|n| {
+                    let b = b.clone();
+                    Box::new(move || {
+                        let req = PageIn { src: format!("https://cdn.example/{n}.jpg"), image: Some(numbered(n)), page_url: "https://manga.example/c/1".into(), title: "Fixture".into(), index: n as i64 };
+                        b.read_page(req).unwrap()
+                    }) as Box<dyn Fn() -> _ + Send>
+                })
+                .collect()
+        } else {
+            let folder = dirs.data.with_file_name("Fixture");
+            fs::create_dir_all(&folder).unwrap();
+            (1..=2u8).for_each(|n| fs::write(folder.join(format!("{n}.jpg")), numbered(n)).unwrap());
+            let book = b.import_folder(&folder).unwrap();
+            b.chapter(book).unwrap().pages.into_iter().map(|p| {
+                let b = b.clone();
+                Box::new(move || b.read_chapter_page(p.id).unwrap()) as Box<dyn Fn() -> _ + Send>
+            }).collect()
+        };
+        let mut pages = pages.into_iter();
+        let (first, second) = (pages.next().unwrap(), pages.next().unwrap());
+        let first = std::thread::spawn(move || first());
+        // The first page's request is with Gemini when the second is asked for.
+        while gemini.count() == 0 {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let second = std::thread::spawn(move || second());
+        assert!(!first.join().unwrap().saved, "{form}");
+        assert!(!second.join().unwrap().saved, "{form}");
+        assert_eq!(gemini.count(), 2, "{form}");
+        let prompt = gemini.last()["contents"][0]["parts"][0]["text"].as_str().unwrap().to_string();
+        assert!(prompt.contains("HELLO => 안녕"), "{form}: {prompt}");
+    }
+}
+
+/// A page answered from the library (read first under another chapter's
+/// address) still counts among its chapter's earlier pages: the next page
+/// read there, one at a time, carries its lines. For a site chapter and an
+/// imported one alike.
+#[test]
+fn a_page_answered_from_the_library_counts_among_its_chapters_earlier_pages() {
+    let next = || {
+        let mut bytes = page();
+        bytes.push(2);
+        bytes
+    };
+    for form in ["site", "imported"] {
+        let dirs = Dirs::new();
+        let gemini = PageGemini::start();
+        let b = keyed(&gemini, &dirs);
+        let at = |url: &str, image: Vec<u8>, index| b.read_page(PageIn { src: format!("https://cdn.example/{index}.jpg"), image: Some(image), page_url: url.into(), title: "Fixture".into(), index }).unwrap();
+        assert!(!at("https://manga.example/c/1", page(), 1).saved, "{form}");
+        assert_eq!(gemini.count(), 1, "{form}");
+        if form == "site" {
+            assert!(at("https://manga.example/c/2", page(), 1).saved, "{form}");
+            assert!(!at("https://manga.example/c/2", next(), 2).saved, "{form}");
+        } else {
+            let folder = dirs.data.with_file_name("Fixture");
+            fs::create_dir_all(&folder).unwrap();
+            fs::write(folder.join("1.jpg"), page()).unwrap();
+            fs::write(folder.join("2.jpg"), next()).unwrap();
+            let book = b.import_folder(&folder).unwrap();
+            let pages: Vec<_> = b.chapter(book).unwrap().pages.into_iter().map(|p| p.id).collect();
+            assert!(b.read_chapter_page(pages[0]).unwrap().saved, "{form}");
+            assert!(!b.read_chapter_page(pages[1]).unwrap().saved, "{form}");
+        }
+        assert_eq!(gemini.count(), 2, "{form}");
+        let prompt = gemini.last()["contents"][0]["parts"][0]["text"].as_str().unwrap().to_string();
+        assert!(prompt.contains("HELLO => 안녕"), "{form}: {prompt}");
+    }
+}
+
+/// An earlier page last shown in another source language still gives the
+/// next page its lines in the next page's own: the answer read from the
+/// Japanese, not the one from the English. For a site chapter and an
+/// imported one alike.
+#[test]
+fn a_page_carries_the_earlier_pages_lines_in_its_own_source_language() {
+    let next = || {
+        let mut bytes = page();
+        bytes.push(2);
+        bytes
+    };
+    for form in ["site", "imported"] {
+        let dirs = Dirs::new();
+        let gemini = PageGemini::start();
+        let b = keyed(&gemini, &dirs);
+        let folder = dirs.data.with_file_name("Fixture");
+        fs::create_dir_all(&folder).unwrap();
+        fs::write(folder.join("1.jpg"), page()).unwrap();
+        fs::write(folder.join("2.jpg"), next()).unwrap();
+        let pages: Vec<_> = if form == "imported" { b.chapter(b.import_folder(&folder).unwrap()).unwrap().pages.into_iter().map(|p| p.id).collect() } else { vec![] };
+        let at = |n: usize, image: Vec<u8>| match form {
+            "site" => b.read_page(PageIn { src: format!("https://cdn.example/{n}.jpg"), image: Some(image), page_url: "https://manga.example/c/1".into(), title: "Fixture".into(), index: n as i64 }).unwrap(),
+            _ => b.read_chapter_page(pages[n - 1]).unwrap(),
+        };
+        let lang = |l: &str| b.put_source_lang(LangIn { lang: l.into() }).unwrap();
+        lang("ja");
+        at(1, page());
+        lang("en");
+        assert_eq!(at(1, page()).boxes[0].ko, "반가워", "{form}");
+        lang("ja");
+        at(2, next());
+        assert_eq!(gemini.count(), 3, "{form}");
+        let prompt = gemini.last()["contents"][0]["parts"][0]["text"].as_str().unwrap().to_string();
+        assert!(prompt.contains("HELLO => 안녕") && !prompt.contains("반가워"), "{form}: {prompt}");
+    }
+}
+
 #[test]
 fn a_page_whose_saving_fails_says_so_and_is_saved_by_the_next_call_without_gemini() {
     let dirs = Dirs::new();

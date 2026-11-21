@@ -89,6 +89,153 @@ pub fn fit_within(x: i64, y: i64, w: u32, h: u32, ko: &str, area: (i64, i64, i64
     s
 }
 
+/// A reader shape that follows its balloon: its outline and where the Korean
+/// goes (`x, y, w, h`), in picture pixels. Kept with its placement as JSON.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Cover {
+    pub outline: Vec<[i64; 2]>,
+    pub text: [i64; 4],
+    /// A line Gemini gave for several balloons, set a share in each.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<Part>,
+    /// Lettering on the art with no balloon: the art's own tone painted over
+    /// its letters, in place of white.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patch: Option<Patch>,
+    /// The size the line starts from set along the outline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flow_px: Option<u16>,
+}
+
+/// The art's tone over lettering with no balloon: an RGBA PNG (base64)
+/// covering `at` = `x, y, w, h` (picture pixels), opaque over the letters
+/// and clear elsewhere.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Patch {
+    pub at: [i64; 4],
+    pub png: String,
+}
+
+/// One balloon's share of a line lettered in several: where it goes
+/// (`x, y, w, h`), its size and its Korean. Drawn in place of the cover's
+/// one text area.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Part {
+    pub text: [i64; 4],
+    pub font_px: u16,
+    pub ko: String,
+}
+
+/// `ko` cut at sentence ends into `shares.len()` runs of whole sentences,
+/// in order, each as near its share of the letters as the sentence ends
+/// allow; none when it has fewer sentences than shares
+/// ("수영부 부장이야." / "3학년 5반, 누레미 스이무.").
+pub fn split(ko: &str, shares: &[f64]) -> Option<Vec<String>> {
+    let n = shares.len();
+    let ends = |c: char| matches!(c, '.' | '!' | '?' | '…' | '~' | '♪' | '♥' | '—' | '"' | '\'' | '”' | '’' | ')' | ']');
+    // Sentences: a run ending in a sentence mark and then a space.
+    let chars: Vec<char> = ko.trim().chars().collect();
+    let mut sentences: Vec<String> = vec![];
+    let mut start = 0;
+    for i in 1..chars.len() {
+        if chars[i].is_whitespace() && ends(chars[i - 1]) && i > start {
+            sentences.push(chars[start..i].iter().collect::<String>().trim().to_string());
+            start = i;
+        }
+    }
+    sentences.push(chars[start.min(chars.len())..].iter().collect::<String>().trim().to_string());
+    sentences.retain(|s| !s.is_empty());
+    if n < 2 || sentences.len() < n {
+        return None;
+    }
+    // Cut i ends sentence `cut[i]`: the first cut nearest its share, each
+    // later one past it, leaving a sentence for each share after it.
+    let size = |s: &String| s.chars().filter(|c| !c.is_whitespace()).count() as f64;
+    let total: f64 = sentences.iter().map(size).sum::<f64>().max(1.0);
+    let whole: f64 = shares.iter().sum::<f64>().max(f64::MIN_POSITIVE);
+    let mut upto = vec![0.0];
+    for s in &sentences {
+        upto.push(upto.last().unwrap() + size(s) / total);
+    }
+    let (mut cuts, mut want) = (vec![0usize], 0.0);
+    for k in 0..n - 1 {
+        want += shares[k] / whole;
+        let lo = cuts[k] + 1;
+        let hi = sentences.len() - (n - 1 - k);
+        let best = (lo..=hi).min_by(|&a, &b| (upto[a] - want).abs().total_cmp(&(upto[b] - want).abs())).unwrap();
+        cuts.push(best);
+    }
+    cuts.push(sentences.len());
+    Some(cuts.windows(2).map(|w| sentences[w[0]..w[1]].join(" ")).collect())
+}
+
+/// Korean font size per pixel of the original letters' height: Hangul at
+/// this size reads about as large as the lettering it replaces.
+pub const KO_SCALE: f64 = 1.15;
+/// Without lettering to measure, the size is the largest that fits, up to this.
+const FIT_MAX: u32 = 40;
+/// CSS `line-height` of the reader's text.
+pub const LINE: f64 = 1.2;
+
+/// Width of a character in em, as Korean fonts set it (wide for Hangul and
+/// Han, narrow for Latin and spaces), a little generous.
+fn em(c: char) -> f64 {
+    match c {
+        ' ' => 0.3,
+        c if c.is_ascii() => 0.62,
+        '…' | '—' | '~' | '!' | '?' | '.' | ',' => 0.62,
+        _ => 1.0,
+    }
+}
+
+/// The lines `ko` takes at `font` px in `width` px, wrapped at spaces as the
+/// reader wraps it (`word-break: keep-all`), a word too long for a line
+/// broken anywhere. The size is chosen and the export drawn by these lines.
+pub fn wrap(ko: &str, font: f64, width: f64) -> Vec<String> {
+    let mut lines = vec![];
+    for part in ko.trim().split('\n') {
+        let (mut line, mut used) = (String::new(), 0.0);
+        for word in part.split(' ') {
+            let w: f64 = word.chars().map(|c| em(c) * font).sum();
+            let space = if used == 0.0 { 0.0 } else { em(' ') * font };
+            if used > 0.0 && used + space + w > width {
+                lines.push(std::mem::take(&mut line));
+                used = 0.0;
+            } else if used > 0.0 {
+                line.push(' ');
+                used += space;
+            }
+            if w > width {
+                // Broken across lines like `overflow-wrap: anywhere`.
+                for c in word.chars() {
+                    let cw = em(c) * font;
+                    if used > 0.0 && used + cw > width {
+                        lines.push(std::mem::take(&mut line));
+                        used = 0.0;
+                    }
+                    line.push(c);
+                    used += cw;
+                }
+            } else {
+                line.push_str(word);
+                used += w;
+            }
+        }
+        lines.push(line);
+    }
+    lines
+}
+
+/// The Korean's size in a `w` by `h` text area: the original lettering's
+/// (`glyph`, its letter height) scaled by [`KO_SCALE`], so a short reply
+/// keeps the space around it, and smaller only as far as the whole text
+/// needs to fit. The reader steps it down further if its own lines overflow.
+pub fn font_for(ko: &str, w: u32, h: u32, glyph: Option<f64>) -> u16 {
+    let fits = |f: u32| wrap(ko, f as f64, w as f64).len() as f64 * f as f64 * LINE <= h as f64;
+    let target = glyph.map_or(FIT_MAX, |g| (g * KO_SCALE).round().max(1.0) as u32);
+    (1..=target.min(h.max(1))).rev().find(|&f| fits(f)).unwrap_or(1) as u16
+}
+
 /// Whether a corner rounded by `r` covers the pixel `a` in from its side and
 /// `b` in from its top or bottom (as `export::inside_rounded` draws it).
 fn corner_covers(r: i64, a: i64, b: i64) -> bool {
@@ -104,6 +251,30 @@ mod tests {
         let (font, inner_w) = (s.font_px as u32, s.w - 2 * PAD);
         let l = lines(ko, font, inner_w);
         l.iter().all(|l| l.len() as u32 * font <= inner_w) && text_height(l.len(), font) <= s.h - 2 * PAD
+    }
+
+    /// A short reply keeps the original lettering's size (and the room
+    /// around it); a long line in the same balloon is set smaller, as far
+    /// as it needs to fit.
+    #[test]
+    fn korean_takes_the_lettering_size_until_it_must_fit() {
+        assert_eq!(font_for("응!", 200, 200, Some(20.0)), 23);
+        let long = "그러니까 우리 집 구독 스트리밍 서비스에는 그 영화가 없어서 폰으로도 볼 수가 없다는 거야";
+        let f = font_for(long, 100, 120, Some(20.0));
+        assert!(f < 23 && wrap(long, f as f64, 100.0).len() as f64 * f as f64 * LINE <= 120.0, "{f}");
+    }
+
+    /// A line Gemini gave for two balloons is cut at a sentence end, nearest
+    /// the balloons' shares; one sentence for two balloons is not cut.
+    #[test]
+    fn a_line_for_several_balloons_is_cut_at_sentence_ends() {
+        let two = "수영부 부장이야. 3학년 5반, 누레미 스이무.";
+        assert_eq!(split(two, &[1.0, 1.0]).unwrap(), ["수영부 부장이야.", "3학년 5반, 누레미 스이무."]);
+        let three = "아. 그래! 그럼 내일 다시 오자... 꼭이야?";
+        assert_eq!(split(three, &[3.0, 1.0]).unwrap(), ["아. 그래! 그럼 내일 다시 오자...", "꼭이야?"]);
+        assert_eq!(split(three, &[1.0, 1.0, 1.0]).unwrap(), ["아. 그래!", "그럼 내일 다시 오자...", "꼭이야?"]);
+        assert_eq!(split("그 모든 것, 아니 그 이상으로, 렌타로 군은 언제나 내게 그런 존재였어.", &[1.0, 1.0]), None);
+        assert_eq!(split(two, &[1.0]), None);
     }
 
     #[test]

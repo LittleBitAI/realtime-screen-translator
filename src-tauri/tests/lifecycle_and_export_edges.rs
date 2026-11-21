@@ -133,7 +133,7 @@ fn the_rounded_shape_covers_the_source_text_to_its_corners() {
     let strip = realtime_screen_translator::store::StripRow { y_start: 0, height: 1200, file_path: path.to_string_lossy().into() };
     for (w, h) in [(120, 200), (300, 300), (60, 40)] {
         let s = layout::fit(400 - 200, 900 - 200, w, h, "안녕");
-        let p = PlacementRow { id: 1, fingerprint: String::new(), x: s.x, y: s.y, w: s.w, h: s.h, radius: s.radius, font_px: s.font_px, ko: String::new() };
+        let p = PlacementRow { id: 1, fingerprint: String::new(), x: s.x, y: s.y, w: s.w, h: s.h, radius: s.radius, font_px: s.font_px, ko: String::new(), cover: None };
         let img = export::render(600, 0, 1200, &[strip.clone()], &[p]).unwrap();
         for y in [700, 700 + h as usize - 1] {
             for x in [200, 200 + w as usize - 1] {

@@ -10,6 +10,7 @@ pub mod api;
 #[cfg(feature = "app")]
 pub mod app;
 pub mod backend;
+pub mod balloon;
 pub mod detect;
 pub mod export;
 #[cfg(not(windows))]

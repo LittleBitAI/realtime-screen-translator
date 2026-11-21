@@ -27,10 +27,10 @@ fn a_shape_moved_onto_the_screen_still_covers_its_text_areas_corners() {
     // a text area in the open, which keeps its rounding.
     for (x, y) in [(200, 0), (200, SCREEN_H as i64 - h as i64), (0, 900), (SCREEN_W as i64 - w as i64, 900), (200, 900)] {
         let s = layout::fit_within(x, y, w, h, "안녕", screen);
-        let row = PlacementRow { id: 1, fingerprint: String::new(), x: s.x, y: s.y, w: s.w, h: s.h, radius: s.radius, font_px: s.font_px, ko: String::new() };
+        let row = PlacementRow { id: 1, fingerprint: String::new(), x: s.x, y: s.y, w: s.w, h: s.h, radius: s.radius, font_px: s.font_px, ko: String::new(), cover: None };
         let mut img = Rgb::new(SCREEN_W, SCREEN_H);
         img.px.fill(0);
-        export::draw_placement(&mut img, &row);
+        export::draw_placement(&mut img, &row, 0);
         for py in y..y + h as i64 {
             for px in x..x + w as i64 {
                 let i = (py as usize * SCREEN_W as usize + px as usize) * 3;
