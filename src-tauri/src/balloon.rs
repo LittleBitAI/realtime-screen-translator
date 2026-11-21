@@ -1130,7 +1130,12 @@ pub fn gather(items: &[([f64; 4], usize)], blocks: &[Block], on: &[Option<usize>
                 // Or half under the box at any distance: the next balloon of
                 // a box Gemini drew round two (ch258 p4, "NUREMI SUIMU, YEAR
                 // 3 CLASS 5." under "I'M THE CAPTAIN OF THE SWIM CLUB.").
-                let near = gap <= reach && inter > 0.0 || inter >= 0.5 * (r[2] - r[0]) * (r[3] - r[1]);
+                // The box drawn loosely, as [`assign`] reads it: a last
+                // line lettered just under it is still on it (ch258 p18,
+                // "THAT'S IT!" under the box of "AH. THAT'S HOW IT IS.").
+                let (gx, gy) = (MATCH_LOOSE * (t[2] - t[0]), MATCH_LOOSE * (t[3] - t[1]));
+                let meets = r[0] < t[2] + gx && t[0] - gx < r[2] && r[1] < t[3] + gy && t[1] - gy < r[3];
+                let near = gap <= reach && meets || inter >= 0.5 * (r[2] - r[0]) * (r[3] - r[1]);
                 let closer = near && other.letters >= WORD_LETTERS && miss(letters + other.letters) < miss(letters);
                 let alike = other.glyph.max(own.glyph) <= 1.6 * other.glyph.min(own.glyph);
                 // Lettering of another size inside the box and touching the
@@ -1817,6 +1822,29 @@ mod tests {
         ];
         let texts = gather(&[([12.0, 834.0, 266.0, 1160.0], 39)], &blocks, &[Some(0)]);
         assert_eq!(texts, vec![vec![blocks[0].bounds]]);
+    }
+
+    /// ch258 p18: "THAT'S IT!" lettered just under the box Gemini drew round
+    /// "AH. THAT'S HOW IT IS." alone, though its line reads both, stayed in
+    /// English. The rule: a word within reach of the item's lettering that
+    /// brings its letter count nearer is the item's where it meets the box
+    /// drawn loosely, a tenth of its size round it, as [`assign`] reads it;
+    /// not further off.
+    #[test]
+    fn a_word_just_off_the_items_box_is_gathered_and_one_further_off_is_not() {
+        let block = |bounds: [f64; 4], letters| Block { bounds, letters, glyph: 20.0, in_balloon: false };
+        let own = block([150.0, 110.0, 250.0, 190.0], 8);
+        let item = ([100.0, 100.0, 300.0, 200.0], 12);
+        for (form, word, taken) in [
+            ("overlapping the box", [160.0, 195.0, 200.0, 225.0], true),
+            ("just under the box", [160.0, 205.0, 200.0, 235.0], true),
+            ("just right of the box", [305.0, 120.0, 335.0, 150.0], true),
+            ("under the box by more than a tenth", [160.0, 215.0, 200.0, 245.0], false),
+        ] {
+            let blocks = [own.clone(), block(word, 4)];
+            let want = if taken { vec![own.bounds, word] } else { vec![own.bounds] };
+            assert_eq!(gather(&[item], &blocks, &[Some(0)]), vec![want], "{form}");
+        }
     }
 
     /// ch256 p4: each of "7!" and "34!" lettered with its reading small

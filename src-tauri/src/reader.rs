@@ -614,7 +614,14 @@ pub(crate) fn laid_out(items: &[PageItem], page: &export::Rgb, lang: &str) -> (V
                         let r = apart([p[0] - mx, p[1] - my, p[2] + mx, p[3] + my], *p, &others);
                         let r = [r[0] as i64, r[1] as i64, r[2].ceil() as i64, r[3].ceil() as i64];
                         let pad = PAD as i64;
-                        let (white, tone, light) = lettering(&[r], glyph, &[], None).map_or_else(|| (rect_outline(r), vec![], None), |f| (vec![], f.0, f.2));
+                        // Its letters sought a letter further along the line:
+                        // a block may leave out a line's end letters ("T" and
+                        // "S" of "THAT'S IT!", ch258 p18).
+                        let g = glyph.unwrap_or(0.0);
+                        let (lx, ly) = if vertical { (mx, my.max(g)) } else { (mx.max(g), my) };
+                        let line = apart([p[0] - lx, p[1] - ly, p[2] + lx, p[3] + ly], *p, &others);
+                        let line = [line[0] as i64, line[1] as i64, line[2].ceil() as i64, line[3].ceil() as i64];
+                        let (white, tone, light) = lettering(&[line], glyph, &[], None).map_or_else(|| (rect_outline(r), vec![], None), |f| (vec![], f.0, f.2));
                         (white, tone, [r[0] + pad, r[1] + pad, (r[2] - r[0] - 2 * pad).max(1), (r[3] - r[1] - 2 * pad).max(1)], light)
                     })
                     .collect()
@@ -1535,6 +1542,39 @@ mod tests {
             }
             assert!([(300, 208), (230, 225), (300, 450), (150, 208)].iter().all(|&(x, y)| at(x, y).is_none()), "{art}: {b:?}");
             assert!(b.font_px as f64 > 16.0 * layout::KO_SCALE, "{art}: {b:?}");
+        }
+    }
+
+    /// ch258 p18: "THAT'S IT!", lettered just under the box Gemini drew
+    /// round the line before it, was left in English, and then its end
+    /// letters, thinly edged on the dark art and so left out of its block.
+    /// The line is the item's, each letter of it covered, ends too.
+    #[test]
+    fn a_last_line_under_the_box_is_covered_to_its_end_letters() {
+        let (w, h) = (600u32, 600u32);
+        let mut page = export::Rgb { w, h, px: vec![60; (w * h * 3) as usize] };
+        let mut ink = |x0: u32, y0: u32, x1: u32, y1: u32, v: u8| (y0..y1).for_each(|y| (x0..x1).for_each(|x| page.px[((y * w + x) * 3) as usize..][..3].fill(v)));
+        // The first line in wide white edging; the second line's four
+        // middle letters in wide edging, its end letters in two pixels.
+        ink(194, 194, 286, 222, 255);
+        ink(212, 228, 296, 254, 255);
+        [188u32, 300].iter().for_each(|&x| ink(x, 230, x + 18, 252, 255));
+        // Ring letters, 14 x 16 px, strokes 3 px.
+        for (x, y) in [(200u32, 200u32), (220, 200), (240, 200), (260, 200), (190, 232), (216, 232), (236, 232), (256, 232), (276, 232), (302, 232)] {
+            ink(x, y, x + 14, y + 16, 0);
+            ink(x + 3, y + 3, x + 11, y + 13, 255);
+        }
+        // Gemini's box: the first line only, the second just under it.
+        let it = PageItem { src: "ABCD EFGHIJ".into(), ko: "아. 그거구나. 그거야!".into(), ..item([190.0 / 600.0, 190.0 / 600.0, 230.0 / 600.0, 290.0 / 600.0], None) };
+        let b = &shapes(&[it], &page, "en")[0];
+        let patch = b.patch.as_ref().unwrap_or_else(|| panic!("a tone patch: {b:?}"));
+        let (pw, px) = export::patch_px(patch).unwrap();
+        let covered = |x: i64, y: i64| {
+            let (x, y) = (x - patch.at[0], y - patch.at[1]);
+            x >= 0 && y >= 0 && x < pw as i64 && y < patch.at[3] && px[(y as usize * pw as usize + x as usize) * 4 + 3] == 255
+        };
+        for (x, y) in [(207, 208), (197, 240), (223, 240), (283, 240), (309, 240)] {
+            assert!(covered(x, y), "({x}, {y}): {b:?}");
         }
     }
 
