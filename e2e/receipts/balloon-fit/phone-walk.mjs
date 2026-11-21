@@ -3,7 +3,8 @@
 // at a time, waits for that page's shapes, and captures the screen with the
 // translation on and off. Usage: node balloonfit-phone.mjs <out dir> <url>...
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import { tab, targets } from './cdp.mjs';
 
@@ -69,16 +70,27 @@ for (const url of urls) {
     // The sizes as captured: read after the layer's last refit, not when it first appears.
     if (state.texts) state.texts = await site.run(`[...document.querySelector('.swiper').swiper.slides[${k}].querySelectorAll('.rst-layer .rst-text')].map(t => parseFloat(t.style.fontSize))`);
     const name = `${dir}/${String(pages.length + 1).padStart(2, '0')}`;
+    // Each capture after the page has drawn twice since the switch: the
+    // screen grab may hold the frame from before it (ch257 p6, one pair
+    // the same with nine shapes). A pair still the same is recorded.
+    const drawn = () => site.run(`new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(() => ok(true))))`);
+    const sum = (file) => createHash('sha256').update(readFileSync(file)).digest('hex');
     shot(`${name}-after.png`);
     await site.run(`document.documentElement.classList.add('rst-off')`);
-    await delay(200);
-    shot(`${name}-before.png`);
+    let same = true;
+    for (let tries = 0; tries < 5 && same; tries++) {
+      await drawn();
+      await delay(200 * (tries + 1));
+      shot(`${name}-before.png`);
+      same = state.boxes > 0 && sum(`${name}-before.png`) === sum(`${name}-after.png`);
+    }
     await site.run(`document.documentElement.classList.remove('rst-off')`);
-    pages.push({ page: pages.length + 1, ...state });
+    await drawn();
+    pages.push({ page: pages.length + 1, ...state, same_capture: same });
     console.log(chapter, 'page', pages.length, JSON.stringify({ ...state, texts: undefined, min_font: Math.min(...(state.texts ?? [0])) }));
   }
   site.close();
-  report.chapters.push({ url, slides, pages: pages.length, chips: pages.filter((p) => p.chip).length, detail: pages });
+  report.chapters.push({ url, slides, pages: pages.length, chips: pages.filter((p) => p.chip).length, same_captures: pages.filter((p) => p.same_capture).length, detail: pages });
 }
 report.gemini_requests_after = (await wait(async () => ({ n: await status() }), 'status', 40)).n;
 writeFileSync(`${out}/report.json`, JSON.stringify(report, null, 1));

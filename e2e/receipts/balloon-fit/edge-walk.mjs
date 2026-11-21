@@ -65,7 +65,9 @@ for (const ch of ['256', '257', '258']) {
         const patches = layer ? [...layer.querySelectorAll('canvas.rst-patch')] : [];
         return { loaded: img.complete && img.naturalWidth > 0, boxes: boxes.length, texts: texts.length,
           clipped: texts.filter((t) => t.scrollHeight > t.clientHeight + 1 || t.scrollWidth > t.clientWidth + 1).length,
-          patches: patches.length, unpainted: patches.filter((c) => !c.width || !c.height).length,
+          // Painted: the decoded patch drawn, some pixel of it opaque. The
+          // canvas has its size before its picture is decoded and drawn.
+          patches: patches.length, unpainted: patches.filter((c) => !c.width || !c.height || !c.getContext('2d').getImageData(0, 0, c.width, c.height).data.some((v, j) => j % 4 === 3 && v > 0)).length,
           minPx: texts.length ? Math.min(...texts.map((t) => { const r = t.getBoundingClientRect(); const f = parseFloat(getComputedStyle(t).fontSize); return f * (r.width / (t.offsetWidth || r.width || 1)); })) : null };
       })()`);
       if (state.loaded && state.boxes > 0 && state.patches === 0 || state.loaded && state.boxes > 0 && state.unpainted === 0) break;
