@@ -144,10 +144,11 @@ describe('reader page script', () => {
   });
 
   // The least size is readable (7 px), or, on a page shown so small that
-  // its own lettering is smaller (a spread across a phone), the size the
-  // original has there: the layout's size at 0.7. The picture is shown at
-  // half its width, so a 20 px layout size is 10 px on screen (least 7) and
-  // an 8 px one 4 px (least 2.8).
+  // its own lettering is smaller (a spread across a phone), Korean as large
+  // as that lettering there (`lettering_px`). The picture is shown at half
+  // its width: 20 page px of lettering is 10 on screen, 8 is 4.
+  // Three pages, one each: lettering of 20 px (least 7), of 8 px (least 4),
+  // and none found (least 7).
   it('scales Korean too long for its text area at the least size down whole into that area, never past it', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('cors'); }));
     // A rectangle cover, and a balloon with its outline holding a line in
@@ -155,31 +156,32 @@ describe('reader page script', () => {
     const long = '가'.repeat(100);
     const rect = { x: 100, y: 200, w: 120, h: 80, radius: 0, font_px: 20, outline: [], text: [150, 230, 16, 10], ko: long };
     const shared = { ...rect, y: 400, outline: [[100, 400], [220, 400], [220, 480], [100, 480]], text: [150, 430, 16, 10],
-      parts: [{ text: [110, 430, 16, 10], font_px: 8, ko: long }, { text: [190, 430, 16, 10], font_px: 8, ko: long }] };
-    const invoke = vi.fn().mockResolvedValue(null).mockResolvedValueOnce({ ...page(null), boxes: [rect, shared] });
+      parts: [{ text: [110, 430, 16, 10], font_px: 20, ko: long }, { text: [190, 430, 16, 10], font_px: 20, ko: long }] };
+    const invoke = vi.fn().mockResolvedValue(null);
+    for (const lettering_px of [20, 8, null]) invoke.mockResolvedValueOnce({ ...page(null), lettering_px, boxes: [rect, shared] });
     window.__TAURI_INTERNALS__ = { invoke };
     // The lines overflow at every size: four times the area's height.
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(10);
     vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000);
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 15, 16, 10));
     vi.spyOn(Range.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 16, 40));
-    pagePicture('https://cdn.example/5.jpg');
+    for (const n of [5, 6, 7]) pagePicture(`https://cdn.example/${n}.jpg`);
 
     new Function(script)();
 
     const texts = await vi.waitFor(() => {
       const t = [...document.querySelectorAll('.rst-text')];
-      expect(t).toHaveLength(3);
+      expect(t).toHaveLength(9);
       expect(t.every((x) => x.style.transform)).toBe(true);
       return t;
     });
     // Each in its own area, as placed, scaled to a quarter: the lines' height to the area's.
-    expect(texts.map((t) => [t.style.left, t.style.top, t.style.width, t.style.height, t.style.overflow, t.style.transform])).toEqual([
+    expect(texts.map((t) => [t.style.left, t.style.top, t.style.width, t.style.height, t.style.overflow, t.style.transform])).toEqual([0, 1, 2].flatMap(() => [
       ['41.6667%', '37.5%', '13.3333%', '12.5%', 'visible', 'scale(0.25)'],
       ['8.33333%', '37.5%', '13.3333%', '12.5%', 'visible', 'scale(0.25)'],
       ['75%', '37.5%', '13.3333%', '12.5%', 'visible', 'scale(0.25)'],
-    ]);
-    expect(texts.map((t) => Number(parseFloat(t.style.fontSize).toFixed(3)))).toEqual([7, 2.8, 2.8]);
+    ]));
+    expect(texts.map((t) => Number(parseFloat(t.style.fontSize).toFixed(3)))).toEqual([7, 7, 7, 4, 4, 4, 7, 7, 7]);
   });
 
   it('loads and translates a chapter picture only as it approaches the view', async () => {

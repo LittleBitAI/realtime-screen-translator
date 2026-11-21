@@ -337,6 +337,10 @@ pub struct PageOut {
     /// Answered from the saved translation, with no Gemini request.
     pub saved: bool,
     pub boxes: Vec<PageBox>,
+    /// Korean as large as the page's usual original lettering (page
+    /// pixels), none where no lettering is found: the least size the
+    /// reader sets it at where the page is shown smaller than readable.
+    pub lettering_px: Option<f64>,
     /// Why the translation is not in the library (`storage_full`,
     /// `storage_denied`, `internal`), or none once it is. The answer is kept
     /// in memory, so the same call again saves it with no Gemini request.

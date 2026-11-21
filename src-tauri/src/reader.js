@@ -442,6 +442,7 @@
         text.style.width = pct(tw, b.w);
         text.style.height = pct(th, b.h);
         text.dataset.font = String(part.font_px / answer.width);
+        text.dataset.least = String((answer.lettering_px ?? 0) / answer.width);
         // A dash stays on the line of the word it follows: "아—?!" broke
         // after "아" (ch256 p7). A word joiner holds them together.
         text.textContent = part.ko.replace(/(\S)(?=[—–])/g, '$1⁠');
@@ -726,9 +727,9 @@
     if (!shrink(READABLE, true) || !shrink(READABLE)) return 1;
     // The least size: readable, or, where the page is shown so small that
     // its own lettering is smaller (a two-page spread across a phone, ch258
-    // p18), the size the original lettering has there, never below it.
+    // p18), as large as the original lettering there, never below it.
     text.style.overflowWrap = 'anywhere';
-    if (!shrink(Math.min(READABLE, Number(text.dataset.font) * shownWidth * WORDS_KEEP || READABLE))) return 1;
+    if (!shrink(Math.min(READABLE, Number(text.dataset.least) * shownWidth || READABLE))) return 1;
     // Over even at the floor: the lines are scaled down whole into the text
     // area, which lies under the cover, so none is cut off and none leaves
     // the balloon; pinch zoom still reads them.

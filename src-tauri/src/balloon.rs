@@ -974,17 +974,23 @@ pub fn opened(on: &[bool], w: usize, h: usize, r: usize) -> Vec<bool> {
 /// How far, in letters, marks may join a block beyond its own letters.
 const ABSORB: f64 = 2.0;
 
+/// The page's usual lettering size (letter height, pixels), from its larger
+/// blocks: the median of those of six letters or more.
+pub fn usual(blocks: &[Block]) -> Option<f64> {
+    let mut sizes: Vec<f64> = blocks.iter().filter(|b| b.letters >= 6).map(|b| b.glyph).collect();
+    sizes.sort_by(f64::total_cmp);
+    sizes.get(sizes.len() / 2).copied()
+}
+
 /// Which block each of Gemini's items sits on: `items` are its text boxes
 /// (picture pixels) and how many letters its source text has. Nearest first,
 /// then trades that lower the total cost; one block per item, and an item
 /// with no block near enough gets none.
 pub fn assign(items: &[([f64; 4], usize)], blocks: &[Block], page_w: u32) -> Vec<Option<usize>> {
     let centre = |b: [f64; 4]| ((b[0] + b[2]) / 2.0, (b[1] + b[3]) / 2.0);
-    // The page's usual lettering size, from its larger blocks: marks much
-    // smaller than that (a face's eyes, a pattern) are seldom dialogue.
-    let mut sizes: Vec<f64> = blocks.iter().filter(|b| b.letters >= 6).map(|b| b.glyph).collect();
-    sizes.sort_by(f64::total_cmp);
-    let usual = sizes.get(sizes.len() / 2).copied();
+    // Marks much smaller than the page's usual lettering (a face's eyes, a
+    // pattern) are seldom dialogue.
+    let usual = usual(blocks);
     // How much of `r` lies in Gemini's box `t`, drawn loosely: a tenth of
     // the box round it still counts (ch256 p4, the "34!" below its box).
     let held = |t: [f64; 4], r: [f64; 4]| {

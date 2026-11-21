@@ -127,7 +127,7 @@ impl Backend {
                 }
             };
             // Laid out outside the lock: other pages keep reading meanwhile.
-            let boxes = shapes(&items, &page, &lang);
+            let (boxes, lettering_px) = laid_out(&items, &page, &lang);
             drop(page);
             let st = self.lock();
             let rows = store::reader_placements(&st.db, &page_key)?;
@@ -152,7 +152,7 @@ impl Backend {
             }
             .err()
             .map(|e| ApiError::from(e).0);
-            return Ok(PageOut { width: w, height: h, saved: true, boxes, save_error });
+            return Ok(PageOut { width: w, height: h, saved: true, boxes, lettering_px, save_error });
         }
 
         let model = self.lock().model.clone();
@@ -165,7 +165,7 @@ impl Backend {
                 self.ask_page(bytes, mime, &lang, &context, &model, &key)?
             }
         };
-        let boxes = shapes(&items, &page, &lang);
+        let (boxes, lettering_px) = laid_out(&items, &page, &lang);
         drop(page);
 
         let mut guard = self.lock();
@@ -232,7 +232,7 @@ impl Backend {
             }
         };
         self.let_go(guard);
-        Ok(PageOut { width: w, height: h, saved: false, boxes, save_error })
+        Ok(PageOut { width: w, height: h, saved: false, boxes, lettering_px, save_error })
     }
 
     /// Gives up the lock after a page save. Under test, it checks what the
@@ -457,13 +457,23 @@ fn px(b: [f64; 4], w: u32, h: u32) -> [f64; 4] {
 /// outline where the page shows one (`balloon::find`); otherwise it is the
 /// rounded rectangle of [`shape`]. Either way the Korean is sized from the
 /// original lettering under it.
+#[cfg(test)]
 pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<PageBox> {
+    laid_out(items, page, lang).0
+}
+
+/// [`shapes`], with the size Korean takes to read as large as the page's
+/// usual lettering (page pixels; none where no lettering is found): the
+/// reader sets no Korean smaller than that where the page is shown so
+/// small that it is under 7 px (a two-page spread across a phone).
+pub(crate) fn laid_out(items: &[PageItem], page: &export::Rgb, lang: &str) -> (Vec<PageBox>, Option<f64>) {
     let (w, h) = (page.w, page.h);
     let gray = page.gray();
     let pg = balloon::Page { w, h, px: &gray };
     let vertical = lang == "ja";
     // Gemini's boxes say roughly where; the lettering on the page says exactly.
     let mut blocks = balloon::blocks(&pg, vertical);
+    let lettering_px = balloon::usual(&blocks).map(|g| g * layout::KO_SCALE);
     let letters = |s: &str| s.chars().filter(|c| c.is_alphanumeric()).count();
     let mut wanted: Vec<([f64; 4], usize)> = items.iter().map(|it| (px(it.text, w, h), letters(&it.src))).collect();
     let mut on = balloon::assign(&wanted, &blocks, w);
@@ -814,7 +824,7 @@ let found = on[i].and_then(|j| {
         })
         .collect();
     let (boxes, rectish): (Vec<PageBox>, Vec<bool>) = boxes.into_iter().unzip();
-    clear_texts(boxes, &texts, &rectish)
+    (clear_texts(boxes, &texts, &rectish), lettering_px)
 }
 
 /// The text areas of covers with no balloon (`rectish`) cut back from the
