@@ -454,14 +454,22 @@ pub struct Block {
 /// mostly surrounded by paper.
 const LETTER_MIN: f64 = 0.006;
 pub const LETTER_MAX: f64 = 0.07;
+/// Letters of lettering larger than [`LETTER_MAX`] are up to this many times
+/// the size its box gives them.
+pub const BIG_LETTER: f64 = 1.5;
 const PAPER_AROUND: f64 = 0.6;
 
 /// Every block of lettering on the page. Gemini only says roughly where a
 /// balloon is (its boxes can be off by a whole balloon), so the shapes are
 /// placed on the lettering the page really shows.
 pub fn blocks(page: &Page, vertical: bool) -> Vec<Block> {
+    blocks_up_to(page, vertical, LETTER_MAX * page.w as f64)
+}
+
+/// [`blocks`] of letters up to `hi` pixels tall (wide, for vertical text).
+pub fn blocks_up_to(page: &Page, vertical: bool, hi: f64) -> Vec<Block> {
     let (w, h) = (page.w as usize, page.h as usize);
-    let (lo, hi) = (LETTER_MIN * page.w as f64, LETTER_MAX * page.w as f64);
+    let lo = LETTER_MIN * page.w as f64;
     let dark: Vec<bool> = page.px.iter().map(|&v| v < INK).collect();
     let light = |x: usize, y: usize| page.px[y * w + x] >= LIGHT;
     // Dark marks, 8-connected: bounds and size.
@@ -823,7 +831,10 @@ pub fn silhouette(page: &Page, r: [f64; 4], glyph: f64, lettered: &[[f64; 4]]) -
         return vec![];
     }
     let (bw, bh) = (x1 - x0, y1 - y0);
+    // Letters as large as `glyph` where that is larger than any letter (a
+    // shout lettered across a panel, [`blocks_up_to`]).
     let hi = LETTER_MAX * page.w as f64;
+    let hi = if glyph > hi { BIG_LETTER * glyph } else { hi };
     let dark: Vec<bool> = (0..bw * bh).map(|i| page.px[(y0 + i / bw) * page.w as usize + x0 + i % bw] < INK).collect();
     let mut keep = vec![false; bw * bh];
     // Paper (or a letter's white edging) right round a mark's bounds, as

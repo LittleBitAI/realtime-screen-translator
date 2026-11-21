@@ -461,6 +461,28 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
     let letters = |s: &str| s.chars().filter(|c| c.is_alphanumeric()).count();
     let mut wanted: Vec<([f64; 4], usize)> = items.iter().map(|it| (px(it.text, w, h), letters(&it.src))).collect();
     let mut on = balloon::assign(&wanted, &blocks, w);
+    // Lettering larger than any letter (a shout lettered across a panel,
+    // ch257 p15 "IN HER HUH?!"): where a line's own lettering is not found
+    // and its box shares out to letters that large, the page is read again
+    // for letters up to that size, and blocks of them lying mostly in the
+    // box join the page's.
+    let letter_max = balloon::LETTER_MAX * w as f64;
+    let big: Vec<(usize, f64)> = wanted
+        .iter()
+        .enumerate()
+        .filter(|&(i, &(_, n))| n > 0 && on[i].is_none_or(|j| 2 * blocks[j].letters < n))
+        .map(|(i, &(t, n))| (i, ((t[2] - t[0]).max(0.0) * (t[3] - t[1]).max(0.0) / n as f64).sqrt()))
+        .filter(|&(_, g)| g > letter_max)
+        .collect();
+    if let Some(g) = big.iter().map(|&(_, g)| g).reduce(f64::max) {
+        let mostly = |b: &[f64; 4], t: &[f64; 4]| (b[2].min(t[2]) - b[0].max(t[0])).max(0.0) * (b[3].min(t[3]) - b[1].max(t[1])).max(0.0) >= 0.5 * (b[2] - b[0]) * (b[3] - b[1]);
+        for b in balloon::blocks_up_to(&pg, vertical, balloon::BIG_LETTER * g) {
+            if b.glyph > letter_max && big.iter().any(|&(i, _)| mostly(&b.bounds, &wanted[i].0)) {
+                blocks.push(b);
+            }
+        }
+        on = balloon::assign(&wanted, &blocks, w);
+    }
     balloon::nudge(&mut wanted, &blocks, &mut on);
     // A line lettered in another's block gets its own part of it where
     // the block parts between the two, stacked or side by side (ch256 p12,
@@ -1432,6 +1454,46 @@ mod tests {
             assert!([(300, 208), (230, 225), (300, 450), (150, 208)].iter().all(|&(x, y)| at(x, y).is_none()), "{art}: {b:?}");
             assert!(b.font_px as f64 > 16.0 * layout::KO_SCALE, "{art}: {b:?}");
         }
+    }
+
+    /// ch257 p15: a shout lettered across the panel ("IN HER HUH?!"), its
+    /// letters taller than any letter is sought, was left as drawn and its
+    /// Korean set in a sliver of the art beside it. Its letters are found
+    /// at the size its box gives them, toned over, and the Korean is set
+    /// across them.
+    #[test]
+    fn lettering_larger_than_any_letter_is_covered_where_its_box_says() {
+        let (w, h) = (1200u32, 900u32);
+        let mut page = export::Rgb { w, h, px: vec![160; (w * h * 3) as usize] };
+        let mut fill = |x0: u32, y0: u32, x1: u32, y1: u32, v: u8, ring: bool| {
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    if !ring || x < x0 + 22 || x >= x1 - 22 || y < y0 + 22 || y >= y1 - 22 {
+                        page.px[((y * w + x) * 3) as usize..][..3].fill(v);
+                    }
+                }
+            }
+        };
+        // Two lines of three ring letters 100 x 120 px, strokes 22 px, in
+        // white edging on gray art.
+        let letters: Vec<(u32, u32)> = [200u32, 360].iter().flat_map(|&y| [100u32, 230, 360].map(|x| (x, y))).collect();
+        letters.iter().for_each(|&(x, y)| fill(x - 30, y - 30, x + 130, y + 150, 255, false));
+        letters.iter().for_each(|&(x, y)| fill(x, y, x + 100, y + 120, 0, true));
+        let it = PageItem { src: "ABC DEF".into(), ko: "그래, 그거야!".into(), ..item([190.0 / 900.0, 90.0 / 1200.0, 490.0 / 900.0, 470.0 / 1200.0], None) };
+        let b = &shapes(&[it], &page, "en")[0];
+        assert!(b.outline.is_empty() && b.text[2] > 300 && b.text[3] > 200, "{b:?}");
+        let patch = b.patch.as_ref().expect("a tone patch");
+        let (pw, px) = export::patch_px(patch).unwrap();
+        let at = |x: i64, y: i64| {
+            let (x, y) = (x - patch.at[0], y - patch.at[1]);
+            let q = &px[(y as usize * pw as usize + x as usize) * 4..][..4];
+            (q[3] == 255).then_some(q[0])
+        };
+        // Strokes of the first and last letters, toned as the art round them.
+        for (x, y) in [(110, 260), (450, 470), (295, 205)] {
+            assert!(at(x, y).is_some_and(|v| v >= 128), "({x}, {y}): {:?}", at(x, y));
+        }
+        assert!(b.font_px as f64 > 84.0 * layout::KO_SCALE, "{b:?}");
     }
 
     /// ch256 p6: "RIIIN." in its balloon, the block of it only "R" (the
