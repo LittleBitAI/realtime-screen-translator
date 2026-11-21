@@ -337,10 +337,28 @@ pub fn find(page: &Page, text: [f64; 4], glyph: f64, others: &[[f64; 4]]) -> Opt
         return None;
     }
     let d = (0.5 * glyph).round() as i64;
+    // The letter-sized marks beside the text the cover must take in, on the
+    // text's own line (its rows, or its columns where it is taller than
+    // wide), are lettering, not art: the last dot of a "..." spaced a letter
+    // apart, which its block left out (ch256 p8). Not the bricks' joints
+    // above and below a line lettered on a wall (ch256 p6).
+    let slack = 0.25 * glyph;
+    let on_line = |e: &[i64; 4]| {
+        if tw >= th {
+            e[1] as f64 >= text[1] - slack && e[3] as f64 <= text[3] + slack
+        } else {
+            e[0] as f64 >= text[0] - slack && e[2] as f64 <= text[2] + slack
+        }
+    };
+    let mut beside = vec![false; dark.len()];
+    for &i in &enclosed {
+        beside[i] = extent.get(&marks[i]).is_some_and(on_line);
+    }
+    let at = |x: i64, y: i64| ((y - grid.y0) * grid.w + x - grid.x0) as usize;
     let stray = steps
         .iter()
         .flat_map(|s| (s.top..s.bottom).flat_map(move |y| (s.l..s.r).map(move |x| (x, y))))
-        .filter(|&(x, y)| page.at(x, y) < INK && rect_dist2(letters, x, y) > 0.0)
+        .filter(|&(x, y)| page.at(x, y) < INK && rect_dist2(letters, x, y) > 0.0 && !beside[at(x, y)])
         .filter(|&(x, y)| held(x - d, y) && held(x + d, y) && held(x, y - d) && held(x, y + d))
         .count();
     if stray as f64 > STRAY * glyph * glyph {
@@ -849,12 +867,23 @@ pub fn silhouette(page: &Page, r: [f64; 4], glyph: f64, lettered: &[[f64; 4]]) -
     };
     // The marks among the pixels `on` from `lo` to `hi` across, reaching
     // into `r` and not running in from the region's edge.
+    // A picture drawn beside the letters is no letter (ch257 p4, the little
+    // TV beside "DID YOU MISS THE LAST PANEL?"): a mark more than a line of
+    // them across both ways, with solid black (darker than half [`INK`])
+    // wider than half a letter, which no stroke is. Letters run into art
+    // (ch258 p10, the "T" of "THAT" on a gray strand of hair) have none. Not where the letters are larger than any
+    // letter: those marks are the letters.
+    let across_max = if glyph > LETTER_MAX * page.w as f64 { f64::MAX } else { LINE_TALL * glyph };
+    let black: Vec<bool> = (0..bw * bh).map(|i| page.px[(y0 + i / bw) * page.w as usize + x0 + i % bw] < INK / 2).collect();
+    let solid = opened(&black, bw, bh, ((glyph / 4.0).round() as usize).max(1));
     let letters = |on: &[bool], lo: f64, hi: f64, paper: bool, keep: &mut Vec<bool>| {
         for (mark, b, edge) in pieces(on, bw, bh) {
             let [lo_x, lo_y, hi_x, hi_y] = b;
             let size = ((hi_x - lo_x + 1).max(hi_y - lo_y + 1)) as f64;
+            let across = ((hi_x - lo_x + 1).min(hi_y - lo_y + 1)) as f64;
             let into = ((x0 + lo_x) as f64) < r[2] && ((x0 + hi_x + 1) as f64) > r[0] && ((y0 + lo_y) as f64) < r[3] && ((y0 + hi_y + 1) as f64) > r[1];
-            if !edge && into && size <= hi && size >= lo && (!paper || papered(b)) {
+            let picture = across > across_max && mark.iter().any(|&i| solid[i]);
+            if !edge && into && size <= hi && size >= lo && !picture && (!paper || papered(b)) {
                 mark.into_iter().for_each(|i| keep[i] = true);
             }
         }
@@ -1513,6 +1542,33 @@ mod tests {
         assert!(!on(190, 88) && !on(130, 70) && !on(130, 104) && !on(120, 121) && !on(70, 88));
     }
 
+    /// A mark beside the letters, more than a line of them across both ways
+    /// (ch257 p4, a little TV drawn beside "DID YOU MISS THE LAST PANEL?",
+    /// which the cover smeared to a blur): with solid black wider than half
+    /// a letter it is a picture and stays; the same mark in gray (a strand
+    /// of hair) or as strokes only is covered as any mark a letter runs
+    /// into is. The letters are covered either way.
+    #[test]
+    fn a_picture_beside_lettering_on_the_art_is_left_whole() {
+        let (w, h) = (1200usize, 300usize);
+        for (fill, hollow, covered) in [(0u8, false, false), (40, false, false), (120, false, true), (0, true, true)] {
+            let mut px = vec![255u8; w * h];
+            let mut put = |x0: usize, y0: usize, x1: usize, y1: usize, v: u8| (y0..y1).for_each(|y| (x0..x1).for_each(|x| px[y * w + x] = v));
+            for x in [100, 122, 144] {
+                put(x, 100, x + 18, 120, 0);
+                put(x + 3, 103, x + 18, 117, 255);
+            }
+            put(170, 88, 215, 140, fill);
+            if hollow {
+                put(174, 92, 211, 136, 255);
+            }
+            let cover = silhouette(&Page { w: w as u32, h: h as u32, px: &px }, [95.0, 95.0, 200.0, 125.0], 20.0, &[]);
+            let on = |x: i64, y: i64| cover.iter().any(|r| x >= r[0] && x < r[2] && y >= r[1] && y < r[3]);
+            assert_eq!(on(205, 134), covered, "fill {fill} hollow {hollow}: {cover:?}");
+            assert!([101, 123, 145].iter().all(|&x| on(x, 110)), "fill {fill} hollow {hollow}: {cover:?}");
+        }
+    }
+
     /// A white page with an elliptical balloon (outline 3 px), centred at
     /// (cx, cy) with half-axes (a, b), and black text bars inside.
     fn page(w: u32, h: u32, balloons: &[(f64, f64, f64, f64)], bars: &[[i64; 4]]) -> Vec<u8> {
@@ -1586,6 +1642,28 @@ mod tests {
             }).count() % 2 == 1
         };
         assert!((141..159).all(|y| covered(315, y) && covered(316, y)), "{:?}", f.outline);
+    }
+
+    /// An ellipsis whose last dot is spaced a letter from the others, so
+    /// the lettering block (Gemini's box too) holds only the first two
+    /// (ch256 p8, the "..." balloon: the third dot was taken for art, the
+    /// balloon for none, and the dot stayed beside a 2 px "..."). The
+    /// balloon is found and its cover takes in every dot up to a letter
+    /// apart, as a letter-sized mark that near the text is lettering.
+    #[test]
+    fn every_dot_of_an_ellipsis_up_to_a_letter_apart_is_covered() {
+        let e = (200.0, 150.0, 70.0, 60.0);
+        for gap in [4, 8, 10] {
+            let dots = [[166, 145, 176, 155], [184, 145, 194, 155], [194 + gap, 145, 204 + gap, 155]];
+            let px = page(400, 300, &[e], &dots);
+            let p = Page { w: 400, h: 300, px: &px };
+            let f = find(&p, [166.0, 145.0, 194.0, 155.0], 10.0, &[]);
+            let f = f.unwrap_or_else(|| panic!("gap {gap}: no balloon"));
+            for d in dots {
+                assert!(f.bounds[0] <= d[0] && f.bounds[2] >= d[2] && f.bounds[1] <= d[1] && f.bounds[3] >= d[3], "gap {gap}: {d:?} out of {f:?}");
+            }
+            assert!(f.outline.iter().all(|&q| inside_ellipse(q, (e.0, e.1, e.2 - 1.0, e.3 - 1.0))), "gap {gap}: {:?}", f.outline);
+        }
     }
 
     /// Two balloons side by side: each cover keeps to its own.
