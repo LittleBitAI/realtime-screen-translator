@@ -1,0 +1,117 @@
+Balloon-fit verification, review round 4, 2026-11-21
+
+Source
+  Candidate ad06fcf ("Cover an ellipsis's last dot and keep a picture drawn
+  beside lettering"). Every run below used that commit's runtime code, except
+  the physical Galaxy S21 walk, which ran on 883938c (see "Reuse").
+  git diff 883938c ad06fcf touches only src-tauri/src/balloon.rs and
+  docs/design/backend.md.
+  Windows 11 Home 10.0.26200 x64, rustc 1.98.1, cargo-nextest 0.9.152,
+  Node 24.18.0, Edge 157 (headless), Android emulator 37.3.10.0.
+
+Check
+  node --test e2e/receipts/balloon-fit/check-evidence.mjs
+
+  Run from the repository root. It hashes every file below from HEAD,
+  checks that this receipt names each of them, runs git diff --exit-code
+  ad06fcf HEAD over everything but this folder, docs/research and the
+  server's .wiki metadata, and checks the reports' and the ledger's
+  properties (pages drawn, order, requests, approvals).
+
+Gemini requests
+  All runs went through scripts/gemini-ledger.mjs with LEDGER_OFFLINE=1:
+  a page the ledger has answered before is replayed from disk, and nothing
+  is sent. Over the whole development run the ledger holds 84 outbound
+  attempts for 61 pages (one first request each, 23 repeats on 16 pages,
+  each granted in approvals.json) and 215 replays. This round added
+  replays only: outbound stayed 84 throughout.
+  ledger-attempts.jsonl, ledger-approvals.json and ledger-pages.json (page
+  hash to chapter and page) are copies of the ledger's files. They hold page
+  hashes, times and statuses, no key.
+
+Offline replay (ad06fcf)
+  cd src-tauri && RST_GEMINI_BASE_URL=http://127.0.0.1:8787 \
+    cargo run -q --release --example replay_chapters -- <data> <out> en \
+    <ch256 dir> <ch257 dir> <ch258 dir>
+  61 pages laid out from the saved answers, "gemini requests: 0".
+  replay-layouts.json: each page's layout hash, box, patch and outline
+  counts. 59 pages are byte-identical to the 883938c replay; ch256 p08 and
+  ch257 p04, the two pages this round fixed, differ.
+  leak-report.txt: the leak detector's findings over those layouts. The
+  count equals the signed-off build's (262 lines); the only changed line is
+  one ch257 p03 block (no Gemini item) now marked in a balloon.
+
+Focused tests (ad06fcf)
+  focused-tests.txt: cargo nextest, 217 passed; vitest over the seven
+  reader and ledger files, 14 passed. It includes the round-4 regressions:
+  gemini::tests::an_answer_with_anything_but_balloons_between_them_is_unreadable,
+  backend::reader::tests::lettering_on_the_art_is_covered_letter_by_letter_under_larger_korean,
+  balloon::tests::every_dot_of_an_ellipsis_up_to_a_letter_apart_is_covered,
+  balloon::tests::a_picture_beside_lettering_on_the_art_is_left_whole,
+  src/lib/reader-chapter-turns.test.js, src/lib/reader-chapter-broken-image.test.js,
+  and the isolated web host API tests (web_host_files).
+
+Browser walk (ad06fcf)
+  node e2e/receipts/balloon-fit/edge-walk.mjs . <chapters> <replay out> <shots>
+  Headless Edge 157 at 360 x 800 CSS px, DPR 3 (the S21's 1080 x 2400), the
+  real reader.js, its invoke answered from the replay. edge-walk-report.json:
+  ch256 21/21, ch257 21/21, ch258 19/19 drawn, sent in reading order,
+  0 clipped, 0 unpainted.
+
+Installed app on the emulator (ad06fcf)
+  The person's S21 had no battery this round; at their direction the
+  installed-app read-through ran on an emulator shaped like it: AVD
+  s21-shape, Android 16 (API 36) google_apis x86_64, 1080 x 2400, density
+  480 (360 dp wide), WebView 133.0.6943.137.
+  APK built from ad06fcf for x86_64 (artifacts/balloonfit-build.ps1 with the
+  x86_64 target), package ai.littlebit.realtime_screen_translator.balloonfit,
+  primaryCpuAbi x86_64, installed 2026-11-21 15:42:45,
+  SHA-256 39215f34a6b2a6818b3e602ad988cc3847d0db979a676e4ac7e2e441d680a25a.
+  The packaged JNI library matched the cross-built one.
+  node e2e/receipts/balloon-fit/phone-walk.mjs <out> <ch256 url> <ch257 url> <ch258 url>
+  (Both walks talk to the browser through cdp.mjs.)
+  It opens each MangaFire chapter in the installed reader, turns the page
+  slider one page at a time, waits for the page's layer, and captures the
+  screen with translation on and off.
+  emulator-ad06fcf-fill-report.json: first pass, a fresh install: 61/61
+  pages drawn, no error chips; the app asked 49 times (12 pages were cached
+  from an interrupted pass), all answered by ledger replay.
+  emulator-ad06fcf-report.json: second pass after a restart, the
+  read-through: ch256 21/21, ch257 21/21, ch258 19/19 drawn, no error chips,
+  app gemini_requests 0 -> 0.
+  emulator-ad06fcf-ch256-p08-before-after.png and
+  emulator-ad06fcf-ch257-p04-before-after.png: the two changed pages, as
+  captured (left translation off, right on).
+  Emulator-only: its Korean font (Noto Sans KR) is wider than the S21's, so
+  some lines wrap mid-word, and the ch258 p01 credits line falls to 2 px
+  (the S21 set it at 8 px or more; that page's layout is unchanged).
+  The walk's 500 ms settle read a few lines mid-refit at 2 px; reopening
+  ch257 p04, p05, p10, p19 and ch258 p11 showed none under 7 px.
+
+Physical Galaxy S21 (883938c), reused
+  Galaxy S21+ SM-G996N, the same script, APK built from 883938c for arm64
+  (SHA-256 9e0e9831bce7ae470b7de6b7a77f9f2be041f6471aa9c3aa09e65fe633625059,
+  installed 2026-11-21 12:37:32). s21-883938c-report.json: ch256 21/21,
+  ch257 21/21, ch258 19/19 drawn, no error chips, app gemini_requests
+  0 -> 0. It found the two defects ad06fcf fixes (ch256 p08, the last dot of
+  a "..." left beside a 2 px "..."; ch257 p04, a drawn TV blurred).
+  Reuse: ad06fcf changes the backend's layout only, and replay-layouts.json
+  shows the other 59 pages' layouts are byte-identical; reader.js and the
+  screens are unchanged. s21-883938c-ch256-p12-before-after.png,
+  s21-883938c-ch257-p15-before-after.png and
+  s21-883938c-ch258-p14-before-after.png are three of those pages.
+
+Fix crops
+  fix-ch256-p08-source-883938c-ad06fcf.png and
+  fix-ch257-p04-source-883938c-ad06fcf.png: the source, the 883938c render
+  and the ad06fcf render, at S21 scale (Edge).
+
+Captures not committed
+  capture-hashes.json: SHA-256 of every capture of the emulator read-through
+  (122), the S21 walk (122) and the Edge walk (61). The pairs above are among
+  them, cropped to the page.
+
+Signoff
+  2026-11-21, the person, after the read-through above with these crops:
+  signed off on containment, lettering size, speaker separation and Korean
+  voice ("Sign off").

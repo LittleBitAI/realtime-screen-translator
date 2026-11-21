@@ -1,0 +1,648 @@
+{
+ "ch256": {
+  "total": 21,
+  "drawn": 21,
+  "inOrder": true,
+  "sent": 21,
+  "clipped": 0,
+  "unpainted": 0,
+  "patches": 21,
+  "minPx": "6.8",
+  "pages": [
+   {
+    "page": 1,
+    "loaded": true,
+    "boxes": 2,
+    "texts": 2,
+    "clipped": 0,
+    "patches": 2,
+    "unpainted": 0,
+    "minPx": 7.900914179104477
+   },
+   {
+    "page": 2,
+    "loaded": true,
+    "boxes": 11,
+    "texts": 11,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 7.105645161290323
+   },
+   {
+    "page": 3,
+    "loaded": true,
+    "boxes": 7,
+    "texts": 7,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 7.29698275862069
+   },
+   {
+    "page": 4,
+    "loaded": true,
+    "boxes": 8,
+    "texts": 8,
+    "clipped": 0,
+    "patches": 2,
+    "unpainted": 0,
+    "minPx": 6.9453125
+   },
+   {
+    "page": 5,
+    "loaded": true,
+    "boxes": 3,
+    "texts": 3,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 7.40105859375
+   },
+   {
+    "page": 6,
+    "loaded": true,
+    "boxes": 8,
+    "texts": 8,
+    "clipped": 0,
+    "patches": 2,
+    "unpainted": 0,
+    "minPx": 7.3561789772727275
+   },
+   {
+    "page": 7,
+    "loaded": true,
+    "boxes": 6,
+    "texts": 6,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 7.153125
+   },
+   {
+    "page": 8,
+    "loaded": true,
+    "boxes": 10,
+    "texts": 10,
+    "clipped": 0,
+    "patches": 2,
+    "unpainted": 0,
+    "minPx": 6.78125
+   },
+   {
+    "page": 9,
+    "loaded": true,
+    "boxes": 8,
+    "texts": 8,
+    "clipped": 0,
+    "patches": 2,
+    "unpainted": 0,
+    "minPx": 7.4103860294117645
+   },
+   {
+    "page": 10,
+    "loaded": true,
+    "boxes": 9,
+    "texts": 9,
+    "clipped": 0,
+    "patches": 3,
+    "unpainted": 0,
+    "minPx": 6.977481617647059
+   },
+   {
+    "page": 11,
+    "loaded": true,
+    "boxes": 4,
+    "texts": 4,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 11.875074771341463
+   },
+   {
+    "page": 12,
+    "loaded": true,
+    "boxes": 11,
+    "texts": 11,
+    "clipped": 0,
+    "patches": 4,
+    "unpainted": 0,
+    "minPx": 7.6139931818181825
+   },
+   {
+    "page": 13,
+    "loaded": true,
+    "boxes": 4,
+    "texts": 4,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 8.670047669491526
+   },
+   {
+    "page": 14,
+    "loaded": true,
+    "boxes": 3,
+    "texts": 3,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 7.644886363636363
+   },
+   {
+    "page": 15,
+    "loaded": true,
+    "boxes": 5,
+    "texts": 5,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 7.1489682352941175
+   },
+   {
+    "page": 16,
+    "loaded": true,
+    "boxes": 6,
+    "texts": 6,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 7.156664666666666
+   },
+   {
+    "page": 17,
+    "loaded": true,
+    "boxes": 8,
+    "texts": 8,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 8.053371710526315
+   },
+   {
+    "page": 18,
+    "loaded": true,
+    "boxes": 3,
+    "texts": 3,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 8.37411971830986
+   },
+   {
+    "page": 19,
+    "loaded": true,
+    "boxes": 7,
+    "texts": 7,
+    "clipped": 0,
+    "patches": 1,
+    "unpainted": 0,
+    "minPx": 8.469270833333333
+   },
+   {
+    "page": 20,
+    "loaded": true,
+    "boxes": 8,
+    "texts": 8,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 6.965320121951219
+   },
+   {
+    "page": 21,
+    "loaded": true,
+    "boxes": 8,
+    "texts": 8,
+    "clipped": 0,
+    "patches": 3,
+    "unpainted": 0,
+    "minPx": 7.761356707317073
+   }
+  ]
+ },
+ "ch257": {
+  "total": 21,
+  "drawn": 21,
+  "inOrder": true,
+  "sent": 21,
+  "clipped": 0,
+  "unpainted": 0,
+  "patches": 44,
+  "minPx": "6.4",
+  "pages": [
+   {
+    "page": 1,
+    "loaded": true,
+    "boxes": 3,
+    "texts": 3,
+    "clipped": 0,
+    "patches": 3,
+    "unpainted": 0,
+    "minPx": 6.441273734177216
+   },
+   {
+    "page": 2,
+    "loaded": true,
+    "boxes": 12,
+    "texts": 12,
+    "clipped": 0,
+    "patches": 3,
+    "unpainted": 0,
+    "minPx": 7.006402439024391
+   },
+   {
+    "page": 3,
+    "loaded": true,
+    "boxes": 6,
+    "texts": 6,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 7.083
+   },
+   {
+    "page": 4,
+    "loaded": true,
+    "boxes": 12,
+    "texts": 12,
+    "clipped": 0,
+    "patches": 1,
+    "unpainted": 0,
+    "minPx": 6.925531914893617
+   },
+   {
+    "page": 5,
+    "loaded": true,
+    "boxes": 8,
+    "texts": 8,
+    "clipped": 0,
+    "patches": 1,
+    "unpainted": 0,
+    "minPx": 6.913143382352941
+   },
+   {
+    "page": 6,
+    "loaded": true,
+    "boxes": 9,
+    "texts": 9,
+    "clipped": 0,
+    "patches": 7,
+    "unpainted": 0,
+    "minPx": 7.726415094339623
+   },
+   {
+    "page": 7,
+    "loaded": true,
+    "boxes": 8,
+    "texts": 9,
+    "clipped": 0,
+    "patches": 1,
+    "unpainted": 0,
+    "minPx": 7.196590909090909
+   },
+   {
+    "page": 8,
+    "loaded": true,
+    "boxes": 7,
+    "texts": 8,
+    "clipped": 0,
+    "patches": 4,
+    "unpainted": 0,
+    "minPx": 8.17717225609756
+   },
+   {
+    "page": 9,
+    "loaded": true,
+    "boxes": 6,
+    "texts": 6,
+    "clipped": 0,
+    "patches": 3,
+    "unpainted": 0,
+    "minPx": 7.75048828125
+   },
+   {
+    "page": 10,
+    "loaded": true,
+    "boxes": 9,
+    "texts": 9,
+    "clipped": 0,
+    "patches": 2,
+    "unpainted": 0,
+    "minPx": 6.914634146341463
+   },
+   {
+    "page": 11,
+    "loaded": true,
+    "boxes": 4,
+    "texts": 4,
+    "clipped": 0,
+    "patches": 3,
+    "unpainted": 0,
+    "minPx": 10.38825
+   },
+   {
+    "page": 12,
+    "loaded": true,
+    "boxes": 4,
+    "texts": 4,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 7.4069393382352935
+   },
+   {
+    "page": 13,
+    "loaded": true,
+    "boxes": 7,
+    "texts": 7,
+    "clipped": 0,
+    "patches": 1,
+    "unpainted": 0,
+    "minPx": 7.1375
+   },
+   {
+    "page": 14,
+    "loaded": true,
+    "boxes": 7,
+    "texts": 7,
+    "clipped": 0,
+    "patches": 3,
+    "unpainted": 0,
+    "minPx": 7.675171875
+   },
+   {
+    "page": 15,
+    "loaded": true,
+    "boxes": 8,
+    "texts": 8,
+    "clipped": 0,
+    "patches": 4,
+    "unpainted": 0,
+    "minPx": 7.13641304347826
+   },
+   {
+    "page": 16,
+    "loaded": true,
+    "boxes": 3,
+    "texts": 3,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 7.8664772727272725
+   },
+   {
+    "page": 17,
+    "loaded": true,
+    "boxes": 7,
+    "texts": 7,
+    "clipped": 0,
+    "patches": 1,
+    "unpainted": 0,
+    "minPx": 8.334375
+   },
+   {
+    "page": 18,
+    "loaded": true,
+    "boxes": 7,
+    "texts": 7,
+    "clipped": 0,
+    "patches": 2,
+    "unpainted": 0,
+    "minPx": 8.746067276785714
+   },
+   {
+    "page": 19,
+    "loaded": true,
+    "boxes": 10,
+    "texts": 10,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 7.30224609375
+   },
+   {
+    "page": 20,
+    "loaded": true,
+    "boxes": 8,
+    "texts": 8,
+    "clipped": 0,
+    "patches": 2,
+    "unpainted": 0,
+    "minPx": 7.72078125
+   },
+   {
+    "page": 21,
+    "loaded": true,
+    "boxes": 4,
+    "texts": 4,
+    "clipped": 0,
+    "patches": 3,
+    "unpainted": 0,
+    "minPx": 9.222895408163266
+   }
+  ]
+ },
+ "ch258": {
+  "total": 19,
+  "drawn": 19,
+  "inOrder": true,
+  "sent": 19,
+  "clipped": 0,
+  "unpainted": 0,
+  "patches": 29,
+  "minPx": "5.9",
+  "pages": [
+   {
+    "page": 1,
+    "loaded": true,
+    "boxes": 2,
+    "texts": 2,
+    "clipped": 0,
+    "patches": 2,
+    "unpainted": 0,
+    "minPx": 6.446359200743495
+   },
+   {
+    "page": 2,
+    "loaded": true,
+    "boxes": 9,
+    "texts": 9,
+    "clipped": 0,
+    "patches": 2,
+    "unpainted": 0,
+    "minPx": 6.947916666666667
+   },
+   {
+    "page": 3,
+    "loaded": true,
+    "boxes": 1,
+    "texts": 1,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 10.826644736842107
+   },
+   {
+    "page": 4,
+    "loaded": true,
+    "boxes": 7,
+    "texts": 8,
+    "clipped": 0,
+    "patches": 4,
+    "unpainted": 0,
+    "minPx": 7.0975125
+   },
+   {
+    "page": 5,
+    "loaded": true,
+    "boxes": 6,
+    "texts": 6,
+    "clipped": 0,
+    "patches": 3,
+    "unpainted": 0,
+    "minPx": 7.459909539473684
+   },
+   {
+    "page": 6,
+    "loaded": true,
+    "boxes": 8,
+    "texts": 8,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 7.523053278688526
+   },
+   {
+    "page": 7,
+    "loaded": true,
+    "boxes": 6,
+    "texts": 6,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 7.43781887755102
+   },
+   {
+    "page": 8,
+    "loaded": true,
+    "boxes": 5,
+    "texts": 5,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 6.9334239130434785
+   },
+   {
+    "page": 9,
+    "loaded": true,
+    "boxes": 1,
+    "texts": 1,
+    "clipped": 0,
+    "patches": 1,
+    "unpainted": 0,
+    "minPx": 13.528013992537312
+   },
+   {
+    "page": 10,
+    "loaded": true,
+    "boxes": 2,
+    "texts": 2,
+    "clipped": 0,
+    "patches": 2,
+    "unpainted": 0,
+    "minPx": 7.51393306451613
+   },
+   {
+    "page": 11,
+    "loaded": true,
+    "boxes": 8,
+    "texts": 8,
+    "clipped": 0,
+    "patches": 1,
+    "unpainted": 0,
+    "minPx": 7.135186915322581
+   },
+   {
+    "page": 12,
+    "loaded": true,
+    "boxes": 6,
+    "texts": 6,
+    "clipped": 0,
+    "patches": 1,
+    "unpainted": 0,
+    "minPx": 8.240795454545454
+   },
+   {
+    "page": 13,
+    "loaded": true,
+    "boxes": 7,
+    "texts": 7,
+    "clipped": 0,
+    "patches": 1,
+    "unpainted": 0,
+    "minPx": 7.280559593023256
+   },
+   {
+    "page": 14,
+    "loaded": true,
+    "boxes": 14,
+    "texts": 14,
+    "clipped": 0,
+    "patches": 0,
+    "unpainted": 0,
+    "minPx": 6.996961805555555
+   },
+   {
+    "page": 15,
+    "loaded": true,
+    "boxes": 5,
+    "texts": 6,
+    "clipped": 0,
+    "patches": 1,
+    "unpainted": 0,
+    "minPx": 7.05048076923077
+   },
+   {
+    "page": 16,
+    "loaded": true,
+    "boxes": 5,
+    "texts": 5,
+    "clipped": 0,
+    "patches": 2,
+    "unpainted": 0,
+    "minPx": 7.507926025390625
+   },
+   {
+    "page": 17,
+    "loaded": true,
+    "boxes": 2,
+    "texts": 3,
+    "clipped": 0,
+    "patches": 1,
+    "unpainted": 0,
+    "minPx": 11.1
+   },
+   {
+    "page": 18,
+    "loaded": true,
+    "boxes": 4,
+    "texts": 4,
+    "clipped": 0,
+    "patches": 4,
+    "unpainted": 0,
+    "minPx": 5.940822596153846
+   },
+   {
+    "page": 19,
+    "loaded": true,
+    "boxes": 5,
+    "texts": 5,
+    "clipped": 0,
+    "patches": 4,
+    "unpainted": 0,
+    "minPx": 6.997395833333333
+   }
+  ]
+ }
+}
