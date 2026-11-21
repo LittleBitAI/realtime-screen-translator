@@ -858,12 +858,17 @@ pub fn silhouette(page: &Page, r: [f64; 4], glyph: f64, lettered: &[[f64; 4]]) -
     let mut keep = vec![false; bw * bh];
     // Paper (or a letter's white edging) right round a mark's bounds, as
     // there is round lettering and not round grass tufts on a gray tone
-    // (ch258 p15, over "Ah...").
+    // (ch258 p15, over "Ah..."). Where the page's lettering was found, a
+    // mark a quarter letter or more needs none (a net ringing "4...?",
+    // ch256 p21); a speck needs it still: a tone panel's grain under the
+    // lettering is specks (ch258 p17, the panel under "OCEAN", whose border
+    // went with them).
     let papered = |[lo_x, lo_y, hi_x, hi_y]: [usize; 4]| {
+        let speck = ((hi_x - lo_x + 1).max(hi_y - lo_y + 1) as f64) < glyph / 4.0;
         let (ax, ay, bx, by) = (lo_x.saturating_sub(EDGE_RING), lo_y.saturating_sub(EDGE_RING), (hi_x + EDGE_RING).min(bw - 1), (hi_y + EDGE_RING).min(bh - 1));
         let ring: Vec<u8> = (ay..=by).flat_map(|y| (ax..=bx).map(move |x| (x, y))).filter(|&(x, y)| x < lo_x || x > hi_x || y < lo_y || y > hi_y).map(|(x, y)| page.px[(y0 + y) * page.w as usize + x0 + x]).collect();
         let (cx, cy) = ((x0 + lo_x + x0 + hi_x) as f64 / 2.0, (y0 + lo_y + y0 + hi_y) as f64 / 2.0);
-        lettered.iter().any(|b| cx >= b[0] && cx <= b[2] && cy >= b[1] && cy <= b[3]) || ring.iter().filter(|&&v| v >= LIGHT).count() as f64 >= PAPER_RING * ring.len() as f64
+        (!speck && lettered.iter().any(|b| cx >= b[0] && cx <= b[2] && cy >= b[1] && cy <= b[3])) || ring.iter().filter(|&&v| v >= LIGHT).count() as f64 >= PAPER_RING * ring.len() as f64
     };
     // The marks among the pixels `on` from `lo` to `hi` across, reaching
     // into `r` and not running in from the region's edge.
@@ -1540,6 +1545,35 @@ mod tests {
         assert!(!on(70, 140) && !on(300, 140));
         // Not the art between the words, beyond the rim, or the hair.
         assert!(!on(190, 88) && !on(130, 70) && !on(130, 104) && !on(120, 121) && !on(70, 88));
+    }
+
+    /// ch258 p17, "INTO THE": lettering over a panel's border, the gray tone
+    /// panel under it grained with dark specks and the lettering's block
+    /// reaching into it. The specks have no paper round them: not letters,
+    /// so the panel and its border stay. A dot on the paper beside the
+    /// letters is still covered.
+    #[test]
+    fn a_tone_panels_specks_under_lettering_are_not_letters() {
+        let (w, h) = (300usize, 200usize);
+        let mut px = vec![255u8; w * h];
+        for y in 70..h {
+            for x in 0..w {
+                px[y * w + x] = if y < 73 { 0 } else if (x % 6 < 2) && (y % 6 < 2) { 20 } else { 150 };
+            }
+        }
+        let mut ink = |x0: usize, y0: usize, x1: usize, y1: usize| (y0..y1).for_each(|y| (x0..x1).for_each(|x| px[y * w + x] = 0));
+        for x in [40, 60, 80] {
+            ink(x, 40, x + 16, 56);
+        }
+        ink(100, 53, 103, 56);
+        let cover = silhouette(&Page { w: w as u32, h: h as u32, px: &px }, [30.0, 30.0, 110.0, 110.0], 16.0, &[[30.0, 30.0, 110.0, 110.0]]);
+        let on = |x: i64, y: i64| cover.iter().any(|r| x >= r[0] && x < r[2] && y >= r[1] && y < r[3]);
+        for (x, y) in [(48, 48), (68, 48), (88, 48), (101, 54)] {
+            assert!(on(x, y), "letter or dot at {x},{y}");
+        }
+        for (x, y) in [(36, 96), (54, 102), (72, 90), (90, 108)] {
+            assert!(!on(x, y), "speck at {x},{y}: {cover:?}");
+        }
     }
 
     /// A mark beside the letters, more than a line of them across both ways
