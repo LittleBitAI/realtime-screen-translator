@@ -3,7 +3,7 @@
 // local stand-in for Gemini that counts what reaches it.
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -75,10 +75,30 @@ describe('gemini ledger', () => {
     expect(await ask('page-g', 'Japanese')).toEqual([200, '{"candidates":[{"content"']);
     expect(await ask('page-g', 'Japanese')).toEqual([200, '{"candidates":[{"content"']);
     expect(hits).toBe(1);
-    writeFileSync(join(dir, 'approvals.json'), JSON.stringify({ [keyOf('page-g', 'ja')]: 1 }));
+    const grant = { at: new Date().toISOString(), decision: 'decision-1' };
+    writeFileSync(join(dir, 'approvals.json'), JSON.stringify({ [keyOf('page-g', 'ja')]: [grant] }));
     expect(await ask('page-g', 'Japanese')).toEqual([200, '{"candidates":[]}']);
     expect(hits).toBe(2);
     expect(await ask('page-g', 'Japanese')).toEqual([200, '{"candidates":[]}']);
     expect(hits).toBe(2);
+    const sent = readFileSync(join(dir, 'attempts.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).filter((a) => a.kind === 'outbound');
+    expect(sent.map((a) => [a.n, a.grant])).toEqual([[1, undefined], [2, grant]]);
+  });
+
+  // A further attempt needs a grant in force when it is asked for: dated
+  // no later than then and naming the decision it came from.
+  it.each([
+    ['a count with no time or decision', 1, false],
+    ['a grant dated later', [{ at: '2999-01-01T00:00:00Z', decision: 'decision-1' }], false],
+    ['a grant with no decision', [{ at: '2000-01-01T00:00:00Z' }], false],
+    ['a grant with a blank decision', [{ at: '2000-01-01T00:00:00Z', decision: ' ' }], false],
+    ['a grant with no time', [{ decision: 'decision-1' }], false],
+    ['a dated grant with its decision', [{ at: '2000-01-01T00:00:00Z', decision: 'decision-1' }], true],
+  ])('a repeat request with %s goes out only on a grant in force', async (_, approval, sends) => {
+    replies.push([500, '{"error":{}}']);
+    expect((await ask('page-h', 'Japanese'))[0]).toBe(500);
+    writeFileSync(join(dir, 'approvals.json'), JSON.stringify({ [keyOf('page-h', 'ja')]: approval }));
+    expect((await ask('page-h', 'Japanese'))[0]).toBe(sends ? 200 : 429);
+    expect(hits).toBe(sends ? 2 : 1);
   });
 });

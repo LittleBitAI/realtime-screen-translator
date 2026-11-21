@@ -9,7 +9,10 @@
 // prompt around it, unless an approved further attempt is still unused.
 // A new key may go out once; any further attempt for it (the app's own
 // retry, the BLOCK_NONE fallback, a reworded prompt) is refused until
-// `<ledger>/approvals.json` grants it, as {"<key>": extra attempts}. Every
+// `<ledger>/approvals.json` grants it: {"<key>": [{"at": "<when the person
+// approved>", "decision": "<where they did>"}, ...]}, one further attempt
+// per grant, counted only from its time on and only with its decision
+// named. Each further attempt sent records the grant it used. Every
 // attempt, sent or not, is appended to `<ledger>/attempts.jsonl`, and
 // GET /ledger sums them up. With LEDGER_OFFLINE=1 nothing is ever sent:
 // saved answers are replayed and every other request is refused.
@@ -31,6 +34,13 @@ const attempts = () =>
   existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
 const record = (entry) => appendFileSync(log, `${JSON.stringify({ at: new Date().toISOString(), ...entry })}\n`);
 const approvals = () => (existsSync(join(dir, 'approvals.json')) ? JSON.parse(readFileSync(join(dir, 'approvals.json'), 'utf8')) : {});
+// A key's grants in force now, oldest first: dated no later than now, with
+// the decision they came from.
+const grants = (key) => {
+  const now = Date.now();
+  const all = approvals()[key];
+  return (Array.isArray(all) ? all : []).filter((g) => typeof g?.decision === 'string' && g.decision.trim() && Date.parse(g.at) <= now).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+};
 
 function keyOf(body) {
   const parts = body?.contents?.[0]?.parts ?? [];
@@ -70,7 +80,8 @@ createServer(async (req, res) => {
   }
   const saved = join(dir, 'answers', `${key.replace(':', '-')}.json`);
   const sent = attempts().filter((a) => a.kind === 'outbound' && a.key === key).length;
-  const allowed = 1 + (approvals()[key] ?? 0);
+  const granted = grants(key);
+  const allowed = 1 + granted.length;
   // A granted attempt not yet used goes out over the saved answer, which
   // may be the unreadable reply it was granted for.
   if (existsSync(saved) && (process.env.LEDGER_OFFLINE === '1' || sent === 0 || sent >= allowed)) {
@@ -88,7 +99,7 @@ createServer(async (req, res) => {
     return reply(res, 429, { error: { message: 'ledger: another request for this page needs approval' } });
   }
   // Counted before it leaves, so a crash mid-request still counts it.
-  record({ kind: 'outbound', key, n: sent + 1 });
+  record({ kind: 'outbound', key, n: sent + 1, ...(sent ? { grant: granted[sent - 1] } : {}) });
   try {
     const up = await fetch(`${UPSTREAM}${req.url}`, {
       method: 'POST',
