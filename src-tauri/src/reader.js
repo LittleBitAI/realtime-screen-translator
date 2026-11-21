@@ -724,8 +724,11 @@
     text.style.wordBreak = 'normal';
     text.style.textWrap = 'wrap';
     if (!shrink(READABLE, true) || !shrink(READABLE)) return 1;
+    // The least size: readable, or, where the page is shown so small that
+    // its own lettering is smaller (a two-page spread across a phone, ch258
+    // p18), the size the original lettering has there, never below it.
     text.style.overflowWrap = 'anywhere';
-    if (!shrink(2)) return 1;
+    if (!shrink(Math.min(READABLE, Number(text.dataset.font) * shownWidth * WORDS_KEEP || READABLE))) return 1;
     // Over even at the floor: the lines are scaled down whole into the text
     // area, which lies under the cover, so none is cut off and none leaves
     // the balloon; pinch zoom still reads them.

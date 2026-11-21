@@ -143,14 +143,19 @@ describe('reader page script', () => {
     expect(text.textContent).toBe('아⁠—?! 13일의...?!');
   });
 
-  it('scales Korean too long for its text area at the smallest size down whole into that area, never past it', async () => {
+  // The least size is readable (7 px), or, on a page shown so small that
+  // its own lettering is smaller (a spread across a phone), the size the
+  // original has there: the layout's size at 0.7. The picture is shown at
+  // half its width, so a 20 px layout size is 10 px on screen (least 7) and
+  // an 8 px one 4 px (least 2.8).
+  it('scales Korean too long for its text area at the least size down whole into that area, never past it', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('cors'); }));
     // A rectangle cover, and a balloon with its outline holding a line in
     // two shares: each a 16 x 10 text area.
     const long = '가'.repeat(100);
     const rect = { x: 100, y: 200, w: 120, h: 80, radius: 0, font_px: 20, outline: [], text: [150, 230, 16, 10], ko: long };
     const shared = { ...rect, y: 400, outline: [[100, 400], [220, 400], [220, 480], [100, 480]], text: [150, 430, 16, 10],
-      parts: [{ text: [110, 430, 16, 10], font_px: 20, ko: long }, { text: [190, 430, 16, 10], font_px: 20, ko: long }] };
+      parts: [{ text: [110, 430, 16, 10], font_px: 8, ko: long }, { text: [190, 430, 16, 10], font_px: 8, ko: long }] };
     const invoke = vi.fn().mockResolvedValue(null).mockResolvedValueOnce({ ...page(null), boxes: [rect, shared] });
     window.__TAURI_INTERNALS__ = { invoke };
     // The lines overflow at every size: four times the area's height.
@@ -174,7 +179,7 @@ describe('reader page script', () => {
       ['8.33333%', '37.5%', '13.3333%', '12.5%', 'visible', 'scale(0.25)'],
       ['75%', '37.5%', '13.3333%', '12.5%', 'visible', 'scale(0.25)'],
     ]);
-    expect(texts.map((t) => t.style.fontSize)).toEqual(['2px', '2px', '2px']);
+    expect(texts.map((t) => Number(parseFloat(t.style.fontSize).toFixed(3)))).toEqual([7, 2.8, 2.8]);
   });
 
   it('loads and translates a chapter picture only as it approaches the view', async () => {
