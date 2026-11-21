@@ -621,8 +621,11 @@ pub(crate) fn laid_out(items: &[PageItem], page: &export::Rgb, lang: &str) -> (V
                         let (lx, ly) = if vertical { (mx, my.max(g)) } else { (mx.max(g), my) };
                         let line = apart([p[0] - lx, p[1] - ly, p[2] + lx, p[3] + ly], *p, &others);
                         let line = [line[0] as i64, line[1] as i64, line[2].ceil() as i64, line[3].ceil() as i64];
-                        let (white, tone, light) = lettering(&[line], glyph, &[], None).map_or_else(|| (rect_outline(r), vec![], None), |f| (vec![], f.0, f.2));
-                        (white, tone, [r[0] + pad, r[1] + pad, (r[2] - r[0] - 2 * pad).max(1), (r[3] - r[1] - 2 * pad).max(1)], light)
+                        // Its Korean goes over all the letters covered, not
+                        // the block alone: "이거였어!" set in "THAT'S IT!"'s
+                        // block was 1.7 px.
+                        let (white, tone, light, a) = lettering(&[line], glyph, &[], None).map_or_else(|| (rect_outline(r), vec![], None, r), |f| (vec![], f.0, f.2, [r[0].min(f.1[0]), r[1].min(f.1[1]), r[2].max(f.1[2]), r[3].max(f.1[3])]));
+                        (white, tone, [a[0] + pad, a[1] + pad, (a[2] - a[0] - 2 * pad).max(1), (a[3] - a[1] - 2 * pad).max(1)], light)
                     })
                     .collect()
             };
@@ -1576,6 +1579,10 @@ mod tests {
         for (x, y) in [(207, 208), (197, 240), (223, 240), (283, 240), (309, 240)] {
             assert!(covered(x, y), "({x}, {y}): {b:?}");
         }
+        // Its share of the Korean is set across the whole line, end letters
+        // too, not in the block between them.
+        let last = b.parts.iter().find(|p| p.text[1] > 225).unwrap_or_else(|| panic!("a part for the last line: {b:?}"));
+        assert!(last.text[0] <= 192 && last.text[0] + last.text[2] >= 314 && last.ko == "그거야!", "{last:?}");
     }
 
     /// ch257 p15: a shout lettered across the panel ("IN HER HUH?!"), its
