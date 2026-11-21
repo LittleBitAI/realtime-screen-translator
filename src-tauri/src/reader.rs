@@ -452,9 +452,6 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
     let (w, h) = (page.w, page.h);
     let gray = page.gray();
     let pg = balloon::Page { w, h, px: &gray };
-    // The page as a negative, for white letters on dark art: dark letters on
-    // light art there, sought and toned as those are.
-    let negative: std::cell::OnceCell<Vec<u8>> = std::cell::OnceCell::new();
     let vertical = lang == "ja";
     // Gemini's boxes say roughly where; the lettering on the page says exactly.
     let mut blocks = balloon::blocks(&pg, vertical);
@@ -547,12 +544,14 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
             // The white over lettering with no balloon round it (in `rs`):
             // its letters and their rim, not a box over the art; none where
             // no letters are found there. Dark letters, or, where none are
-            // and the art there is mostly dark, white ones (`true` with
-            // them), sought on the page's negative. With it, where the
-            // letters are, less those of pieces apart (`sep`), which have
-            // Korean of their own; only those [`in_line`] with the
+            // and the art there is mostly not paper (a dark or a midtone
+            // ground), letters lighter than it: sought on the page lifted
+            // against that ground ([`export::lift`]), where they are dark
+            // letters on paper, and given with the ground. With it, where
+            // the letters are, less those of pieces apart (`sep`), which
+            // have Korean of their own; only those [`in_line`] with the
             // lettering's block (`from`), if it has one.
-            let lettering = |rs: &[[i64; 4]], glyph: Option<f64>, sep: &[[f64; 4]], from: Option<[f64; 4]>| -> Option<(Vec<[i64; 4]>, [i64; 4], bool)> {
+            let lettering = |rs: &[[i64; 4]], glyph: Option<f64>, sep: &[[f64; 4]], from: Option<[f64; 4]>| -> Option<(Vec<[i64; 4]>, [i64; 4], Option<u8>)> {
                 // Letters of another text the region takes in stay: those
                 // centred, outside the item's own lettering, in a block of
                 // a word or more that another item took or that lies mostly
@@ -569,22 +568,10 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                 let lettered: Vec<[f64; 4]> = blocks.iter().map(|b| b.bounds).collect();
                 let seek = |pg: &balloon::Page| -> Vec<[i64; 4]> { rs.iter().flat_map(|r| balloon::silhouette(pg, r.map(|v| v as f64), glyph.unwrap_or(GLYPH_GUESS * w as f64), &lettered)).filter(|f| !theirs(f)).collect() };
                 let mut fill = seek(&pg);
-                let dark_art = || {
-                    let (mut ink, mut all) = (0usize, 0usize);
-                    for r in rs {
-                        for y in r[1].max(0)..r[3].min(h as i64) {
-                            for x in r[0].max(0)..r[2].min(w as i64) {
-                                all += 1;
-                                ink += (gray[y as usize * w as usize + x as usize] < balloon::INK) as usize;
-                            }
-                        }
-                    }
-                    2 * ink > all
-                };
-                let light = fill.is_empty() && dark_art();
-                if light {
-                    let neg = negative.get_or_init(|| gray.iter().map(|v| 255 - v).collect());
-                    fill = seek(&balloon::Page { w, h, px: neg });
+                let light = if fill.is_empty() { ground(&pg, rs) } else { None };
+                if let Some(g) = light {
+                    let lifted: Vec<u8> = gray.iter().map(|&v| export::lift(v, g)).collect();
+                    fill = seek(&balloon::Page { w, h, px: &lifted });
                 }
                 if let Some(b) = from {
                     fill = in_line(fill, b, (glyph.unwrap_or(GLYPH_GUESS * w as f64) * LINE_RUN) as i64, vertical);
@@ -596,23 +583,23 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
                 }
                 Some((fill, at, light))
             };
-            let beside = |sep: &[[f64; 4]]| -> Vec<(Vec<[i64; 2]>, Vec<[i64; 4]>, [i64; 4], bool)> {
+            let beside = |sep: &[[f64; 4]]| -> Vec<(Vec<[i64; 2]>, Vec<[i64; 4]>, [i64; 4], Option<u8>)> {
                 sep.iter()
                     .map(|p| {
                         if let Some(f) = balloon::find(&pg, *p, glyph.unwrap_or(0.0), &others) {
                             let [x0, y0, x1, y1] = f.text;
-                            return (f.outline, vec![], [x0, y0, x1 - x0, y1 - y0], false);
+                            return (f.outline, vec![], [x0, y0, x1 - x0, y1 - y0], None);
                         }
                         let (mx, my) = (((p[2] - p[0]) * GROW).max(GROW_MIN_PX), ((p[3] - p[1]) * GROW).max(GROW_MIN_PX));
                         let r = apart([p[0] - mx, p[1] - my, p[2] + mx, p[3] + my], *p, &others);
                         let r = [r[0] as i64, r[1] as i64, r[2].ceil() as i64, r[3].ceil() as i64];
                         let pad = PAD as i64;
-                        let (white, tone, light) = lettering(&[r], glyph, &[], None).map_or_else(|| (rect_outline(r), vec![], false), |f| (vec![], f.0, f.2));
+                        let (white, tone, light) = lettering(&[r], glyph, &[], None).map_or_else(|| (rect_outline(r), vec![], None), |f| (vec![], f.0, f.2));
                         (white, tone, [r[0] + pad, r[1] + pad, (r[2] - r[0] - 2 * pad).max(1), (r[3] - r[1] - 2 * pad).max(1)], light)
                     })
                     .collect()
             };
-            let parts = |runs: Option<Vec<String>>, own: [i64; 4], more: &[(Vec<[i64; 2]>, Vec<[i64; 4]>, [i64; 4], bool)], scale: f64| -> Vec<layout::Part> {
+            let parts = |runs: Option<Vec<String>>, own: [i64; 4], more: &[(Vec<[i64; 2]>, Vec<[i64; 4]>, [i64; 4], Option<u8>)], scale: f64| -> Vec<layout::Part> {
                 let areas = std::iter::once(own).chain(more.iter().map(|m| m.2));
                 runs.map_or(vec![], |runs| {
                     areas.zip(runs).map(|(a, ko)| layout::Part { text: a, font_px: layout::font_for(&ko, a[2] as u32, a[3] as u32, glyph.map(|g| g * scale)), ko }).collect()
@@ -620,16 +607,18 @@ pub(crate) fn shapes(items: &[PageItem], page: &export::Rgb, lang: &str) -> Vec<
             };
             // The white edging lettering on the art may have: a quarter letter.
             let edging = |glyph: Option<f64>| (0.25 * glyph.unwrap_or(GLYPH_GUESS * w as f64)).round() as i64;
-            // The art's tone over letters (`tone`): white ones (`light`)
-            // toned on the page's negative and the fill turned back.
-            let toned = |tone: &[[i64; 4]], glyph: Option<f64>, light: bool| if light { export::tone_light(page, tone, edging(glyph)) } else { export::tone(page, tone, edging(glyph)) };
-            // White letters only if every piece toned has white ones.
-            let all_light = |pieces: &mut dyn Iterator<Item = (bool, bool)>| {
-                let mut any = false;
-                pieces.filter(|p| p.0).all(|p| {
-                    any = true;
-                    p.1
-                }) && any
+            // The art's tone over letters (`tone`): light ones (on the
+            // ground `light`) toned on the page lifted against it and the
+            // fill turned back.
+            let toned = |tone: &[[i64; 4]], glyph: Option<f64>, light: Option<u8>| match light {
+                Some(g) => export::tone_light(page, tone, edging(glyph), g),
+                None => export::tone(page, tone, edging(glyph)),
+            };
+            // Light letters only if every piece toned (`.0`) has light
+            // ones (`.1`): toned against the first one's ground.
+            let all_light = |pieces: &mut dyn Iterator<Item = (bool, Option<u8>)>| {
+                let toned: Vec<Option<u8>> = pieces.filter(|p| p.0).map(|p| p.1).collect();
+                if toned.iter().all(Option::is_some) { toned.first().copied().flatten() } else { None }
             };
             let around = |t: [f64; 4], glyph: f64| balloon::find(&pg, t, glyph, &others).map(|f| balloon::Found { glyph: Some(glyph), ..f });
 let found = on[i].and_then(|j| {
@@ -936,6 +925,16 @@ fn share_out(ko: &str, rects: &[[f64; 4]], shares: &[f64]) -> Option<Vec<String>
 /// items' lettering it reaches into, on whichever side gives up least: two
 /// captions side by side each keep their own and neither white box hides
 /// the other's Korean.
+/// The ground of the rectangles `rs` (`x0, y0, x1, y1`): their median
+/// pixel, where most of them is not paper (a dark or a midtone ground).
+fn ground(page: &balloon::Page, rs: &[[i64; 4]]) -> Option<u8> {
+    let (w, h) = (page.w as i64, page.h as i64);
+    let mut px: Vec<u8> = rs.iter().flat_map(|r| (r[1].max(0)..r[3].min(h)).flat_map(move |y| (r[0].max(0)..r[2].min(w)).map(move |x| page.px[(y * w + x) as usize]))).collect();
+    let papered = px.iter().filter(|&&v| v >= balloon::LIGHT).count();
+    let n = px.len();
+    (n > 0 && 2 * papered < n).then(|| *px.select_nth_unstable(n / 2).1)
+}
+
 fn apart(mut c: [f64; 4], own: [f64; 4], others: &[[f64; 4]]) -> [f64; 4] {
     for o in others {
         if c[0] >= o[2] || o[0] >= c[2] || c[1] >= o[3] || o[1] >= c[3] {
@@ -1421,8 +1420,9 @@ mod tests {
     #[test]
     fn lettering_on_the_art_is_covered_letter_by_letter_under_larger_korean() {
         let (w, h) = (600u32, 600u32);
-        // Dark letters on light art, and white letters on dark art.
-        for (art, letter) in [(170u8, 0u8), (50, 255)] {
+        // Dark letters on a midtone, and white letters on any ground that is
+        // not paper: black, dark, midtone.
+        for (art, letter) in [(170u8, 0u8), (0, 255), (50, 255), (120, 255), (170, 255), (185, 255)] {
             let mut page = export::Rgb { w, h, px: vec![art; (w * h * 3) as usize] };
             let mut ink = |x0: u32, y0: u32, x1: u32, y1: u32, v: u8| (y0..y1).for_each(|y| (x0..x1).for_each(|x| page.px[((y * w + x) * 3) as usize..][..3].fill(v)));
             // Two lines of two four-letter words, 16 px letters; art of

@@ -243,7 +243,9 @@ fn frac_box(v: &Value) -> Option<[f64; 4]> {
 pub fn parse_page(full: &str) -> Option<Vec<PageItem>> {
     let full = with_prefill(PAGE_PREFILL, full);
     let items = match serde_json::from_str::<Value>(&full) {
-        Ok(v) => v["items"].as_array()?.clone(),
+        // Only balloons: any other entry (a null, a bare string) is one the
+        // page would be kept short of.
+        Ok(v) => Some(v["items"].as_array()?).filter(|a| a.iter().all(Value::is_object))?.clone(),
         Err(_) => salvage(&full)?,
     };
     Some(
@@ -269,8 +271,14 @@ pub fn parse_page(full: &str) -> Option<Vec<PageItem>> {
 fn salvage(full: &str) -> Option<Vec<Value>> {
     let body = full.trim_end().strip_suffix("]}")?;
     let body = body.strip_prefix(PAGE_PREFILL)?;
-    let (mut items, mut depth, mut start, mut in_str, mut esc, mut end) = (vec![], 0, 0, false, false, 0);
+    let (mut items, mut depth, mut start, mut in_str, mut esc) = (vec![], 0, 0, false, false);
     for (i, c) in body.char_indices() {
+        // Between items only commas and spaces: anything else there (a
+        // null, a bare string, an item begun and not finished) is an entry
+        // the page would be kept short of.
+        if depth == 0 && !(c.is_whitespace() || c == ',' || c == '{') {
+            return None;
+        }
         match c {
             _ if esc => esc = false,
             '\\' if in_str => esc = true,
@@ -286,16 +294,12 @@ fn salvage(full: &str) -> Option<Vec<Value>> {
                 if depth == 0 {
                     let obj = &body[start..=i];
                     items.push(serde_json::from_str(obj).ok().or_else(|| serde_json::from_str(&drop_bare_keys(obj)).ok())?);
-                    end = i + 1;
                 }
             }
             _ => {}
         }
     }
-    // Nothing begun after the last item: a balloon left open, or begun and
-    // cut off, is one the page would be kept short of.
-    let rest_blank = body[end..].chars().all(|c| c.is_whitespace() || c == ',');
-    (!items.is_empty() && rest_blank).then_some(items)
+    (!items.is_empty() && depth == 0).then_some(items)
 }
 
 /// `"a": "b": 1` as `"b": 1`: a key followed straight by another key.
@@ -445,16 +449,36 @@ mod tests {
         }
     }
 
-    /// An answer ending in an item begun and not finished is unreadable,
-    /// whatever was cut off of it; one ending at a finished item, with or
-    /// without a comma after it, is read.
+    /// An answer holds whole balloons and nothing else between them: any
+    /// other entry before, between or after them (a null, a bare value, an
+    /// item begun and not finished, a stray brace), whether the answer is
+    /// otherwise JSON or read item by item, makes it unreadable, so the
+    /// page is not kept short of a balloon. With nothing else it is read.
     #[test]
-    fn an_answer_ending_in_an_unfinished_item_is_unreadable() {
-        let good = r#"{"box_2d": [100, 100, 150, 200], "src": "LINE", "ko": "줄"}"#;
-        for (tail, read) in [("", true), (",", true), (",{", false), (r#",{"box_2d": [200, 100"#, false), (r#",{"src": "LINE", "ko": "줄"#, false), (r#",{"src": "A}B""#, false)] {
-            let answer = format!("{good}{tail}
-]}}");
-            assert_eq!(parse_page(&answer).is_some(), read, "{answer}");
+    fn an_answer_with_anything_but_balloons_between_them_is_unreadable() {
+        let good = |n: u32| format!(r#"{{"box_2d": [{n}, 100, {}, 200], "src": "LINE {n}", "ko": "줄 {n}"}}"#, n + 50);
+        let entries = ["null", r#""text""#, "0", "[]", "}"];
+        for trailing in ["", ","] {
+            for at in 0..3 {
+                let place = |entry: &str| {
+                    let mut parts: Vec<String> = vec![good(100), good(300)];
+                    if !entry.is_empty() {
+                        parts.insert(at, entry.to_string());
+                    }
+                    format!("{}{trailing}
+]}}", parts.join(", "))
+                };
+                assert_eq!(parse_page(&place("")).map(|p| p.len()), Some(2), "nothing else, at {at}, trailing {trailing:?}");
+                for entry in entries {
+                    assert_eq!(parse_page(&place(entry)), None, "{entry} at {at}, trailing {trailing:?}");
+                }
+            }
+            // Begun and not finished, at the end.
+            for cut in ["{", r#"{"box_2d": [200, 100"#, r#"{"src": "LINE", "ko": "줄"#, r#"{"src": "A}B""#] {
+                let answer = format!("{}, {}, {cut}{trailing}
+]}}", good(100), good(300));
+                assert_eq!(parse_page(&answer), None, "{answer}");
+            }
         }
     }
 }

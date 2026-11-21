@@ -392,13 +392,28 @@ pub(crate) fn tone(page: &Rgb, rects: &[[i64; 4]], edging: i64) -> Option<layout
     patch_png([f[0], f[1], pw as i64, ph as i64], &px)
 }
 
-/// [`tone`] for white letters on dark art: toned on the page's negative,
-/// where they are dark letters on light art, and the fill turned back.
-pub(crate) fn tone_light(page: &Rgb, rects: &[[i64; 4]], edging: i64) -> Option<layout::Patch> {
-    let negative = Rgb { w: page.w, h: page.h, px: page.px.iter().map(|v| 255 - v).collect() };
-    let p = tone(&negative, rects, edging)?;
+/// A pixel `v` lifted against a dark or midtone `ground`: the ground is
+/// paper (255), what is darker than it too, and what is lighter goes to ink
+/// (0 at white), so light letters on it are dark letters on paper. On a
+/// black ground it is the negative.
+pub(crate) fn lift(v: u8, ground: u8) -> u8 {
+    let span = (255 - ground as i32).max(1);
+    (255 - ((v as i32 - ground as i32) * 255 / span).clamp(0, 255)) as u8
+}
+
+/// [`lift`] turned back: paper is the ground again.
+fn unlift(n: u8, ground: u8) -> u8 {
+    (ground as i32 + (255 - n as i32) * (255 - ground as i32) / 255) as u8
+}
+
+/// [`tone`] for letters lighter than their dark or midtone `ground`: toned
+/// on the page lifted against it, where they are dark letters on paper, and
+/// the fill turned back.
+pub(crate) fn tone_light(page: &Rgb, rects: &[[i64; 4]], edging: i64, ground: u8) -> Option<layout::Patch> {
+    let lifted = Rgb { w: page.w, h: page.h, px: page.px.iter().map(|&v| lift(v, ground)).collect() };
+    let p = tone(&lifted, rects, edging)?;
     let (_, mut px) = patch_px(&p)?;
-    px.chunks_mut(4).for_each(|q| q[..3].iter_mut().for_each(|v| *v = 255 - *v));
+    px.chunks_mut(4).for_each(|q| q[..3].iter_mut().for_each(|v| *v = unlift(*v, ground)));
     patch_png(p.at, &px)
 }
 

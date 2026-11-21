@@ -97,7 +97,7 @@ Vitest fixture modelled on src/lib/reader-chapter-order.test.js: three chapter p
 
 ## Result
 
-pending — the fix records what it observed here, with the tests and the commit.
+Observed in the round-4 fix (the commit "Send reader pages one at a time and close the fourth review's reader defects"). The experiment ran as written: src/lib/reader-chapter-turns.test.js "sends each chapter page only after the earlier page has been answered". Three loaded pages, translation off then on, page 13 in view and page 11 farthest, each reply held until the test releases it. On the previous reader.js it failed: page 11 was never sent, because pages 12 and 13 took both slots first. After the change it passes with the timeline sent 11, answered 11, sent 12, answered 12, sent 13, answered 13. The change follows the hypothesis: `pump()` picks the earliest queued page by `order()`, and only when no call is running. The `sending` chain and `PARALLEL` are removed, so the Tauri dispatch race no longer has two calls to reorder. The delayed-image case (src/lib/reader-chapter-order.test.js) still passes. Round 4 also found a decode failure that held pages back (F18); src/lib/reader-chapter-broken-image.test.js covers it, and the image's `error` event now marks the page unreadable so it holds nothing back. The site reader shares `pump()`, so it gets the same one-at-a-time order. src/lib/reader-order.test.js passes. The 61-page Edge walk at S21 size sent every chapter's pages in increasing order. Not measured: how much slower reopening a fully cached chapter is with one call at a time. A failed page (state `failed`) does not hold later pages back; they go without its lines.
 
 ## Unresolved limits
 

@@ -12,7 +12,7 @@
 
 /// Paper: a pixel at least this light is balloon background, darker is ink
 /// or outline.
-const LIGHT: u8 = 200;
+pub(crate) const LIGHT: u8 = 200;
 /// A stroke of the lettering: darker than this.
 pub(crate) const INK: u8 = 128;
 /// How far past its lettering, in letter heights, a balloon's cover may
@@ -662,8 +662,9 @@ pub fn blocks_up_to(page: &Page, vertical: bool, hi: f64) -> Vec<Block> {
 /// still finds them whole. Marks smaller than a letter (`LETTER_MIN`, as
 /// [`split`] takes) count only wholly inside, so the dots of "...!" are not
 /// taken for the letters a box lying beside them misses. Dark marks, or
-/// where the box is mostly dark, light ones too: white letters on a black
-/// balloon are lettering as much as black letters on white.
+/// where the box is mostly not paper, light ones too: white letters on a
+/// black balloon or a midtone are lettering as much as black letters on
+/// white.
 pub fn marks_in(page: &Page, r: [f64; 4]) -> usize {
     let m = (r[2] - r[0]).min(r[3] - r[1]).max(0.0);
     let around = [r[0] - m, r[1] - m, r[2] + m, r[3] + m];
@@ -679,8 +680,8 @@ pub fn marks_in(page: &Page, r: [f64; 4]) -> usize {
     let (x0, y0) = (r[0].max(0.0) as usize, r[1].max(0.0) as usize);
     let (x1, y1) = ((r[2].max(0.0) as usize).min(page.w as usize), (r[3].max(0.0) as usize).min(page.h as usize));
     let all = x1.saturating_sub(x0) * y1.saturating_sub(y0);
-    let inked = (y0..y1).flat_map(|y| (x0..x1).map(move |x| (x, y))).filter(|&(x, y)| page.px[y * page.w as usize + x] < INK).count();
-    if 2 * inked > all { dark.max(count(true)) } else { dark }
+    let papered = (y0..y1).flat_map(|y| (x0..x1).map(move |x| (x, y))).filter(|&(x, y)| page.px[y * page.w as usize + x] >= LIGHT).count();
+    if 2 * papered < all { dark.max(count(true)) } else { dark }
 }
 
 /// One block of lettering cut in two for two lines lettered so close that

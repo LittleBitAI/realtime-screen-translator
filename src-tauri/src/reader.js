@@ -20,12 +20,10 @@
   const invoke = (cmd, args) => window.__TAURI_INTERNALS__.invoke(cmd, args);
   const MIN_SIDE = 300; // natural pixels: smaller pictures are icons, not pages
   const NEAR = 1.5; // screens above and below the view that are read ahead
-  const PARALLEL = 2;
   const done = new Map(); // picture address -> answer, for pictures a site recreates
   const pics = new Map(); // img -> { src, layer, state }
   const queue = new Set();
   let running = 0;
-  let sending = Promise.resolve(); // the last page call started, once sent
   let on = true;
   let bar;
   let barText;
@@ -123,6 +121,13 @@
         img.dataset.pictureId = page.id;
         img.alt = `${i + 1}쪽`;
         img.addEventListener('load', schedule);
+        // Bytes that are no picture: told, and no longer waited for.
+        img.addEventListener('error', () => {
+          const p = pics.get(img);
+          if (!p || !img.hasAttribute('src')) return;
+          unloadPicture(img);
+          pictureFailed(img, p);
+        });
         frame.appendChild(img);
         content.appendChild(frame);
       }
@@ -140,15 +145,20 @@
       if (pics.get(img) !== p || distance(img) > NEAR * 2) return;
       img.src = URL.createObjectURL(new Blob([new Uint8Array(bytes)]));
     } catch {
-      if (pics.get(img) !== p) return;
-      p.imageError = true;
-      chip(img, p, '그림을 읽을 수 없습니다 · 눌러서 다시', () => {
-        p.imageError = false;
-        schedule();
-      });
+      if (pics.get(img) === p) pictureFailed(img, p);
     } finally {
       p.loading = false;
     }
+  }
+
+  // A chapter picture that could not be read or shown: it no longer holds
+  // back the pages after it, and a tap reads it again.
+  function pictureFailed(img, p) {
+    p.imageError = true;
+    chip(img, p, '그림을 읽을 수 없습니다 · 눌러서 다시', () => {
+      p.imageError = false;
+      schedule();
+    });
   }
 
   let pending = false;
@@ -227,19 +237,17 @@
     img.removeAttribute('src');
   }
 
+  // One page at a time, the earliest in reading order, each sent only once
+  // the one before has been answered (and so kept): a page's request
+  // carries the lines of the earlier pages the app has kept.
   function pump() {
-    const picked = [];
-    while (running + picked.length < PARALLEL && queue.size && on) {
-      // The pictures nearest the view first.
-      const img = [...queue].sort((a, b) => distance(a) - distance(b))[0];
+    while (!running && queue.size && on) {
+      const img = [...queue].sort((a, b) => order(a) - order(b))[0];
       queue.delete(img);
       const p = pics.get(img);
       if (!p || p.state !== 'new' || distance(img) > NEAR) continue;
-      picked.push(img);
+      translate(img, p);
     }
-    // Started in reading order: the app has a later page wait for the
-    // earlier ones it is reading, so its request carries their lines.
-    picked.sort((a, b) => order(a) - order(b)).forEach((img) => translate(img, pics.get(img)));
     status();
   }
 
@@ -280,24 +288,9 @@
     p.state = 'busy';
     chip(img, p, '번역 중…');
     try {
-      // Sent in the order started, even where a later page's picture is
-      // fetched sooner.
-      // ponytail: two calls sent in order still race into the app's threads
-      // for a moment; a book-wide turn in the app would close it.
-      const image = chapter ? null : bytes(p.src);
-      const before = sending;
-      let sent;
-      sending = new Promise((ok) => (sent = ok));
-      let call;
-      try {
-        await before;
-        call = chapter
-          ? invoke('post_chapter_page', { picture_id: p.src })
-          : invoke('post_reader_page', { src: p.src, image: await image, page_url: location.href, title: document.title, index: order(img) });
-      } finally {
-        sent();
-      }
-      const answer = await call;
+      const answer = chapter
+        ? await invoke('post_chapter_page', { picture_id: p.src })
+        : await invoke('post_reader_page', { src: p.src, image: await bytes(p.src), page_url: location.href, title: document.title, index: order(img) });
       p.state = 'done';
       problem = answer.save_error ? messages[answer.save_error] ?? messages.storage_full : null;
       // Not kept in the library: drawn, but asked again so the app saves it.
