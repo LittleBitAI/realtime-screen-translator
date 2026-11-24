@@ -262,4 +262,3 @@ $ corepack pnpm exec vitest run --reporter=verbose src/lib/reader.test.js src/li
 Environment  jsdom was created 8 times · 36.63s total, 90% of tracked time
              create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
              learn more: https://vitest.dev/guide/improving-performance#test-environments
-
