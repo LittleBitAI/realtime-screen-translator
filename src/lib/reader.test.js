@@ -149,7 +149,22 @@ describe('reader page script', () => {
   // its width: 20 page px of lettering is 10 on screen, 8 is 4.
   // Three pages, one each: lettering of 20 px (least 7), of 8 px (least 4),
   // and none found (least 7).
-  it('never sets Korean too long for its text area below the least size, and keeps its lines whole and shown', async () => {
+  // The size drawn (the web view's size times any scale) is never below the
+  // least size. A web view drawing the size set is not scaled; one drawing
+  // no text under its own minimum (Android's 8 px) draws the floor larger,
+  // and is scaled back toward the area, as far as the floor and no further.
+  // (web view, its minimum px, each text's transform, the size drawn)
+  const webViews = [
+    ['drawing the size set', 0, ['', '', ''], [7, 4, 7]],
+    ['with an 8 px minimum', 8, ['scale(0.875)', 'scale(0.5)', 'scale(0.875)'], [7, 4, 7]],
+  ];
+  it.each(webViews)('never draws Korean too long for its text area below the least size, and keeps its lines whole and shown, in a web view %s', async (_, minimum, transforms, drawnPx) => {
+    const real = window.getComputedStyle.bind(window);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((el, pseudo) => {
+      const s = real(el, pseudo);
+      if (!el.classList?.contains('rst-text')) return s;
+      return new Proxy(s, { get: (o, k) => (k === 'fontSize' ? `${Math.max(parseFloat(el.style.fontSize) || 0, minimum)}px` : typeof o[k] === 'function' ? o[k].bind(o) : o[k]) });
+    });
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('cors'); }));
     // A rectangle cover, and a balloon with its outline holding a line in
     // two shares: each a 16 x 10 text area.
@@ -165,7 +180,9 @@ describe('reader page script', () => {
     vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000);
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 15, 16, 10));
     vi.spyOn(Range.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 16, 40));
-    for (const n of [5, 6, 7]) pagePicture(`https://cdn.example/${n}.jpg`);
+    // Pictures of their own for each web view: a page script left from
+    // another test keeps the layouts of the pictures it has seen.
+    for (const n of [5, 6, 7]) pagePicture(`https://cdn.example/least-${minimum}-${n}.jpg`);
 
     new Function(script)();
 
@@ -175,14 +192,17 @@ describe('reader page script', () => {
       expect(t.every((x) => x.style.overflow === 'visible')).toBe(true);
       return t;
     });
-    // Each in its own area, as placed, at the page's least size and not
-    // scaled below it: the size drawn is the size set.
-    expect(texts.map((t) => [t.style.left, t.style.top, t.style.width, t.style.height, t.style.transform])).toEqual([0, 1, 2].flatMap(() => [
-      ['41.6667%', '37.5%', '13.3333%', '12.5%', ''],
-      ['8.33333%', '37.5%', '13.3333%', '12.5%', ''],
-      ['75%', '37.5%', '13.3333%', '12.5%', ''],
+    // Each in its own area, as placed, set at the page's least size.
+    expect(texts.map((t) => [t.style.left, t.style.top, t.style.width, t.style.height])).toEqual([0, 1, 2].flatMap(() => [
+      ['41.6667%', '37.5%', '13.3333%', '12.5%'],
+      ['8.33333%', '37.5%', '13.3333%', '12.5%'],
+      ['75%', '37.5%', '13.3333%', '12.5%'],
     ]));
     expect(texts.map((t) => Number(parseFloat(t.style.fontSize).toFixed(3)))).toEqual([7, 7, 7, 4, 4, 4, 7, 7, 7]);
+    // Scaled only where the web view draws the floor larger, and drawn at the floor, never below it.
+    expect(texts.map((t) => t.style.transform)).toEqual(transforms.flatMap((x) => [x, x, x]));
+    const drawn = (t) => parseFloat(getComputedStyle(t).fontSize) * (t.style.transform ? Number(t.style.transform.slice(6, -1)) : 1);
+    expect(texts.map((t) => Number(drawn(t).toFixed(3)))).toEqual(drawnPx.flatMap((x) => [x, x, x]));
   });
 
   it('loads and translates a chapter picture only as it approaches the view', async () => {

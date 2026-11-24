@@ -701,6 +701,7 @@
     text.style.textWrap = '';
     text.style.overflowWrap = 'normal';
     text.style.overflow = '';
+    text.style.transform = '';
     const f = text.rstFlow;
     if (f) {
       squeeze(text, 0);
@@ -728,11 +729,23 @@
     // its own lettering is smaller (a two-page spread across a phone, ch258
     // p18), as large as the original lettering there, never below it.
     text.style.overflowWrap = 'anywhere';
-    if (!shrink(Math.min(READABLE, Number(text.dataset.least) * shownWidth || READABLE))) return 1;
+    const least = Math.min(READABLE, Number(text.dataset.least) * shownWidth || READABLE);
+    if (!shrink(least)) return 1;
     // Over even at the floor: the floor holds (scaled below it, "이거였어!"
     // on the ch258 p18 spread read smaller than its own lettering). The
     // lines stay whole at that size, centred on the text area and shown
     // past its edge, over the cover round it, in their white rim.
+    // A web view that draws no text smaller than its own minimum (Android's
+    // 8 px) draws the floor larger than set, and the lines run past their
+    // area (ch258 p11 on the S21-shaped emulator): they are scaled back
+    // toward the area as far as the floor, never below it.
+    const drawn = parseFloat(getComputedStyle(text).fontSize);
+    if (drawn > least + 0.01) {
+      lines.selectNodeContents(text);
+      const [l, a] = [lines.getBoundingClientRect(), text.getBoundingClientRect()];
+      const k = Math.max(least / drawn, Math.min(1, a.width / (l.width || 1), a.height / (l.height || 1)));
+      if (k < 1) text.style.transform = `scale(${k.toFixed(4)})`;
+    }
     text.style.overflow = 'visible';
     return 0;
   }
