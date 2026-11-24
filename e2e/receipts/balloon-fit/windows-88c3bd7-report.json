@@ -1,0 +1,1101 @@
+{
+ "gemini_requests_before": 0,
+ "chapters": [
+  {
+   "url": "https://mangafire.to/title/oomvy-kimi-no-koto-ga-dai-dai-dai-dai-daisuki-na-100-nin-no-kanojo/chapter/9439528",
+   "slides": 12,
+   "pages": 21,
+   "chips": 0,
+   "same_captures": 0,
+   "detail": [
+    {
+     "page": 1,
+     "slide": 1,
+     "picture": true,
+     "boxes": 2,
+     "w": 1000,
+     "h": 1000,
+     "texts": [
+      12.1,
+      15.95
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 2,
+     "slide": 1,
+     "picture": true,
+     "boxes": 11,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      11.9167,
+      11,
+      11.9167,
+      12.65,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11.9167,
+      11
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 3,
+     "slide": 2,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      11,
+      11.9167,
+      17.2883,
+      16.5,
+      11.9167,
+      11.4583,
+      11.4583
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 4,
+     "slide": 2,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      12.8333,
+      12.8333,
+      17.71,
+      24.2917,
+      17.4167,
+      7,
+      11.9167,
+      11.9167
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 5,
+     "slide": 3,
+     "picture": true,
+     "boxes": 3,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      13.2917,
+      12.8333,
+      11.385
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 6,
+     "slide": 3,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      14.3367,
+      16.0417,
+      11.4583,
+      11.4583,
+      12.8333,
+      11.9167,
+      19.7083,
+      19.7083
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 7,
+     "slide": 4,
+     "picture": true,
+     "boxes": 6,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      11.9167,
+      15.104,
+      11,
+      11,
+      11.4583,
+      15.1294
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 8,
+     "slide": 4,
+     "picture": true,
+     "boxes": 10,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      10.12,
+      11.4583,
+      11.4583,
+      28.875,
+      7,
+      18.3333,
+      13.75,
+      9.625,
+      11.9167,
+      10.9633
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 9,
+     "slide": 5,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      11.9167,
+      11.4583,
+      11.9167,
+      16.0417,
+      10.0863,
+      41.7083,
+      13.2917,
+      17.4167
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 10,
+     "slide": 5,
+     "picture": true,
+     "boxes": 9,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      13.915,
+      13.75,
+      17.488,
+      23.6133,
+      13.1897,
+      9.3104,
+      37.125,
+      19.7083,
+      11.4583
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 11,
+     "slide": 6,
+     "picture": true,
+     "boxes": 4,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      26.125,
+      21.5417,
+      18.2329,
+      20.1667
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 12,
+     "slide": 6,
+     "picture": true,
+     "boxes": 11,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      14.6667,
+      15.18,
+      12.0259,
+      11.638,
+      14.2083,
+      14.2083,
+      20.1667,
+      12.4139,
+      11.9167,
+      13.75,
+      11.9167
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 13,
+     "slide": 7,
+     "picture": true,
+     "boxes": 4,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      13.75,
+      13.2917,
+      17.875,
+      13.2917
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 14,
+     "slide": 7,
+     "picture": true,
+     "boxes": 3,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      12.8333,
+      13.2917,
+      11.9167
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 15,
+     "slide": 8,
+     "picture": true,
+     "boxes": 5,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      15.1294,
+      10.8621,
+      10.8621,
+      15.125,
+      16.0417
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 16,
+     "slide": 8,
+     "picture": true,
+     "boxes": 6,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      13.2917,
+      10.8621,
+      13.75,
+      9.8504,
+      11.9167,
+      12.8333
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 17,
+     "slide": 9,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      17.875,
+      19.7083,
+      16.0417,
+      12.8018,
+      16.5,
+      16.5,
+      18.3333,
+      12.375
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 18,
+     "slide": 9,
+     "picture": true,
+     "boxes": 3,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      18.5587,
+      12.8333,
+      12.8333
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 19,
+     "slide": 10,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      18.3333,
+      12.8333,
+      15.125,
+      16.0417,
+      13.4933,
+      14.6667,
+      15.125
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 20,
+     "slide": 10,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      13.2917,
+      14.2083,
+      12.8333,
+      11,
+      10.0863,
+      14.6667,
+      14.2083,
+      11.8067
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 21,
+     "slide": 11,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      13.2817,
+      14.099,
+      14.8142,
+      16.3467,
+      32.6933,
+      30.1392,
+      15.325,
+      18.39
+     ],
+     "same_capture": false
+    }
+   ]
+  },
+  {
+   "url": "https://mangafire.to/title/oomvy-kimi-no-koto-ga-dai-dai-dai-dai-daisuki-na-100-nin-no-kanojo/chapter/9478775",
+   "slides": 12,
+   "pages": 21,
+   "chips": 0,
+   "same_captures": 0,
+   "detail": [
+    {
+     "page": 1,
+     "slide": 1,
+     "picture": true,
+     "boxes": 3,
+     "w": 1000,
+     "h": 1000,
+     "texts": [
+      11.55,
+      9.9,
+      14.3
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 2,
+     "slide": 1,
+     "picture": true,
+     "boxes": 12,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      11.4583,
+      13.2917,
+      13.2917,
+      12.8333,
+      25.6667,
+      11.0639,
+      11.4583,
+      9.625,
+      11.4583,
+      11.4583,
+      11.4583,
+      11.4583
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 3,
+     "slide": 2,
+     "picture": true,
+     "boxes": 6,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      11.4583,
+      11,
+      12.8333,
+      8.56557,
+      8.20867,
+      11.9167
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 4,
+     "slide": 2,
+     "picture": true,
+     "boxes": 12,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      14.6667,
+      11.385,
+      13.5621,
+      11,
+      11.4583,
+      11,
+      16.0417,
+      13.0717,
+      11.4583,
+      10.5417,
+      13.0717,
+      12.2283
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 5,
+     "slide": 3,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      11,
+      12.375,
+      9.625,
+      9.69833,
+      9.69833,
+      8.855,
+      11.9167,
+      22
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 6,
+     "slide": 3,
+     "picture": true,
+     "boxes": 9,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      18.3333,
+      16.0417,
+      16.0417,
+      12.2283,
+      10.8621,
+      21.9267,
+      16.0417,
+      23.6133,
+      11.9167
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 7,
+     "slide": 4,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      11,
+      11.4583,
+      13.2917,
+      11,
+      13.2917,
+      12.65,
+      13.2917,
+      13.2917,
+      23.375
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 8,
+     "slide": 4,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      18.3333,
+      19.7083,
+      16.5,
+      13.75,
+      25.6667,
+      13.75,
+      13.5777,
+      13.2917
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 9,
+     "slide": 5,
+     "picture": true,
+     "boxes": 6,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      16.5,
+      14.2083,
+      31.625,
+      23.5553,
+      9.27937,
+      13.75
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 10,
+     "slide": 5,
+     "picture": true,
+     "boxes": 9,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      13.75,
+      24.4567,
+      13.4933,
+      12.8333,
+      10.12,
+      7,
+      14.2083,
+      13.75,
+      9.16667
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 11,
+     "slide": 6,
+     "picture": true,
+     "boxes": 4,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      43.8533,
+      18.3333,
+      29.3333,
+      14.7415
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 12,
+     "slide": 6,
+     "picture": true,
+     "boxes": 4,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      15.1294,
+      16.5,
+      12.8333,
+      11.4583
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 13,
+     "slide": 7,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      11.8067,
+      11,
+      8.53702,
+      12.8333,
+      11.9167,
+      16.0417,
+      16.5
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 14,
+     "slide": 7,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      26.1433,
+      27.83,
+      16.0417,
+      16.0417,
+      14.6667,
+      14.6667,
+      10.8621
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 15,
+     "slide": 8,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      14.6667,
+      41.4002,
+      21.5417,
+      11,
+      12.8333,
+      12.8333,
+      11,
+      17.1311
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 16,
+     "slide": 8,
+     "picture": true,
+     "boxes": 3,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      19.9863,
+      11.9167,
+      12.8333
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 17,
+     "slide": 9,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      16.9583,
+      55,
+      37.5833,
+      9.99316,
+      13.2917,
+      16.0417,
+      23.375
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 18,
+     "slide": 9,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      27.5,
+      14.2083,
+      14.6667,
+      13.4622,
+      18.3333,
+      17.875,
+      14.2083
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 19,
+     "slide": 10,
+     "picture": true,
+     "boxes": 10,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      22.4583,
+      25.6667,
+      12.1488,
+      13.915,
+      14.2759,
+      11.4583,
+      11.4583,
+      11.4583,
+      11.4583,
+      11.4583
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 20,
+     "slide": 10,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      13.2917,
+      13.75,
+      15.125,
+      12.8333,
+      14.2083,
+      12.8333,
+      14.2083,
+      11.9167
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 21,
+     "slide": 11,
+     "picture": true,
+     "boxes": 4,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      17.3881,
+      15.7325,
+      26.39,
+      23.3159
+     ],
+     "same_capture": false
+    }
+   ]
+  },
+  {
+   "url": "https://mangafire.to/title/oomvy-kimi-no-koto-ga-dai-dai-dai-dai-daisuki-na-100-nin-no-kanojo/chapter/9494751",
+   "slides": 12,
+   "pages": 19,
+   "chips": 0,
+   "same_captures": 0,
+   "detail": [
+    {
+     "page": 1,
+     "slide": 1,
+     "picture": true,
+     "boxes": 2,
+     "w": 1000,
+     "h": 1000,
+     "texts": [
+      10.45,
+      9.9
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 2,
+     "slide": 1,
+     "picture": true,
+     "boxes": 9,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      13.75,
+      12.375,
+      8.92247,
+      10.5417,
+      10.5417,
+      15.125,
+      14.6667,
+      11.4583,
+      13.75
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 3,
+     "slide": 2,
+     "picture": true,
+     "boxes": 1,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      16.5
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 4,
+     "slide": 2,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      11.4583,
+      15.125,
+      11.9167,
+      14.6667,
+      10.0863,
+      9.27937,
+      18.3333,
+      17.4167
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 5,
+     "slide": 3,
+     "picture": true,
+     "boxes": 6,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      16.7457,
+      16.0417,
+      11.4583,
+      15.125,
+      11.4583,
+      11.4583
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 6,
+     "slide": 3,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      11.4583,
+      15.125,
+      11.4583,
+      11.4583,
+      11.9167,
+      11.9167,
+      11.9167,
+      11.9167
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 7,
+     "slide": 4,
+     "picture": true,
+     "boxes": 6,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      11.4583,
+      20.2125,
+      11.4583,
+      11.4583,
+      22.1277,
+      11.9167
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 8,
+     "slide": 4,
+     "picture": true,
+     "boxes": 5,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      11,
+      11,
+      11,
+      13.75,
+      13.75
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 9,
+     "slide": 5,
+     "picture": true,
+     "boxes": 1,
+     "w": 2126,
+     "h": 1600,
+     "texts": [
+      41.413
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 10,
+     "slide": 6,
+     "picture": true,
+     "boxes": 2,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      13.2917,
+      11.638
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 11,
+     "slide": 6,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      13.4933,
+      17.4167,
+      12.8333,
+      12.8333,
+      11.4583,
+      11.4583,
+      10.8354,
+      11
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 12,
+     "slide": 7,
+     "picture": true,
+     "boxes": 6,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      15.3466,
+      14.6328,
+      25.2083,
+      14.2083,
+      12.65,
+      34.9983
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 13,
+     "slide": 7,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      11.2292,
+      14.4473,
+      16.9583,
+      13.75,
+      13.2917,
+      12.8333,
+      14.7583
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 14,
+     "slide": 8,
+     "picture": true,
+     "boxes": 14,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      14.2083,
+      12.375,
+      10.12,
+      12.8333,
+      12.8333,
+      11.9167,
+      16.0233,
+      11.9167,
+      11,
+      8.92247,
+      10.9633,
+      13.75,
+      17.8449,
+      15.5173
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 15,
+     "slide": 8,
+     "picture": true,
+     "boxes": 5,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      12.8018,
+      11.4583,
+      11.9167,
+      10.5417,
+      11.0639,
+      11.9167
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 16,
+     "slide": 9,
+     "picture": true,
+     "boxes": 5,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      13.2917,
+      16.0233,
+      7.14352,
+      16.0417,
+      14.7583
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 17,
+     "slide": 9,
+     "picture": true,
+     "boxes": 2,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      17.875,
+      24.2917,
+      16.0233
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 18,
+     "slide": 10,
+     "picture": true,
+     "boxes": 4,
+     "w": 2133,
+     "h": 1599,
+     "texts": [
+      16.5026,
+      19.5968,
+      17.8962,
+      18.0291,
+      11.3455
+     ],
+     "same_capture": false
+    },
+    {
+     "page": 19,
+     "slide": 11,
+     "picture": true,
+     "boxes": 5,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      11,
+      15,
+      17.5,
+      12.5,
+      21.5
+     ],
+     "same_capture": false
+    }
+   ]
+  }
+ ],
+ "gemini_requests_after": 0
+}

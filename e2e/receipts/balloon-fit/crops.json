@@ -1,0 +1,219 @@
+[
+ {
+  "file": "emulator-88c3bd7-ch256-p09-before-after.png",
+  "sha256": "b9f7b6dbb93a5334c0c9fa7c7a5bf5fd3991e15114ce15480fa5df198d22e49c",
+  "device_px": [
+   1080,
+   2400
+  ],
+  "cropped_rows": [
+   44,
+   2370
+  ],
+  "left": "translation off",
+  "right": "translation on",
+  "pixels_changed": 65439,
+  "changed_bounds": [
+   37,
+   448,
+   982,
+   2172
+  ],
+  "pages": [
+   {
+    "page": 9,
+    "korean": [
+     "13...?",
+     "오오! 시작부터 미친 듯이 강렬한 13이네? 저 크기 좀 봐...!",
+     "아, 그래... 이게 바로 영화지...!",
+     "아빠의 감시 아래에서 폭력을 향한 나의 진심 어린 애정을 꾹꾹 눌러 담아야 해...!!",
+     "이 호수에서-",
+     "아!",
+     "몰... 토...?",
+     "몰... 몰토!"
+    ]
+   }
+  ]
+ },
+ {
+  "file": "emulator-88c3bd7-ch257-p06-before-after.png",
+  "sha256": "1b16a4b37dce19c18038899fe90823f6ba583b6e2ec57470331bbdb0665a3fd3",
+  "device_px": [
+   1080,
+   2400
+  ],
+  "cropped_rows": [
+   44,
+   2370
+  ],
+  "left": "translation off",
+  "right": "translation on",
+  "pixels_changed": 201934,
+  "changed_bounds": [
+   0,
+   459,
+   1043,
+   2172
+  ],
+  "pages": [
+   {
+    "page": 6,
+    "korean": [
+     "크헉-! 당연하지! 이렇게 어린 나이인데, 하카리는 자기 몸이 어떻게 발달했는지 전혀 모를 거야!",
+     "성적인 개념이 아예 없을 거라고...!",
+     "응? 뭐를 부탁해?",
+     "이 순진한 어린 소녀를 어떻게 대해야 할까...?",
+     "너무 달라붙지 마.",
+     "대체 어떤 아빠가 그런 짓을 해?!",
+     "하카리는 아무 잘못 없어— 이 문제는 전적으로 나한테 있다고!",
+     "전부 삭제해! 아버지상 소프트웨어가 아닌 건 전부 다!",
+     "불순한 마음아, 사라져라! 사라지라고, 젠장!"
+    ]
+   }
+  ]
+ },
+ {
+  "file": "emulator-88c3bd7-ch258-p17-before-after.png",
+  "sha256": "a2ccd8cd686f555ebfaa24fe72ddf98fb874093db6b85cd68dac609c80563306",
+  "device_px": [
+   1080,
+   2400
+  ],
+  "cropped_rows": [
+   44,
+   2370
+  ],
+  "left": "translation off",
+  "right": "translation on",
+  "pixels_changed": 58033,
+  "changed_bounds": [
+   0,
+   442,
+   875,
+   2172
+  ],
+  "pages": [
+   {
+    "page": 17,
+    "korean": [
+     "윽!",
+     "무시해! 나한테 무슨 일이 생기든 상관없어! 누레미 선배를 바다에 데려다줄 수만 있다면!"
+    ]
+   }
+  ]
+ },
+ {
+  "file": "emulator-88c3bd7-ch258-p18-before-after.png",
+  "sha256": "218e52bec592dd65edbe419f27d7406f74099063080d0d6e3c9c3e5edc498eeb",
+  "device_px": [
+   1080,
+   2400
+  ],
+  "cropped_rows": [
+   44,
+   2370
+  ],
+  "left": "translation off",
+  "right": "translation on",
+  "pixels_changed": 24032,
+  "changed_bounds": [
+   572,
+   1213,
+   1071,
+   1568
+  ],
+  "pages": [
+   {
+    "page": 18,
+    "korean": [
+     "이렇게 그녀와 함께 있다 보니, 나 자신이 바다 그 자체가 된 것만 같아.",
+     "정말 엄청난 속도와 우아함이야.",
+     "이 감정은...!",
+     "아. 이거였구나. 이거였어!"
+    ]
+   }
+  ]
+ },
+ {
+  "file": "windows-88c3bd7-ch258-p18-before-after.png",
+  "sha256": "681e1e00908e0118e4851c16aa990a6ab1f37af1de572eb15345ab1de406d44f",
+  "device_px": [
+   1100,
+   900
+  ],
+  "cropped_rows": [
+   0,
+   900
+  ],
+  "left": "translation off",
+  "right": "translation on",
+  "pixels_changed": 23290,
+  "changed_bounds": [
+   583,
+   479,
+   1097,
+   841
+  ],
+  "pages": [
+   {
+    "page": 18,
+    "korean": [
+     "이렇게 그녀와 함께 있다 보니, 나 자신이 바다 그 자체가 된 것만 같아.",
+     "정말 엄청난 속도와 우아함이야.",
+     "이 감정은...!",
+     "아. 이거였구나. 이거였어!"
+    ]
+   }
+  ]
+ },
+ {
+  "file": "windows-88c3bd7-ch257-p05-06-before-after.png",
+  "sha256": "3ecb150e8dad995d37e8810cff3b49fcc67286c8addb1a42a7c7931415478c42",
+  "device_px": [
+   1100,
+   900
+  ],
+  "cropped_rows": [
+   0,
+   900
+  ],
+  "left": "translation off",
+  "right": "translation on",
+  "pixels_changed": 84965,
+  "changed_bounds": [
+   24,
+   80,
+   1082,
+   834
+  ],
+  "pages": [
+   {
+    "page": 5,
+    "korean": [
+     "아, 맞다— 고등학생이면 유치원생 눈엔 진짜 어른처럼 보이겠지.",
+     "와아아...! 렌타로 군, 엄청 커 보이고 어른스러워...!",
+     "조심히 다녀와.",
+     "아, 하카아아앙! 으으으, 너어어어무 귀여워어어! ❤️❤️❤️",
+     "엄마가 코디해준 어린아이 옷 (누가 했겠어?)",
+     "야아아! 렌타로 군이랑 데이트다! 너어어무 신나! ❤️",
+     "나도 정말 신나, 하카—",
+     "아— 아아아! 하-하-하-하카리! 제발!"
+    ]
+   },
+   {
+    "page": 6,
+    "korean": [
+     "크헉-! 당연하지! 이렇게 어린 나이인데, 하카리는 자기 몸이 어떻게 발달했는지 전혀 모를 거야!",
+     "성적인 개념이 아예 없을 거라고...!",
+     "응? 뭐를 부탁해?",
+     "이 순진한 어린 소녀를 어떻게 대해야 할까...?",
+     "너무 달라붙지 마.",
+     "대체 어떤 아빠가 그런 짓을 해?!",
+     "하카리는 아무 잘못 없어— 이 문제는 전적으로 나한테 있다고!",
+     "전부 삭제해! 아버지상 소프트웨어가 아닌 건 전부 다!",
+     "불순한 마음아, 사라져라! 사라지라고, 젠장!"
+    ]
+   }
+  ]
+ }
+]

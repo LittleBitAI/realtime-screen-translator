@@ -229,7 +229,7 @@
   "clipped": 0,
   "unpainted": 0,
   "patches": 44,
-  "minPx": "6.4",
+  "minPx": "5.5",
   "pages": [
    {
     "page": 1,
@@ -239,7 +239,7 @@
     "clipped": 0,
     "patches": 3,
     "unpainted": 0,
-    "minPx": 6.441273734177216
+    "minPx": 5.535294931146163
    },
    {
     "page": 2,
@@ -309,7 +309,7 @@
     "clipped": 0,
     "patches": 4,
     "unpainted": 0,
-    "minPx": 8.17717225609756
+    "minPx": 8.665144230769231
    },
    {
     "page": 9,
@@ -451,7 +451,7 @@
   "clipped": 0,
   "unpainted": 0,
   "patches": 29,
-  "minPx": "5.9",
+  "minPx": "3.5",
   "pages": [
    {
     "page": 1,
@@ -461,7 +461,7 @@
     "clipped": 0,
     "patches": 2,
     "unpainted": 0,
-    "minPx": 6.446359200743495
+    "minPx": 5.539664910185293
    },
    {
     "page": 2,
@@ -621,17 +621,17 @@
     "clipped": 0,
     "patches": 1,
     "unpainted": 0,
-    "minPx": 11.1
+    "minPx": 11.457832792207792
    },
    {
     "page": 18,
     "loaded": true,
     "boxes": 4,
-    "texts": 4,
+    "texts": 5,
     "clipped": 0,
     "patches": 4,
     "unpainted": 0,
-    "minPx": 5.940822596153846
+    "minPx": 3.5172764933507588
    },
    {
     "page": 19,

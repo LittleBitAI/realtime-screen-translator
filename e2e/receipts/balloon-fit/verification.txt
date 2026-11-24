@@ -1,117 +1,188 @@
-Balloon-fit verification, review round 4, 2026-11-21
+Balloon-fit verification, review round 1 repair, 2026-11-21
 
 Source
-  Candidate ad06fcf ("Cover an ellipsis's last dot and keep a picture drawn
-  beside lettering"). Every run below used that commit's runtime code, except
-  the physical Galaxy S21 walk, which ran on 883938c (see "Reuse").
-  git diff 883938c ad06fcf touches only src-tauri/src/balloon.rs and
-  docs/design/backend.md.
-  Windows 11 Home 10.0.26200 x64, rustc 1.98.1, cargo-nextest 0.9.152,
+  Candidate 88c3bd7 (88c3bd717ba837e67a751e060987e50461c7a02f, "Set a
+  gathered line's Korean across all the letters it covers"). Every run below
+  used that commit's runtime code, except the physical Galaxy S21 walk, which
+  ran on 883938c and is reused only for pages this head leaves byte-identical
+  (see "Physical Galaxy S21").
+  Host: Windows 11 Home 10.0.26200 x64, rustc 1.98.1, cargo-nextest 0.9.152,
   Node 24.18.0, Edge 157 (headless), Android emulator 37.3.10.0.
 
 Check
   node --test e2e/receipts/balloon-fit/check-evidence.mjs
 
-  Run from the repository root. It hashes every file below from HEAD,
-  checks that this receipt names each of them, runs git diff --exit-code
-  ad06fcf HEAD over everything but this folder, docs/research and the
-  server's .wiki metadata, and checks the reports' and the ledger's
-  properties (pages drawn, order, requests, approvals).
+  Run from the repository root. It hashes every file below as committed
+  (git show HEAD:...), checks that this receipt names each of them, runs
+  git diff --exit-code 88c3bd7 HEAD over everything but this folder,
+  docs/research and the server's .wiki metadata, and checks the reports'
+  and the ledger's properties: pages drawn, reading order, clipping,
+  painted layers, capture pairs that changed, Gemini requests, and that
+  every repeat request had the person's prior approval for that page.
 
 Gemini requests
-  All runs went through scripts/gemini-ledger.mjs with LEDGER_OFFLINE=1:
-  a page the ledger has answered before is replayed from disk, and nothing
-  is sent. Over the whole development run the ledger holds 84 outbound
-  attempts for 61 pages (one first request each, 23 repeats on 16 pages,
-  each granted in approvals.json) and 215 replays. This round added
-  replays only: outbound stayed 84 throughout.
-  ledger-attempts.jsonl, ledger-approvals.json and ledger-pages.json (page
-  hash to chapter and page) are copies of the ledger's files. They hold page
-  hashes, times and statuses, no key.
+  Every run went through scripts/gemini-ledger.mjs with LEDGER_OFFLINE=1: a
+  page the ledger answered before is replayed from disk and nothing is sent.
+  Over the whole development run the ledger holds 84 outbound attempts for
+  61 pages: one first request each, plus 23 repeats on 16 pages. The last
+  outbound attempt was 2026-11-20T10:19:42Z; this round added replays only
+  (703 -> 886), outbound stayed 84.
+  ledger-attempts.jsonl (84 outbound, 84 answer, 886 replay entries),
+  ledger-approvals.json (one grant per repeat, each with its time and the
+  decision it came from) and ledger-pages.json (page hash to chapter and
+  page) are copies of the ledger's files. They hold page hashes, times and
+  statuses, no key.
+  ledger-decisions.json: the person's four answers that granted repeats,
+  with the question as asked and the pages it names:
+    A 2026-11-19T00:17:01Z "All three": ch256 p12, ch257 p5, ch257 p20.
+    B 2026-11-19T00:17:01Z "Prompt + re-request": ch256 p4, p6, p7, p8,
+      p12, p15, p16, p21; ch257 p10, p13, p15, p17, p18, p19.
+    C 2026-11-19T01:11:04Z "Page context + 5 retries": ch256 p6, p7, p12,
+      p21; ch257 p17.
+    D 2026-11-20T10:17:53Z "Both pages": ch256 p12, ch257 p20.
+  The check requires each repeat to go out after a grant from a decision
+  answered at that grant's time that names the page.
 
-Offline replay (ad06fcf)
+API probe (88c3bd7)
+  node e2e/receipts/balloon-fit/api-probe.mjs
+  api-probe.mjs runs the app's own Backend (through
+  src-tauri/examples/replay_chapters.rs) on one page of a fresh library
+  against a local stand-in for the Gemini API, which records each request
+  as received and answers as each case tells it. api-probe.txt, two cases, each with the request (POST
+  /v1beta/models/gemini-3.1-flash-lite:generateContent, key header present,
+  user + model roles, the prefill {"items":[, the page image) and the
+  expected and observed outcome: a readable answer is saved; a repaired
+  answer with a balloon missing its Korean is refused and not saved.
+  "PASS 2 cases".
+
+Offline replay (88c3bd7)
   cd src-tauri && RST_GEMINI_BASE_URL=http://127.0.0.1:8787 \
     cargo run -q --release --example replay_chapters -- <data> <out> en \
     <ch256 dir> <ch257 dir> <ch258 dir>
-  61 pages laid out from the saved answers, "gemini requests: 0".
-  replay-layouts.json: each page's layout hash, box, patch and outline
-  counts. 59 pages are byte-identical to the 883938c replay; ch256 p08 and
-  ch257 p04, the two pages this round fixed, differ.
-  leak-report.txt: the leak detector's findings over those layouts. The
-  count equals the signed-off build's (262 lines); the only changed line is
-  one ch257 p03 block (no Gemini item) now marked in a balloon.
+  A fresh library: 61 pages laid out; the app asked 61 times, all answered
+  by ledger replay, 0 outbound added. Run again on the same library: 61
+  pages kept from the cache, 0 requests (reopening shows the corrected
+  layout).
+  replay-layouts.json: each page's box, patch and outline counts, its
+  lettering_px (the page's least original letter size) and the hash of its
+  boxes, compared with the 883938c and ad06fcf replays. 18 pages differ from
+  883938c (ch256 p08, p09; ch257 p04, p06, p07, p08, p09, p11, p14, p15,
+  p18, p21; ch258 p02, p05, p15, p17, p18, p19); the other 43 are
+  byte-identical.
+  leak-report.txt: the leak detector's findings over those layouts, 263
+  lines (262 on ad06fcf). The added line is a ch258 p18 speed-line piece; the
+  "THAT'S IT!" line there, previously unreported because only 8 marks
+  showed, is now covered to its end letters.
 
-Focused tests (ad06fcf)
-  focused-tests.txt: cargo nextest, 217 passed; vitest over the seven
-  reader and ledger files, 14 passed. It includes the round-4 regressions:
-  gemini::tests::an_answer_with_anything_but_balloons_between_them_is_unreadable,
-  backend::reader::tests::lettering_on_the_art_is_covered_letter_by_letter_under_larger_korean,
-  balloon::tests::every_dot_of_an_ellipsis_up_to_a_letter_apart_is_covered,
-  balloon::tests::a_picture_beside_lettering_on_the_art_is_left_whole,
-  src/lib/reader-chapter-turns.test.js, src/lib/reader-chapter-broken-image.test.js,
-  and the isolated web host API tests (web_host_files).
+Focused tests (88c3bd7)
+  focused-tests.txt: cargo nextest, 222 passed, 0 skipped; vitest over the
+  reader and ledger files, 21 passed. It includes this round's regressions:
+  gemini::tests::an_answer_with_a_balloon_missing_its_korean_or_box_is_unreadable,
+  backend::reader::tests::a_line_lettered_in_another_items_block_is_drawn_in_its_cover,
+  backend::reader::tests::a_last_line_under_the_box_is_covered_to_its_end_letters,
+  balloon::tests::a_word_just_off_the_items_box_is_gathered_and_one_further_off_is_not,
+  balloon::tests::a_tone_panels_specks_under_lettering_are_not_letters,
+  backend::reader::tests::an_earlier_page_kept_without_its_answer_still_gives_the_next_request_its_lines,
+  src/lib/reader.test.js (the least Korean size taken from the page's own
+  lettering) and src/lib/reader-site-loading.test.js.
 
-Browser walk (ad06fcf)
+Browser walk (88c3bd7)
   node e2e/receipts/balloon-fit/edge-walk.mjs . <chapters> <replay out> <shots>
   Headless Edge 157 at 360 x 800 CSS px, DPR 3 (the S21's 1080 x 2400), the
-  real reader.js, its invoke answered from the replay. edge-walk-report.json:
+  real reader.js, its invoke answered from the replay. Each layer is read
+  back with getImageData to confirm it painted. edge-walk-report.json:
   ch256 21/21, ch257 21/21, ch258 19/19 drawn, sent in reading order,
-  0 clipped, 0 unpainted.
+  0 clipped, 0 unpainted. Least Korean size: ch256 6.8 px, ch257 5.5 px
+  (p01 credits), ch258 3.5 px (p18 "이거였어!", scaled; its original
+  lettering is about 3.7 px).
 
-Installed app on the emulator (ad06fcf)
-  The person's S21 had no battery this round; at their direction the
-  installed-app read-through ran on an emulator shaped like it: AVD
-  s21-shape, Android 16 (API 36) google_apis x86_64, 1080 x 2400, density
-  480 (360 dp wide), WebView 133.0.6943.137.
-  APK built from ad06fcf for x86_64 (artifacts/balloonfit-build.ps1 with the
-  x86_64 target), package ai.littlebit.realtime_screen_translator.balloonfit,
-  primaryCpuAbi x86_64, installed 2026-11-21 15:42:45,
-  SHA-256 39215f34a6b2a6818b3e602ad988cc3847d0db979a676e4ac7e2e441d680a25a.
-  The packaged JNI library matched the cross-built one.
+Installed app on the emulator (88c3bd7)
+  The person's S21 had no battery; at their direction the installed-app
+  read-through ran on an emulator shaped like it: AVD s21-shape, Android 16
+  (API 36) google_apis x86_64, physical size 1080 x 2400, density 480
+  (360 dp wide), WebView 133.0.6943.137.
+  APK built from 88c3bd7 for x86_64 (artifacts/balloonfit-build.ps1 with
+  the x86_64 target), package ai.littlebit.realtime_screen_translator.balloonfit,
+  primaryCpuAbi x86_64, versionName 0.1.0, installed 2026-11-21 21:53:14
+  +09:00, SHA-256
+  D1BA6C8FDD04960C2ED9ECDFAE133B1C61D1CD1116EDAE00CAAC7F97D120CBFD.
   node e2e/receipts/balloon-fit/phone-walk.mjs <out> <ch256 url> <ch257 url> <ch258 url>
-  (Both walks talk to the browser through cdp.mjs.)
-  It opens each MangaFire chapter in the installed reader, turns the page
-  slider one page at a time, waits for the page's layer, and captures the
-  screen with translation on and off.
-  emulator-ad06fcf-fill-report.json: first pass, a fresh install: 61/61
-  pages drawn, no error chips; the app asked 49 times (12 pages were cached
-  from an interrupted pass), all answered by ledger replay.
-  emulator-ad06fcf-report.json: second pass after a restart, the
+  (Both device walks talk to the web view through cdp.mjs.) It opens each
+  MangaFire chapter in the installed reader, turns the page slider one page
+  at a time, waits for the page's layer, and captures the screen with
+  translation on and off; a capture pair the switch did not reach is retaken.
+  emulator-88c3bd7-fill-report.json: first pass on a fresh install: 61/61
+  pages drawn, no error chips, every pair changed (same_captures 0); the
+  app's requests were all answered by ledger replay.
+  emulator-88c3bd7-report.json: second pass after a restart, the
   read-through: ch256 21/21, ch257 21/21, ch258 19/19 drawn, no error chips,
-  app gemini_requests 0 -> 0.
-  emulator-ad06fcf-ch256-p08-before-after.png and
-  emulator-ad06fcf-ch257-p04-before-after.png: the two changed pages, as
-  captured (left translation off, right on).
-  Emulator-only: its Korean font (Noto Sans KR) is wider than the S21's, so
-  some lines wrap mid-word, and the ch258 p01 credits line falls to 2 px
-  (the S21 set it at 8 px or more; that page's layout is unchanged).
-  The walk's 500 ms settle read a few lines mid-refit at 2 px; reopening
-  ch257 p04, p05, p10, p19 and ch258 p11 showed none under 7 px.
+  same_captures 0, app gemini_requests 0 -> 0. Least Korean size seen:
+  4.46 px, on ch258 p18 only.
+
+Installed app on Windows (88c3bd7)
+  The desktop build of the same commit (cargo tauri build --debug
+  --no-bundle --features app, with its own app identifier), exe SHA-256
+  D77B3A2B5AC4DEFAE5A86CC0D1025940F8B588BDCB26990EC5A182456C858F3A, built
+  2026-11-21 22:07:49 +09:00, Windows 11 Home 10.0.26200, WebView2
+  157.0.4341.60, window inner 1100 x 760 CSS px, DPR 1. The same walk,
+  through the app's own web view; captures are named by the first page of
+  each two-page slide.
+  windows-88c3bd7-fill-report.json: fresh library, 61/61 drawn, no chips,
+  same_captures 0.
+  windows-88c3bd7-report.json: after a restart, ch256 21/21, ch257 21/21,
+  ch258 19/19 drawn, no chips, same_captures 0, app gemini_requests 0 -> 0.
 
 Physical Galaxy S21 (883938c), reused
-  Galaxy S21+ SM-G996N, the same script, APK built from 883938c for arm64
-  (SHA-256 9e0e9831bce7ae470b7de6b7a77f9f2be041f6471aa9c3aa09e65fe633625059,
+  Galaxy S21+ SM-G996N, the same phone-walk script, APK built from 883938c
+  for arm64 (SHA-256
+  9e0e9831bce7ae470b7de6b7a77f9f2be041f6471aa9c3aa09e65fe633625059,
   installed 2026-11-21 12:37:32). s21-883938c-report.json: ch256 21/21,
   ch257 21/21, ch258 19/19 drawn, no error chips, app gemini_requests
-  0 -> 0. It found the two defects ad06fcf fixes (ch256 p08, the last dot of
-  a "..." left beside a 2 px "..."; ch257 p04, a drawn TV blurred).
-  Reuse: ad06fcf changes the backend's layout only, and replay-layouts.json
-  shows the other 59 pages' layouts are byte-identical; reader.js and the
-  screens are unchanged. s21-883938c-ch256-p12-before-after.png,
+  0 -> 0.
+  Reuse: replay-layouts.json shows 43 pages' layouts byte-identical between
+  883938c and 88c3bd7; for those pages the S21 walk stands. The 18 changed
+  pages were read on the emulator above and in Edge.
+  s21-883938c-ch256-p12-before-after.png,
   s21-883938c-ch257-p15-before-after.png and
-  s21-883938c-ch258-p14-before-after.png are three of those pages.
+  s21-883938c-ch258-p14-before-after.png are three of the unchanged pages as
+  the S21 showed them (left translation off, right on).
 
-Fix crops
-  fix-ch256-p08-source-883938c-ad06fcf.png and
-  fix-ch257-p04-source-883938c-ad06fcf.png: the source, the 883938c render
-  and the ad06fcf render, at S21 scale (Edge).
+Crops (88c3bd7)
+  crops.json lists each pair below with its SHA-256, the device pixels, the
+  rows cropped, how many pixels changed and where, and the page's Korean.
+  Left is translation off, right on.
+  emulator-88c3bd7-ch256-p09-before-after.png: ch256 p09, the film opening
+    ("오오! 시작부터 미친 듯이 강렬한 13이네?"), changed by this round.
+  emulator-88c3bd7-ch257-p06-before-after.png: ch257 p06, Rentaro and
+    Hakari's exchange, a dense page legible at S21 size.
+  emulator-88c3bd7-ch258-p17-before-after.png: ch258 p17, the run to the
+    sea ("윽!", "무시해! ..."); shows the border stretch named below.
+  emulator-88c3bd7-ch258-p18-before-after.png: ch258 p18, the spread with
+    "THAT'S IT!" now covered to its end letters ("이 감정은...!").
+  windows-88c3bd7-ch257-p05-06-before-after.png: the ch257 p05-p06 slide in
+    the Windows app.
+  windows-88c3bd7-ch258-p18-before-after.png: ch258 p18 in the Windows app.
 
 Captures not committed
-  capture-hashes.json: SHA-256 of every capture of the emulator read-through
-  (122), the S21 walk (122) and the Edge walk (61). The pairs above are among
-  them, cropped to the page.
+  capture-hashes.json: SHA-256 of every capture of the S21 walk (122), the
+  emulator read-through (122), the Windows read-through (66 slides) and the
+  Edge walk (61). The pairs above are among them, cropped to the page.
 
 Signoff
   2026-11-21, the person, after the read-through above with these crops:
   signed off on containment, lettering size, speaker separation and Korean
-  voice ("Sign off").
+  voice for this build's changed pages ("Sign off"), with the ch258 p17
+  limit below stated; and chose "Fix it this round" for the uncovered
+  "THAT'S IT!" on ch258 p18, which 88c3bd7 fixes.
+
+Known limits
+  ch258 p17: where the "AN" of "OCEAN" is fused with the panel border, about
+  75 px of the border (379 px painted over, down from 555 on ad06fcf) is
+  toned over with the letters. Signed off 2026-11-21.
+  ch258 p18: "이거였어!" is scaled to fit its spread balloon below the
+  page's least size (Edge 3.5 px against the original's about 3.7 px; the
+  emulator's wider Noto font sets it at 4.46 px in three lines).
+  ch258 p18: a dark tone patch over hair at "WHAT INCREDIBLE SPEED—"
+  (an existing known limit in docs/design/backend.md).
+  ch257 p01: the typed credits are set at 5.5 px, the size of the original
+  credits, from the scale fallback where a page has no lettering size.
