@@ -109,6 +109,36 @@ describe('reader page script', () => {
     expect([...document.querySelectorAll('.rst-layer *')].some((e) => (e.getAttribute('style') ?? '').includes('url('))).toBe(false);
   });
 
+  // A site's own sheet may cap pictures and canvases at their box's width: a
+  // tone wider than its box would be drawn squeezed, off the letters it hides.
+  it.each([
+    ['no rule of its own', ''],
+    ['canvases capped at their box', 'canvas{max-width:100%;max-height:100%}'],
+    ['canvases capped by a more specific rule', 'div div canvas{max-width:100%;max-height:100%}'],
+    ['canvases capped by an important rule', 'body canvas{max-width:90%!important;max-height:90%!important}'],
+  ])('draws a tone cover at the size set over a site with %s', async (name, rules) => {
+    const sheet = document.createElement('style');
+    sheet.textContent = rules;
+    document.head.appendChild(sheet);
+    vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ width: 10, height: 10 })));
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn() });
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('cors'); }));
+    const art = { x: 100, y: 400, w: 200, h: 100, radius: 0, font_px: 20, ko: '야호', outline: [], text: [100, 400, 200, 100], patch: { at: [80, 390, 240, 120], png: 'AAAA' } };
+    window.__TAURI_INTERNALS__ = { invoke: vi.fn().mockResolvedValue(null).mockResolvedValueOnce({ ...page(null), boxes: [art] }) };
+    pagePicture(`https://cdn.example/site-${name.replaceAll(' ', '-')}.jpg`);
+
+    new Function(script)();
+
+    const patch = await vi.waitFor(() => {
+      const p = document.querySelector('.rst-patch');
+      expect(p).not.toBeNull();
+      return p;
+    });
+    expect([patch.style.width, patch.style.height]).toEqual(['120%', '120%']);
+    const drawn = getComputedStyle(patch);
+    expect([drawn.maxWidth, drawn.maxHeight]).toEqual(['none', 'none']);
+  });
+
   it('sets a line lettered in two balloons a share in each', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('cors'); }));
     const two = { x: 100, y: 200, w: 400, h: 100, radius: 0, font_px: 20, ko: '응. 알았어.', outline: [[100, 200], [500, 200], [500, 300], [100, 300]], text: [400, 220, 80, 60],

@@ -95,7 +95,13 @@ for (const url of urls) {
         cut: s.overflow !== 'visible' && (t.scrollHeight > t.clientHeight + 1 || t.scrollWidth > t.clientWidth + 1),
         past: past ? (t.parentElement.querySelector('.rst-fill') ? 'white' : 'tone') : null };
     }))`);
-    state.forEach((p, j) => { if (!p.chip) p.texts = texts[j]; });
+    // Each tone cover: drawn at the share of its box set, or bent by the
+    // site's own sheet (a canvas capped at its box's width) off the letters.
+    const patches = await site.run(`[...document.querySelector('.swiper').swiper.slides[${k}].querySelectorAll('img.reader-img')].map((i) => [...(i.nextElementSibling?.querySelectorAll('.rst-patch') ?? [])].map((p) => {
+      const [q, b] = [p.getBoundingClientRect(), p.parentElement.getBoundingClientRect()];
+      return Math.abs(q.width / b.width - parseFloat(p.style.width) / 100) > 0.01 || Math.abs(q.height / b.height - parseFloat(p.style.height) / 100) > 0.01;
+    }))`);
+    state.forEach((p, j) => { if (!p.chip) [p.texts, p.patches, p.patches_off] = [texts[j], patches[j].length, patches[j].filter(Boolean).length]; });
     const name = `${dir}/${String(pages.length + 1).padStart(2, '0')}`;
     // Each capture after the page has drawn twice since the switch: the
     // screen grab may hold the frame from before it (ch257 p6, one pair
@@ -123,7 +129,8 @@ for (const url of urls) {
   const all = pages.flatMap((p) => p.texts ?? []);
   report.chapters.push({ url, slides, pages: pages.length, chips: pages.filter((p) => p.chip).length, same_captures: pages.filter((p) => p.same_capture).length,
     below_least: all.filter((t) => t.px < t.least - 0.05).length, cut: all.filter((t) => t.cut).length,
-    past_white: all.filter((t) => t.past === 'white').length, past_tone: all.filter((t) => t.past === 'tone').length, detail: pages });
+    past_white: all.filter((t) => t.past === 'white').length, past_tone: all.filter((t) => t.past === 'tone').length,
+    patches: pages.reduce((a, p) => a + (p.patches ?? 0), 0), patches_off: pages.reduce((a, p) => a + (p.patches_off ?? 0), 0), detail: pages });
 }
 report.gemini_requests_after = (await wait(async () => ({ n: await status() }), 'status', 40)).n;
 writeFileSync(`${out}/report.json`, JSON.stringify(report, null, 1));

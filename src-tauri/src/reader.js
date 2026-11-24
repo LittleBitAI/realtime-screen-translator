@@ -413,6 +413,11 @@
         tone.style.top = pct(py - b.y, b.h);
         tone.style.width = pct(pw, b.w);
         tone.style.height = pct(ph, b.h);
+        // The tone often reaches past its box. A site's own sheet may cap a
+        // canvas at its box's width (MangaFire does), which would squeeze it
+        // off the letters it hides: no site rule outranks these.
+        tone.style.setProperty('max-width', 'none', 'important');
+        tone.style.setProperty('max-height', 'none', 'important');
         const png = Uint8Array.from(atob(b.patch.png), (c) => c.charCodeAt(0));
         createImageBitmap(new Blob([png], { type: 'image/png' }))
           .then((bmp) => tone.getContext('2d').drawImage(bmp, 0, 0))
