@@ -5,9 +5,12 @@
   "inOrder": true,
   "sent": 21,
   "clipped": 0,
+  "belowLeast": 0,
+  "pastWhite": 0,
+  "pastTone": 0,
   "unpainted": 0,
   "patches": 21,
-  "minPx": "6.8",
+  "minPx": "7.0",
   "pages": [
    {
     "page": 1,
@@ -15,9 +18,11 @@
     "boxes": 2,
     "texts": 2,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 2,
     "unpainted": 0,
-    "minPx": 7.900914179104477
+    "minPx": 7.92
    },
    {
     "page": 2,
@@ -25,9 +30,11 @@
     "boxes": 11,
     "texts": 11,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 7.105645161290323
+    "minPx": 7.2
    },
    {
     "page": 3,
@@ -35,9 +42,11 @@
     "boxes": 7,
     "texts": 7,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 7.29698275862069
+    "minPx": 7.2
    },
    {
     "page": 4,
@@ -45,9 +54,11 @@
     "boxes": 8,
     "texts": 8,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 2,
     "unpainted": 0,
-    "minPx": 6.9453125
+    "minPx": 7
    },
    {
     "page": 5,
@@ -55,9 +66,11 @@
     "boxes": 3,
     "texts": 3,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 7.40105859375
+    "minPx": 7.452
    },
    {
     "page": 6,
@@ -65,9 +78,11 @@
     "boxes": 8,
     "texts": 8,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 2,
     "unpainted": 0,
-    "minPx": 7.3561789772727275
+    "minPx": 7.5
    },
    {
     "page": 7,
@@ -75,9 +90,11 @@
     "boxes": 6,
     "texts": 6,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 7.153125
+    "minPx": 7.2
    },
    {
     "page": 8,
@@ -85,9 +102,11 @@
     "boxes": 10,
     "texts": 10,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 2,
     "unpainted": 0,
-    "minPx": 6.78125
+    "minPx": 7
    },
    {
     "page": 9,
@@ -95,9 +114,11 @@
     "boxes": 8,
     "texts": 8,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 2,
     "unpainted": 0,
-    "minPx": 7.4103860294117645
+    "minPx": 7.5
    },
    {
     "page": 10,
@@ -105,9 +126,11 @@
     "boxes": 9,
     "texts": 9,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 3,
     "unpainted": 0,
-    "minPx": 6.977481617647059
+    "minPx": 7
    },
    {
     "page": 11,
@@ -115,9 +138,11 @@
     "boxes": 4,
     "texts": 4,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 11.875074771341463
+    "minPx": 11.9342
    },
    {
     "page": 12,
@@ -125,9 +150,11 @@
     "boxes": 11,
     "texts": 11,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 4,
     "unpainted": 0,
-    "minPx": 7.6139931818181825
+    "minPx": 7.6176
    },
    {
     "page": 13,
@@ -135,9 +162,11 @@
     "boxes": 4,
     "texts": 4,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 8.670047669491526
+    "minPx": 8.7
    },
    {
     "page": 14,
@@ -145,9 +174,11 @@
     "boxes": 3,
     "texts": 3,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 7.644886363636363
+    "minPx": 7.8
    },
    {
     "page": 15,
@@ -155,9 +186,11 @@
     "boxes": 5,
     "texts": 5,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 7.1489682352941175
+    "minPx": 7.10976
    },
    {
     "page": 16,
@@ -165,9 +198,11 @@
     "boxes": 6,
     "texts": 6,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 7.156664666666666
+    "minPx": 7.10976
    },
    {
     "page": 17,
@@ -175,9 +210,11 @@
     "boxes": 8,
     "texts": 8,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 8.053371710526315
+    "minPx": 8.1
    },
    {
     "page": 18,
@@ -185,9 +222,11 @@
     "boxes": 3,
     "texts": 3,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 8.37411971830986
+    "minPx": 8.4
    },
    {
     "page": 19,
@@ -195,9 +234,11 @@
     "boxes": 7,
     "texts": 7,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 1,
     "unpainted": 0,
-    "minPx": 8.469270833333333
+    "minPx": 8.4
    },
    {
     "page": 20,
@@ -205,9 +246,11 @@
     "boxes": 8,
     "texts": 8,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 6.965320121951219
+    "minPx": 7
    },
    {
     "page": 21,
@@ -215,9 +258,11 @@
     "boxes": 8,
     "texts": 8,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 3,
     "unpainted": 0,
-    "minPx": 7.761356707317073
+    "minPx": 7.8
    }
   ]
  },
@@ -227,9 +272,12 @@
   "inOrder": true,
   "sent": 21,
   "clipped": 0,
+  "belowLeast": 0,
+  "pastWhite": 0,
+  "pastTone": 0,
   "unpainted": 0,
-  "patches": 44,
-  "minPx": "5.5",
+  "patches": 46,
+  "minPx": "7.0",
   "pages": [
    {
     "page": 1,
@@ -237,9 +285,11 @@
     "boxes": 3,
     "texts": 3,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 3,
     "unpainted": 0,
-    "minPx": 5.535294931146163
+    "minPx": 7
    },
    {
     "page": 2,
@@ -247,9 +297,11 @@
     "boxes": 12,
     "texts": 12,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 3,
     "unpainted": 0,
-    "minPx": 7.006402439024391
+    "minPx": 7
    },
    {
     "page": 3,
@@ -257,9 +309,11 @@
     "boxes": 6,
     "texts": 6,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 7.083
+    "minPx": 7.2
    },
    {
     "page": 4,
@@ -267,9 +321,11 @@
     "boxes": 12,
     "texts": 12,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 1,
     "unpainted": 0,
-    "minPx": 6.925531914893617
+    "minPx": 7
    },
    {
     "page": 5,
@@ -277,9 +333,11 @@
     "boxes": 8,
     "texts": 8,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 1,
     "unpainted": 0,
-    "minPx": 6.913143382352941
+    "minPx": 7
    },
    {
     "page": 6,
@@ -287,9 +345,11 @@
     "boxes": 9,
     "texts": 9,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 7,
     "unpainted": 0,
-    "minPx": 7.726415094339623
+    "minPx": 7.8
    },
    {
     "page": 7,
@@ -297,9 +357,11 @@
     "boxes": 8,
     "texts": 9,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 1,
     "unpainted": 0,
-    "minPx": 7.196590909090909
+    "minPx": 7.2
    },
    {
     "page": 8,
@@ -307,9 +369,11 @@
     "boxes": 7,
     "texts": 8,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 4,
     "unpainted": 0,
-    "minPx": 8.665144230769231
+    "minPx": 8.7
    },
    {
     "page": 9,
@@ -317,9 +381,11 @@
     "boxes": 6,
     "texts": 6,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 3,
     "unpainted": 0,
-    "minPx": 7.75048828125
+    "minPx": 7.8
    },
    {
     "page": 10,
@@ -327,9 +393,11 @@
     "boxes": 9,
     "texts": 9,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 2,
     "unpainted": 0,
-    "minPx": 6.914634146341463
+    "minPx": 7
    },
    {
     "page": 11,
@@ -337,9 +405,11 @@
     "boxes": 4,
     "texts": 4,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 3,
     "unpainted": 0,
-    "minPx": 10.38825
+    "minPx": 10.488
    },
    {
     "page": 12,
@@ -347,9 +417,11 @@
     "boxes": 4,
     "texts": 4,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 7.4069393382352935
+    "minPx": 7.5
    },
    {
     "page": 13,
@@ -357,9 +429,11 @@
     "boxes": 7,
     "texts": 7,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 1,
     "unpainted": 0,
-    "minPx": 7.1375
+    "minPx": 7.176
    },
    {
     "page": 14,
@@ -367,9 +441,11 @@
     "boxes": 7,
     "texts": 7,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 3,
     "unpainted": 0,
-    "minPx": 7.675171875
+    "minPx": 7.728
    },
    {
     "page": 15,
@@ -377,19 +453,23 @@
     "boxes": 8,
     "texts": 8,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 4,
     "unpainted": 0,
-    "minPx": 7.13641304347826
+    "minPx": 7.2
    },
    {
     "page": 16,
     "loaded": true,
-    "boxes": 3,
-    "texts": 3,
+    "boxes": 4,
+    "texts": 4,
     "clipped": 0,
-    "patches": 0,
+    "belowLeast": 0,
+    "pastCover": [],
+    "patches": 1,
     "unpainted": 0,
-    "minPx": 7.8664772727272725
+    "minPx": 7.5
    },
    {
     "page": 17,
@@ -397,9 +477,11 @@
     "boxes": 7,
     "texts": 7,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 1,
     "unpainted": 0,
-    "minPx": 8.334375
+    "minPx": 8.4
    },
    {
     "page": 18,
@@ -407,19 +489,23 @@
     "boxes": 7,
     "texts": 7,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 2,
     "unpainted": 0,
-    "minPx": 8.746067276785714
+    "minPx": 8.81163
    },
    {
     "page": 19,
     "loaded": true,
     "boxes": 10,
-    "texts": 10,
+    "texts": 11,
     "clipped": 0,
-    "patches": 0,
+    "belowLeast": 0,
+    "pastCover": [],
+    "patches": 1,
     "unpainted": 0,
-    "minPx": 7.30224609375
+    "minPx": 7.5
    },
    {
     "page": 20,
@@ -427,9 +513,11 @@
     "boxes": 8,
     "texts": 8,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 2,
     "unpainted": 0,
-    "minPx": 7.72078125
+    "minPx": 7.8
    },
    {
     "page": 21,
@@ -437,9 +525,11 @@
     "boxes": 4,
     "texts": 4,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 3,
     "unpainted": 0,
-    "minPx": 9.222895408163266
+    "minPx": 9.3
    }
   ]
  },
@@ -449,9 +539,12 @@
   "inOrder": true,
   "sent": 19,
   "clipped": 0,
+  "belowLeast": 0,
+  "pastWhite": 0,
+  "pastTone": 1,
   "unpainted": 0,
   "patches": 29,
-  "minPx": "3.5",
+  "minPx": "4.5",
   "pages": [
    {
     "page": 1,
@@ -459,9 +552,16 @@
     "boxes": 2,
     "texts": 2,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [
+     {
+      "ko": "독서의 계절, 가을이 왔습니다! 여러분의 책장에 꽂힌 가장 오래된 책은 무엇인가요?",
+      "white": false
+     }
+    ],
     "patches": 2,
     "unpainted": 0,
-    "minPx": 5.539664910185293
+    "minPx": 7
    },
    {
     "page": 2,
@@ -469,9 +569,11 @@
     "boxes": 9,
     "texts": 9,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 2,
     "unpainted": 0,
-    "minPx": 6.947916666666667
+    "minPx": 7
    },
    {
     "page": 3,
@@ -479,9 +581,11 @@
     "boxes": 1,
     "texts": 1,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 10.826644736842107
+    "minPx": 10.8
    },
    {
     "page": 4,
@@ -489,9 +593,11 @@
     "boxes": 7,
     "texts": 8,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 4,
     "unpainted": 0,
-    "minPx": 7.0975125
+    "minPx": 7.176
    },
    {
     "page": 5,
@@ -499,9 +605,11 @@
     "boxes": 6,
     "texts": 6,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 3,
     "unpainted": 0,
-    "minPx": 7.459909539473684
+    "minPx": 7.5
    },
    {
     "page": 6,
@@ -509,9 +617,11 @@
     "boxes": 8,
     "texts": 8,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 7.523053278688526
+    "minPx": 7.5
    },
    {
     "page": 7,
@@ -519,9 +629,11 @@
     "boxes": 6,
     "texts": 6,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 7.43781887755102
+    "minPx": 7.5
    },
    {
     "page": 8,
@@ -529,9 +641,11 @@
     "boxes": 5,
     "texts": 5,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 6.9334239130434785
+    "minPx": 7
    },
    {
     "page": 9,
@@ -539,9 +653,11 @@
     "boxes": 1,
     "texts": 1,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 1,
     "unpainted": 0,
-    "minPx": 13.528013992537312
+    "minPx": 13.5533
    },
    {
     "page": 10,
@@ -549,9 +665,11 @@
     "boxes": 2,
     "texts": 2,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 2,
     "unpainted": 0,
-    "minPx": 7.51393306451613
+    "minPx": 7.6176
    },
    {
     "page": 11,
@@ -559,9 +677,11 @@
     "boxes": 8,
     "texts": 8,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 1,
     "unpainted": 0,
-    "minPx": 7.135186915322581
+    "minPx": 7.09229
    },
    {
     "page": 12,
@@ -569,9 +689,11 @@
     "boxes": 6,
     "texts": 6,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 1,
     "unpainted": 0,
-    "minPx": 8.240795454545454
+    "minPx": 8.28
    },
    {
     "page": 13,
@@ -579,9 +701,11 @@
     "boxes": 7,
     "texts": 7,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 1,
     "unpainted": 0,
-    "minPx": 7.280559593023256
+    "minPx": 7.35
    },
    {
     "page": 14,
@@ -589,9 +713,11 @@
     "boxes": 14,
     "texts": 14,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 0,
     "unpainted": 0,
-    "minPx": 6.996961805555555
+    "minPx": 7
    },
    {
     "page": 15,
@@ -599,9 +725,11 @@
     "boxes": 5,
     "texts": 6,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 1,
     "unpainted": 0,
-    "minPx": 7.05048076923077
+    "minPx": 7
    },
    {
     "page": 16,
@@ -609,9 +737,11 @@
     "boxes": 5,
     "texts": 5,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 2,
     "unpainted": 0,
-    "minPx": 7.507926025390625
+    "minPx": 7.71125
    },
    {
     "page": 17,
@@ -619,9 +749,11 @@
     "boxes": 2,
     "texts": 3,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 1,
     "unpainted": 0,
-    "minPx": 11.457832792207792
+    "minPx": 11.4
    },
    {
     "page": 18,
@@ -629,9 +761,11 @@
     "boxes": 4,
     "texts": 5,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 4,
     "unpainted": 0,
-    "minPx": 3.5172764933507588
+    "minPx": 4.46414
    },
    {
     "page": 19,
@@ -639,9 +773,11 @@
     "boxes": 5,
     "texts": 5,
     "clipped": 0,
+    "belowLeast": 0,
+    "pastCover": [],
     "patches": 4,
     "unpainted": 0,
-    "minPx": 6.997395833333333
+    "minPx": 7
    }
   ]
  }

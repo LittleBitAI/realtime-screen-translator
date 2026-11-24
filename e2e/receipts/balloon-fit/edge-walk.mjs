@@ -44,7 +44,8 @@ const server = createServer(async (req, res) => {
 await new Promise((ok) => server.listen(18921, '127.0.0.1', ok));
 const edge = spawn('C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', ['--headless=new', '--remote-debugging-port=18922', `--user-data-dir=${shots}/profile`, '--no-first-run', 'about:blank'], { stdio: 'ignore' });
 let t;
-for (let i = 0; i < 80 && !t; i++) { await delay(250); t = (await targets(18922).catch(() => [])).find(() => true); }
+// The blank page it opened: a newer Edge may list a page of its own first.
+for (let i = 0; i < 240 && !t; i++) { await delay(250); t = (await targets(18922).catch(() => [])).find((p) => p.url === 'about:blank'); }
 const s = await tab(t);
 await s.cdp('Emulation.setDeviceMetricsOverride', { width: 360, height: 800, deviceScaleFactor: 3, mobile: true });
 const report = {};

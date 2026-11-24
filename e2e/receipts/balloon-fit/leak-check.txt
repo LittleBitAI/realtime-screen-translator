@@ -1,0 +1,230 @@
+ch256 01 dialogue 0/6
+ch256 02 SHOWING mark [511, 793, 524, 813] glyph 21 of block [470, 793, 525, 822]
+ch256 02 SHOWING mark [470, 798, 492, 821] glyph 21 of block [470, 793, 525, 822]
+ch256 02 SHOWING mark [501, 802, 510, 815] glyph 21 of block [470, 793, 525, 822]
+ch256 02 SHOWING mark [494, 804, 500, 817] glyph 21 of block [470, 793, 525, 822]
+ch256 02 dialogue 4/529
+ch256 03 SHOWING mark [209, 1319, 229, 1368] glyph 50 of block [209, 1319, 239, 1369]
+ch256 03 SHOWING mark [232, 1323, 238, 1356] glyph 50 of block [209, 1319, 239, 1369]
+ch256 03 dialogue 2/230
+ch256 04 dialogue 0/213
+ch256 05 SHOWING mark [283, 1301, 286, 1311] glyph 13 of block [276, 1301, 287, 1332]
+ch256 05 dialogue 1/87
+ch256 06 SHOWING mark [793, 300, 798, 306] glyph 22 of block [785, 296, 837, 330]
+ch256 06 SHOWING mark [793, 310, 797, 316] glyph 22 of block [785, 296, 837, 330]
+ch256 06 SHOWING mark [786, 351, 816, 369] glyph 19 of block [786, 351, 822, 411]
+ch256 06 SHOWING mark [767, 765, 792, 779] glyph 21 of block [783, 739, 987, 876]
+ch256 06 SHOWING mark [783, 773, 802, 797] glyph 21 of block [783, 739, 987, 876]
+ch256 06 SHOWING mark [796, 795, 806, 807] glyph 21 of block [783, 739, 987, 876]
+ch256 06 SHOWING mark [793, 804, 818, 818] glyph 21 of block [783, 739, 987, 876]
+ch256 06 SHOWING mark [138, 1426, 139, 1432] glyph 18 of block [37, 1406, 156, 1467]
+ch256 06 SHOWING mark [138, 1436, 155, 1442] glyph 18 of block [37, 1406, 156, 1467]
+ch256 06 SHOWING mark [112, 1446, 137, 1464] glyph 18 of block [37, 1406, 156, 1467]
+ch256 06 dialogue 10/207
+ch256 07 dialogue 0/195
+ch256 08 dialogue 0/274
+ch256 09 SHOWING mark [980, 1088, 989, 1095] glyph 8 of block [959, 1088, 1004, 1099]
+ch256 09 SHOWING mark [394, 1393, 398, 1394] glyph 11 of block [365, 1382, 399, 1415]
+ch256 09 SHOWING mark [393, 1405, 395, 1408] glyph 11 of block [365, 1382, 399, 1415]
+ch256 09 SHOWING mark [381, 1410, 387, 1414] glyph 11 of block [365, 1382, 399, 1415]
+ch256 09 SHOWING mark [397, 1468, 403, 1475] glyph 11 of block [345, 1468, 404, 1535]
+ch256 09 SHOWING mark [374, 1471, 387, 1487] glyph 11 of block [345, 1468, 404, 1535]
+ch256 09 SHOWING mark [397, 1482, 401, 1487] glyph 11 of block [345, 1468, 404, 1535]
+ch256 09 SHOWING mark [385, 1483, 390, 1490] glyph 11 of block [345, 1468, 404, 1535]
+ch256 09 dialogue 8/225
+ch256 10 SHOWING mark [493, 143, 515, 199] glyph 69 of block [196, 0, 521, 306]
+ch256 10 dialogue 1/253
+ch256 11 dialogue 0/138
+ch256 12 SHOWING mark [190, 355, 207, 374] glyph 22 of block [180, 302, 214, 375]
+ch256 12 SHOWING mark [270, 370, 279, 394] glyph 47 of block [219, 287, 428, 496]
+ch256 12 SHOWING mark [234, 374, 245, 391] glyph 47 of block [219, 287, 428, 496]
+ch256 12 SHOWING mark [248, 399, 251, 413] glyph 47 of block [219, 287, 428, 496]
+ch256 12 dialogue 4/295
+ch256 13 SHOWING mark [916, 401, 951, 454] glyph 54 of block [916, 401, 956, 468]
+ch256 13 dialogue 1/107
+ch256 14 dialogue 0/95
+ch256 15 SHOWING mark [253, 894, 264, 926] glyph 34 of block [244, 894, 265, 962]
+ch256 15 SHOWING mark [244, 928, 252, 961] glyph 34 of block [244, 894, 265, 962]
+ch256 15 SHOWING mark [249, 939, 252, 955] glyph 34 of block [244, 894, 265, 962]
+ch256 15 dialogue 3/59
+ch256 16 dialogue 0/73
+ch256 17 SHOWING mark [324, 378, 329, 383] glyph 16 of block [293, 354, 376, 412]
+ch256 17 SHOWING mark [318, 381, 322, 395] glyph 16 of block [293, 354, 376, 412]
+ch256 17 SHOWING mark [329, 386, 333, 394] glyph 16 of block [293, 354, 376, 412]
+ch256 17 SHOWING mark [302, 395, 307, 399] glyph 16 of block [293, 354, 376, 412]
+ch256 17 SHOWING mark [293, 408, 301, 411] glyph 16 of block [293, 354, 376, 412]
+ch256 17 dialogue 5/339
+ch256 18 dialogue 0/130
+ch256 19 SHOWING mark [957, 1401, 983, 1431] glyph 31 of block [919, 1405, 989, 1491]
+ch256 19 SHOWING mark [960, 1410, 967, 1430] glyph 31 of block [919, 1405, 989, 1491]
+ch256 19 SHOWING mark [964, 1436, 979, 1439] glyph 31 of block [919, 1405, 989, 1491]
+ch256 19 dialogue 3/156
+ch256 20 SHOWING mark [424, 449, 427, 453] glyph 9 of block [419, 449, 445, 482]
+ch256 20 SHOWING mark [427, 455, 430, 458] glyph 9 of block [419, 449, 445, 482]
+ch256 20 SHOWING mark [419, 466, 422, 469] glyph 9 of block [419, 449, 445, 482]
+ch256 20 SHOWING mark [413, 466, 424, 481] glyph 9 of block [419, 449, 445, 482]
+ch256 20 SHOWING mark [387, 462, 390, 466] glyph 9 of block [367, 462, 402, 552]
+ch256 20 SHOWING mark [373, 463, 377, 469] glyph 9 of block [367, 462, 402, 552]
+ch256 20 SHOWING mark [391, 469, 394, 476] glyph 9 of block [367, 462, 402, 552]
+ch256 20 SHOWING mark [371, 471, 376, 479] glyph 9 of block [367, 462, 402, 552]
+ch256 20 SHOWING mark [365, 478, 367, 480] glyph 9 of block [367, 462, 402, 552]
+ch256 20 SHOWING mark [384, 478, 390, 486] glyph 9 of block [367, 462, 402, 552]
+ch256 20 SHOWING mark [379, 484, 386, 493] glyph 9 of block [367, 462, 402, 552]
+ch256 20 dialogue 11/232
+ch256 21 SHOWING mark [660, 320, 684, 346] glyph 27 of block [660, 320, 701, 416]
+ch256 21 SHOWING mark [694, 327, 696, 346] glyph 27 of block [660, 320, 701, 416]
+ch256 21 SHOWING mark [692, 366, 700, 404] glyph 27 of block [660, 320, 701, 416]
+ch256 21 dialogue 3/144
+ch257 01 dialogue 0/4
+ch257 02 SHOWING mark [675, 1086, 678, 1129] glyph 23 of block [650, 1037, 689, 1087]
+ch257 02 SHOWING mark [904, 1600, 907, 1617] glyph 20 of block [895, 1590, 910, 1632]
+ch257 02 SHOWING mark [898, 1606, 901, 1625] glyph 20 of block [895, 1590, 910, 1632]
+ch257 02 dialogue 3/422
+ch257 03 dialogue 0/185
+ch257 04 SHOWING mark [393, 878, 409, 887] glyph 12 of block [393, 878, 431, 891]
+ch257 04 SHOWING mark [415, 879, 430, 890] glyph 12 of block [393, 878, 431, 891]
+ch257 04 dialogue 2/487
+ch257 05 SHOWING mark [855, 82, 891, 105] glyph 24 of block [855, 82, 934, 106]
+ch257 05 SHOWING mark [373, 866, 378, 890] glyph 30 of block [365, 846, 379, 891]
+ch257 05 SHOWING mark [345, 955, 375, 988] glyph 45 of block [345, 955, 511, 1135]
+ch257 05 SHOWING mark [366, 969, 396, 1014] glyph 45 of block [345, 955, 511, 1135]
+ch257 05 SHOWING mark [824, 972, 831, 1017] glyph 48 of block [824, 972, 884, 1026]
+ch257 05 dialogue 5/259
+ch257 06 dialogue 0/263
+ch257 07 SHOWING mark [650, 590, 667, 615] glyph 26 of block [587, 590, 687, 646]
+ch257 07 SHOWING mark [613, 591, 647, 620] glyph 26 of block [587, 590, 687, 646]
+ch257 07 SHOWING mark [670, 592, 683, 614] glyph 26 of block [587, 590, 687, 646]
+ch257 07 SHOWING mark [587, 593, 604, 598] glyph 26 of block [587, 590, 687, 646]
+ch257 07 SHOWING mark [590, 599, 612, 625] glyph 26 of block [587, 590, 687, 646]
+ch257 07 dialogue 5/222
+ch257 08 SHOWING mark [288, 893, 303, 939] glyph 47 of block [288, 893, 304, 955]
+ch257 08 SHOWING mark [291, 925, 301, 954] glyph 47 of block [288, 893, 304, 955]
+ch257 08 dialogue 2/222
+ch257 09 SHOWING mark [1074, 1647, 1080, 1648] glyph 8 of block [1042, 1647, 1081, 1668]
+ch257 09 SHOWING mark [1073, 1650, 1073, 1655] glyph 8 of block [1042, 1647, 1081, 1668]
+ch257 09 SHOWING mark [1050, 1659, 1052, 1659] glyph 8 of block [1042, 1647, 1081, 1668]
+ch257 09 dialogue 3/222
+ch257 10 SHOWING mark [452, 1149, 478, 1190] glyph 42 of block [384, 1111, 501, 1197]
+ch257 10 SHOWING mark [477, 1154, 500, 1180] glyph 42 of block [384, 1111, 501, 1197]
+ch257 10 SHOWING mark [409, 1159, 438, 1202] glyph 42 of block [384, 1111, 501, 1197]
+ch257 10 SHOWING mark [436, 1166, 460, 1196] glyph 42 of block [384, 1111, 501, 1197]
+ch257 10 dialogue 4/216
+ch257 11 SHOWING mark [906, 1428, 964, 1492] glyph 68 of block [842, 1419, 1136, 1679]
+ch257 11 SHOWING mark [937, 1496, 942, 1517] glyph 68 of block [842, 1419, 1136, 1679]
+ch257 11 SHOWING mark [946, 1497, 986, 1578] glyph 68 of block [842, 1419, 1136, 1679]
+ch257 11 SHOWING mark [979, 1501, 1026, 1584] glyph 68 of block [842, 1419, 1136, 1679]
+ch257 11 dialogue 4/184
+ch257 12 SHOWING mark [929, 623, 962, 660] glyph 39 of block [837, 585, 987, 674]
+ch257 12 SHOWING mark [958, 638, 986, 673] glyph 39 of block [837, 585, 987, 674]
+ch257 12 dialogue 2/112
+ch257 13 dialogue 0/183
+ch257 14 SHOWING mark [454, 1411, 456, 1420] glyph 10 of block [454, 1402, 470, 1431]
+ch257 14 dialogue 1/96
+ch257 15 SHOWING mark [984, 805, 990, 813] glyph 13 of block [947, 805, 999, 869]
+ch257 15 SHOWING mark [947, 830, 956, 842] glyph 13 of block [947, 805, 999, 869]
+ch257 15 SHOWING mark [974, 842, 982, 851] glyph 13 of block [947, 805, 999, 869]
+ch257 15 SHOWING mark [181, 1306, 187, 1314] glyph 10 of block [171, 1306, 205, 1348]
+ch257 15 SHOWING mark [175, 1309, 177, 1312] glyph 10 of block [171, 1306, 205, 1348]
+ch257 15 SHOWING mark [198, 1313, 204, 1323] glyph 10 of block [171, 1306, 205, 1348]
+ch257 15 SHOWING mark [185, 1318, 189, 1322] glyph 10 of block [171, 1306, 205, 1348]
+ch257 15 SHOWING mark [192, 1320, 198, 1329] glyph 10 of block [171, 1306, 205, 1348]
+ch257 15 SHOWING mark [174, 1322, 175, 1324] glyph 10 of block [171, 1306, 205, 1348]
+ch257 15 SHOWING mark [180, 1326, 184, 1331] glyph 10 of block [171, 1306, 205, 1348]
+ch257 15 SHOWING mark [171, 1332, 172, 1339] glyph 10 of block [171, 1306, 205, 1348]
+ch257 15 SHOWING mark [195, 1334, 198, 1339] glyph 10 of block [171, 1306, 205, 1348]
+ch257 15 SHOWING mark [175, 1335, 179, 1341] glyph 10 of block [171, 1306, 205, 1348]
+ch257 15 SHOWING mark [187, 1337, 190, 1343] glyph 10 of block [171, 1306, 205, 1348]
+ch257 15 SHOWING mark [199, 1340, 204, 1350] glyph 10 of block [171, 1306, 205, 1348]
+ch257 15 SHOWING mark [177, 1343, 183, 1347] glyph 10 of block [171, 1306, 205, 1348]
+ch257 15 SHOWING mark [173, 1347, 175, 1355] glyph 10 of block [171, 1306, 205, 1348]
+ch257 15 SHOWING mark [189, 1351, 192, 1358] glyph 10 of block [178, 1337, 214, 1379]
+ch257 15 SHOWING mark [179, 1352, 185, 1355] glyph 10 of block [178, 1337, 214, 1379]
+ch257 15 SHOWING mark [199, 1352, 201, 1359] glyph 10 of block [178, 1337, 214, 1379]
+ch257 15 SHOWING mark [178, 1359, 183, 1364] glyph 10 of block [178, 1337, 214, 1379]
+ch257 15 SHOWING mark [200, 1363, 205, 1372] glyph 10 of block [178, 1337, 214, 1379]
+ch257 15 SHOWING mark [186, 1365, 190, 1371] glyph 10 of block [178, 1337, 214, 1379]
+ch257 15 SHOWING mark [195, 1372, 198, 1376] glyph 10 of block [178, 1337, 214, 1379]
+ch257 15 SHOWING mark [182, 1376, 184, 1378] glyph 10 of block [178, 1337, 214, 1379]
+ch257 15 SHOWING mark [134, 1331, 135, 1334] glyph 12 of block [133, 1331, 137, 1363]
+ch257 15 SHOWING mark [133, 1339, 136, 1350] glyph 12 of block [133, 1331, 137, 1363]
+ch257 15 SHOWING mark [133, 1352, 136, 1362] glyph 12 of block [133, 1331, 137, 1363]
+ch257 15 SHOWING mark [158, 1343, 160, 1348] glyph 9 of block [158, 1343, 190, 1391]
+ch257 15 SHOWING mark [155, 1349, 160, 1359] glyph 9 of block [158, 1343, 190, 1391]
+ch257 15 SHOWING mark [160, 1359, 161, 1364] glyph 9 of block [158, 1343, 190, 1391]
+ch257 15 SHOWING mark [174, 1362, 177, 1370] glyph 9 of block [158, 1343, 190, 1391]
+ch257 15 SHOWING mark [157, 1365, 163, 1376] glyph 9 of block [158, 1343, 190, 1391]
+ch257 15 SHOWING mark [167, 1365, 168, 1372] glyph 9 of block [158, 1343, 190, 1391]
+ch257 15 SHOWING mark [163, 1376, 165, 1381] glyph 9 of block [158, 1343, 190, 1391]
+ch257 15 SHOWING mark [156, 1376, 159, 1384] glyph 9 of block [158, 1343, 190, 1391]
+ch257 15 SHOWING mark [161, 1382, 167, 1392] glyph 9 of block [158, 1343, 190, 1391]
+ch257 15 SHOWING mark [186, 1386, 189, 1390] glyph 9 of block [158, 1343, 190, 1391]
+ch257 15 SHOWING mark [153, 1384, 158, 1394] glyph 9 of block [158, 1343, 190, 1391]
+ch257 15 SHOWING mark [149, 1363, 150, 1366] glyph 11 of block [149, 1363, 164, 1417]
+ch257 15 SHOWING mark [153, 1359, 156, 1367] glyph 11 of block [149, 1363, 164, 1417]
+ch257 15 SHOWING mark [150, 1367, 155, 1378] glyph 11 of block [149, 1363, 164, 1417]
+ch257 15 SHOWING mark [152, 1380, 153, 1383] glyph 11 of block [149, 1363, 164, 1417]
+ch257 15 SHOWING mark [160, 1392, 164, 1400] glyph 11 of block [149, 1363, 164, 1417]
+ch257 15 SHOWING mark [155, 1396, 157, 1400] glyph 11 of block [149, 1363, 164, 1417]
+ch257 15 dialogue 45/256
+ch257 16 dialogue 0/61
+ch257 17 dialogue 0/113
+ch257 18 dialogue 0/261
+ch257 19 SHOWING mark [906, 1576, 920, 1581] glyph 28 of block [840, 1573, 929, 1650]
+ch257 19 SHOWING mark [856, 1584, 867, 1609] glyph 28 of block [840, 1573, 929, 1650]
+ch257 19 SHOWING mark [808, 1645, 844, 1683] glyph 28 of block [840, 1573, 929, 1650]
+ch257 19 dialogue 3/291
+ch257 20 dialogue 0/306
+ch257 21 dialogue 0/106
+ch258 01 dialogue 0/0
+ch258 02 SHOWING mark [547, 492, 563, 493] glyph 40 of block [389, 376, 552, 551]
+ch258 02 SHOWING mark [606, 632, 705, 683] glyph 55 of block [547, 632, 742, 710]
+ch258 02 SHOWING mark [708, 637, 741, 673] glyph 55 of block [547, 632, 742, 710]
+ch258 02 SHOWING mark [449, 955, 465, 980] glyph 26 of block [449, 955, 522, 988]
+ch258 02 dialogue 4/319
+ch258 03 dialogue 0/12
+ch258 04 dialogue 0/255
+ch258 05 dialogue 0/238
+ch258 06 dialogue 0/367
+ch258 07 dialogue 0/232
+ch258 08 SHOWING mark [952, 610, 993, 624] glyph 32 of block [952, 595, 1015, 701]
+ch258 08 SHOWING mark [960, 678, 980, 684] glyph 32 of block [952, 595, 1015, 701]
+ch258 08 dialogue 2/163
+ch258 09 dialogue 0/0
+ch258 10 dialogue 0/13
+ch258 11 dialogue 0/286
+ch258 12 dialogue 0/200
+ch258 13 SHOWING mark [310, 1358, 317, 1371] glyph 21 of block [272, 1354, 312, 1401]
+ch258 13 SHOWING mark [269, 1503, 293, 1553] glyph 54 of block [187, 1407, 313, 1562]
+ch258 13 SHOWING mark [733, 1558, 737, 1560] glyph 14 of block [703, 1555, 877, 1740]
+ch258 13 SHOWING mark [727, 1561, 731, 1562] glyph 14 of block [703, 1555, 877, 1740]
+ch258 13 SHOWING mark [710, 1570, 722, 1573] glyph 14 of block [703, 1555, 877, 1740]
+ch258 13 SHOWING mark [710, 1580, 714, 1580] glyph 14 of block [703, 1555, 877, 1740]
+ch258 13 SHOWING mark [723, 1582, 735, 1590] glyph 14 of block [703, 1555, 877, 1740]
+ch258 13 dialogue 7/366
+ch258 14 SHOWING mark [742, 228, 754, 293] glyph 70 of block [688, 159, 759, 294]
+ch258 14 SHOWING mark [756, 228, 758, 270] glyph 70 of block [688, 159, 759, 294]
+ch258 14 SHOWING mark [625, 207, 699, 306] glyph 70 of block [688, 159, 759, 294]
+ch258 14 dialogue 3/377
+ch258 15 SHOWING mark [880, 1707, 890, 1728] glyph 22 of block [880, 1696, 935, 1735]
+ch258 15 SHOWING mark [888, 1707, 903, 1729] glyph 22 of block [880, 1696, 935, 1735]
+ch258 15 SHOWING mark [910, 1707, 916, 1711] glyph 22 of block [880, 1696, 935, 1735]
+ch258 15 SHOWING mark [904, 1709, 923, 1726] glyph 22 of block [880, 1696, 935, 1735]
+ch258 15 dialogue 4/160
+ch258 16 SHOWING mark [649, 593, 649, 598] glyph 12 of block [644, 531, 661, 599]
+ch258 16 SHOWING mark [864, 755, 868, 766] glyph 14 of block [858, 755, 869, 782]
+ch258 16 SHOWING mark [858, 768, 863, 781] glyph 14 of block [858, 755, 869, 782]
+ch258 16 SHOWING mark [849, 1305, 874, 1350] glyph 48 of block [726, 1305, 890, 1471]
+ch258 16 SHOWING mark [822, 1313, 850, 1360] glyph 48 of block [726, 1305, 890, 1471]
+ch258 16 SHOWING mark [872, 1318, 889, 1327] glyph 48 of block [726, 1305, 890, 1471]
+ch258 16 SHOWING mark [865, 1350, 898, 1396] glyph 48 of block [726, 1305, 890, 1471]
+ch258 16 SHOWING mark [370, 1460, 381, 1475] glyph 11 of block [369, 1460, 389, 1501]
+ch258 16 SHOWING mark [369, 1469, 372, 1479] glyph 11 of block [369, 1460, 389, 1501]
+ch258 16 SHOWING mark [380, 1483, 388, 1493] glyph 11 of block [369, 1460, 389, 1501]
+ch258 16 dialogue 10/135
+ch258 17 dialogue 0/133
+ch258 18 SHOWING mark [1859, 957, 1865, 980] glyph 22 of block [1799, 933, 1874, 1019]
+ch258 18 SHOWING mark [1859, 983, 1865, 1002] glyph 22 of block [1799, 933, 1874, 1019]
+ch258 18 SHOWING mark [1870, 1291, 1873, 1320] glyph 81 of block [1789, 1305, 1872, 1392]
+ch258 18 dialogue 3/126
+ch258 19 dialogue 0/90
+dialogue marks showing: 168
