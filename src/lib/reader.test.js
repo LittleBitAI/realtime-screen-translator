@@ -177,18 +177,24 @@ describe('reader page script', () => {
   // its own lettering is smaller (a spread across a phone), Korean as large
   // as that lettering there (`lettering_px`). The picture is shown at half
   // its width: 20 page px of lettering is 10 on screen, 8 is 4.
-  // Three pages, one each: lettering of 20 px (least 7), of 8 px (least 4),
-  // and none found (least 7).
-  // The size drawn (the web view's size times any scale) is never below the
-  // least size. A web view drawing the size set is not scaled; one drawing
-  // no text under its own minimum (Android's 8 px) draws the floor larger,
-  // and is scaled back toward the area, as far as the floor and no further.
-  // (web view, its minimum px, each text's transform, the size drawn)
-  const webViews = [
-    ['drawing the size set', 0, ['', '', ''], [7, 4, 7]],
-    ['with an 8 px minimum', 8, ['scale(0.875)', 'scale(0.5)', 'scale(0.875)'], [7, 4, 7]],
+  // Korean too long for its text area even at the page's least size. Three
+  // pages, one each: lettering of 20 px (least 7), of 8 px (least 4), and
+  // none found (least 7); on each a white rectangle cover, a white balloon
+  // with its outline holding a line in two shares, and letters toned on the
+  // art. The rule, whatever the web view and wherever the lines overflow:
+  // - in a white cover the lines, kept whole and shown, are drawn inside
+  //   their area, scaled below the least size if need be;
+  // - on the art the size drawn (set size times any scale) is the least
+  //   size, never below it: a web view drawing no text under its own
+  //   minimum (Android's 8 px) is scaled back to it, no further.
+  // (web view, its minimum px, the lines' extent as laid out, the art's transforms)
+  const forms = [
+    ['drawing the size set, lines overflowing round the area', 0, [0, 0, 16, 40], ['', '', '']],
+    ['drawing the size set, lines overflowing below the area', 0, [0, 15, 16, 40], ['', '', '']],
+    ['with an 8 px minimum, lines overflowing round the area', 8, [0, 0, 16, 40], ['scale(0.875)', 'scale(0.5)', 'scale(0.875)']],
+    ['with an 8 px minimum, lines too wide and overflowing below', 8, [-8, 15, 32, 40], ['scale(0.875)', 'scale(0.5)', 'scale(0.875)']],
   ];
-  it.each(webViews)('never draws Korean too long for its text area below the least size, and keeps its lines whole and shown, in a web view %s', async (_, minimum, transforms, drawnPx) => {
+  it.each(forms)('keeps Korean too long for its text area inside a white cover, and at the least size on the art, in a web view %s', async (_, minimum, extent, artTransforms) => {
     const real = window.getComputedStyle.bind(window);
     vi.spyOn(window, 'getComputedStyle').mockImplementation((el, pseudo) => {
       const s = real(el, pseudo);
@@ -202,23 +208,27 @@ describe('reader page script', () => {
     const rect = { x: 100, y: 200, w: 120, h: 80, radius: 0, font_px: 20, outline: [], text: [150, 230, 16, 10], ko: long };
     const shared = { ...rect, y: 400, outline: [[100, 400], [220, 400], [220, 480], [100, 480]], text: [150, 430, 16, 10],
       parts: [{ text: [110, 430, 16, 10], font_px: 20, ko: long }, { text: [190, 430, 16, 10], font_px: 20, ko: long }] };
+    const art = { ...rect, y: 600, text: [150, 630, 16, 10], patch: { at: [140, 620, 40, 30], png: 'AAAA' } };
+    vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ width: 1, height: 1 })));
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn() });
     const invoke = vi.fn().mockResolvedValue(null);
-    for (const lettering_px of [20, 8, null]) invoke.mockResolvedValueOnce({ ...page(null), lettering_px, boxes: [rect, shared] });
+    for (const lettering_px of [20, 8, null]) invoke.mockResolvedValueOnce({ ...page(null), lettering_px, boxes: [rect, shared, art] });
     window.__TAURI_INTERNALS__ = { invoke };
     // The lines overflow at every size: four times the area's height.
+    const area = new DOMRect(0, 15, 16, 10);
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(10);
     vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000);
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 15, 16, 10));
-    vi.spyOn(Range.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 16, 40));
-    // Pictures of their own for each web view: a page script left from
-    // another test keeps the layouts of the pictures it has seen.
-    for (const n of [5, 6, 7]) pagePicture(`https://cdn.example/least-${minimum}-${n}.jpg`);
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(area);
+    vi.spyOn(Range.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(...extent));
+    // Pictures of their own for each form: a page script left from another
+    // test keeps the layouts of the pictures it has seen.
+    for (const n of [5, 6, 7]) pagePicture(`https://cdn.example/least-${minimum}-${extent.join('_')}-${n}.jpg`);
 
     new Function(script)();
 
     const texts = await vi.waitFor(() => {
       const t = [...document.querySelectorAll('.rst-text')];
-      expect(t).toHaveLength(9);
+      expect(t).toHaveLength(12);
       expect(t.every((x) => x.style.overflow === 'visible')).toBe(true);
       return t;
     });
@@ -227,12 +237,31 @@ describe('reader page script', () => {
       ['41.6667%', '37.5%', '13.3333%', '12.5%'],
       ['8.33333%', '37.5%', '13.3333%', '12.5%'],
       ['75%', '37.5%', '13.3333%', '12.5%'],
+      ['41.6667%', '37.5%', '13.3333%', '12.5%'],
     ]));
-    expect(texts.map((t) => Number(parseFloat(t.style.fontSize).toFixed(3)))).toEqual([7, 7, 7, 4, 4, 4, 7, 7, 7]);
-    // Scaled only where the web view draws the floor larger, and drawn at the floor, never below it.
-    expect(texts.map((t) => t.style.transform)).toEqual(transforms.flatMap((x) => [x, x, x]));
+    expect(texts.map((t) => Number(parseFloat(t.style.fontSize).toFixed(3)))).toEqual([7, 7, 7, 7, 4, 4, 4, 4, 7, 7, 7, 7]);
+    const white = texts.filter((t) => t.parentElement.querySelector('.rst-fill'));
+    const toned = texts.filter((t) => !t.parentElement.querySelector('.rst-fill'));
+    expect([white.length, toned.length]).toEqual([9, 3]);
+    // In a white cover: the lines, scaled round the area's centre and moved,
+    // lie inside the area.
+    const [l, eps] = [new DOMRect(...extent), 1e-6];
+    for (const t of white) {
+      const m = t.style.transform.match(/^translate\((-?[\d.e-]+)%(?:, (-?[\d.e-]+)%)?\) scale\(([\d.]+)\)$/);
+      expect(m, t.style.transform).not.toBeNull();
+      const [tx, ty, k] = [Number(m[1]), Number(m[2] ?? 0), Number(m[3])];
+      const cx = area.x + area.width / 2 + k * (l.x + l.width / 2 - (area.x + area.width / 2)) + (tx / 100) * area.width;
+      const cy = area.y + area.height / 2 + k * (l.y + l.height / 2 - (area.y + area.height / 2)) + (ty / 100) * area.height;
+      expect(cx - (k * l.width) / 2).toBeGreaterThanOrEqual(area.left - eps);
+      expect(cx + (k * l.width) / 2).toBeLessThanOrEqual(area.right + eps);
+      expect(cy - (k * l.height) / 2).toBeGreaterThanOrEqual(area.top - eps);
+      expect(cy + (k * l.height) / 2).toBeLessThanOrEqual(area.bottom + eps);
+    }
+    // On the art: drawn at the least size, scaled only where the web view
+    // draws it larger, never below it.
+    expect(toned.map((t) => t.style.transform)).toEqual(artTransforms);
     const drawn = (t) => parseFloat(getComputedStyle(t).fontSize) * (t.style.transform ? Number(t.style.transform.slice(6, -1)) : 1);
-    expect(texts.map((t) => Number(drawn(t).toFixed(3)))).toEqual(drawnPx.flatMap((x) => [x, x, x]));
+    expect(toned.map((t) => Number(drawn(t).toFixed(3)))).toEqual([7, 4, 7]);
   });
 
   it('loads and translates a chapter picture only as it approaches the view', async () => {

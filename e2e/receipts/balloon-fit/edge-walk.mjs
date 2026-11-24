@@ -79,6 +79,9 @@ for (const ch of ['256', '257', '258']) {
           // or toned letters' on the art, where the lines' white rim sits on it.
           pastCover: texts.filter((t) => { const [l, b] = [extent(t), t.parentElement.getBoundingClientRect()]; return l.width > 0 && (l.left < b.left - 1 || l.right > b.right + 1 || l.top < b.top - 1 || l.bottom > b.bottom + 1); })
             .map((t) => ({ ko: t.textContent, white: !!t.parentElement.querySelector('.rst-fill') })),
+          // A white cover's lines as drawn against their own text area as
+          // laid out (its scale and move taken off for the moment of reading).
+          whitePastArea: texts.filter((t) => { if (!t.parentElement.querySelector('.rst-fill')) return false; const l = extent(t); const tf = t.style.transform; t.style.transform = 'none'; const a = t.getBoundingClientRect(); t.style.transform = tf; return l.width > 0 && (l.left < a.left - 1 || l.right > a.right + 1 || l.top < a.top - 1 || l.bottom > a.bottom + 1); }).map((t) => t.textContent),
           // Painted: the decoded patch drawn, some pixel of it opaque. The
           // canvas has its size before its picture is decoded and drawn.
           patches: patches.length, unpainted: patches.filter((c) => !c.width || !c.height || !c.getContext('2d').getImageData(0, 0, c.width, c.height).data.some((v, j) => j % 4 === 3 && v > 0)).length,
@@ -93,7 +96,7 @@ for (const ch of ['256', '257', '258']) {
   }
   const sent = (await s.run('window.__rstCalls')).filter(([c]) => c === 'post_chapter_page').map(([, id]) => id);
   report[`ch${ch}`] = { total, drawn: seen.filter((p) => p.loaded && p.boxes > 0).length, inOrder: sent.every((v, i) => i === 0 || v > sent[i - 1]), sent: sent.length,
-    clipped: seen.reduce((a, p) => a + p.clipped, 0), belowLeast: seen.reduce((a, p) => a + p.belowLeast, 0), pastWhite: seen.reduce((a, p) => a + p.pastCover.filter((c) => c.white).length, 0), pastTone: seen.reduce((a, p) => a + p.pastCover.filter((c) => !c.white).length, 0), unpainted: seen.reduce((a, p) => a + p.unpainted, 0), patches: seen.reduce((a, p) => a + p.patches, 0),
+    clipped: seen.reduce((a, p) => a + p.clipped, 0), belowLeast: seen.reduce((a, p) => a + p.belowLeast, 0), pastWhite: seen.reduce((a, p) => a + p.pastCover.filter((c) => c.white).length, 0), pastTone: seen.reduce((a, p) => a + p.pastCover.filter((c) => !c.white).length, 0), whitePastArea: seen.reduce((a, p) => a + p.whitePastArea.length, 0), unpainted: seen.reduce((a, p) => a + p.unpainted, 0), patches: seen.reduce((a, p) => a + p.patches, 0),
     minPx: Math.min(...seen.filter((p) => p.minPx).map((p) => p.minPx)).toFixed(1), pages: seen };
   console.log(`ch${ch}`, JSON.stringify({ ...report[`ch${ch}`], pages: undefined }));
 }

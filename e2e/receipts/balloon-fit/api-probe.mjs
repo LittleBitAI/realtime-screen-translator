@@ -3,10 +3,13 @@
 // stand-in for the Gemini API that records each request and answers as told.
 // Prints each case's request as received and its expected and observed
 // result. Run from the repository root:
-//   node e2e/receipts/balloon-fit/api-probe.mjs
+//   node e2e/receipts/balloon-fit/api-probe.mjs [receipt file]
+// With a receipt file, the same lines are written there as UTF-8: a shell
+// capturing the output may decode it in another code page (PowerShell's
+// `*>` took '안녕' for '?덈뀞').
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -51,6 +54,9 @@ const run = async (data, out, folder) => (await promisify(execFile)('cargo', ['r
   cwd: 'src-tauri', env: { ...process.env, RST_GEMINI_BASE_URL: base, GEMINI_API_KEY: 'probe-placeholder-key' }, encoding: 'utf8',
 })).stdout;
 
+const receipt = process.argv[2];
+const printed = [];
+const print = (line) => { printed.push(line); console.log(line); };
 let failed = 0;
 for (const c of cases) {
   const root = mkdtempSync(join(tmpdir(), 'api-probe-'));
@@ -64,13 +70,19 @@ for (const c of cases) {
   const again = c.reopen ? await run(join(root, 'data'), join(root, 'out'), folder) : null;
   const observed = first.split('\n').find((l) => l.startsWith('chapter '))?.replace('chapter ', '');
   const reopened = again?.split('\n').find((l) => l.startsWith('chapter '))?.replace('chapter ', '');
-  const ok = observed === c.expect && sent === 1 && (c.reopen === null || (reopened === c.reopen && requests.length === 1));
+  // A page kept: its Korean, as the library gives it back, is the Korean the
+  // answer carried, character for character.
+  const kept = c.reopen ? JSON.parse(readFileSync(join(root, 'out', 'chapter', '01.json'), 'utf8')).boxes.map((b) => b.ko) : null;
+  const answeredKo = c.reopen ? JSON.parse(`{"items":[${c.text}`).items.map((i) => i.ko) : null;
+  const ok = observed === c.expect && sent === 1 && (c.reopen === null || (reopened === c.reopen && requests.length === 1))
+    && JSON.stringify(kept) === JSON.stringify(answeredKo);
   failed += !ok;
-  console.log(JSON.stringify({ case: c.name, request: requests[0], answered: c.text, expected: c.expect, observed, requests_first: sent,
+  print(JSON.stringify({ case: c.name, request: requests[0], answered: c.text, expected: c.expect, observed, requests_first: sent,
     ...(c.reopen ? { expected_reopen: c.reopen, observed_reopen: reopened, requests_after_reopen: requests.length } : {}),
-    kept: c.reopen ? JSON.parse(readFileSync(join(root, 'out', 'chapter', '01.json'), 'utf8')).boxes.map((b) => b.ko) : null, pass: ok }));
+    answered_ko: answeredKo, kept, pass: ok }));
   rmSync(root, { recursive: true, force: true });
 }
 server.close();
-console.log(failed ? `FAIL ${failed}` : `PASS ${cases.length} cases`);
+print(failed ? `FAIL ${failed}` : `PASS ${cases.length} cases`);
+if (receipt) writeFileSync(receipt, `${printed.join('\n')}\n`, 'utf8');
 process.exit(failed ? 1 : 0);

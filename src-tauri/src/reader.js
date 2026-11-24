@@ -736,20 +736,29 @@
     text.style.overflowWrap = 'anywhere';
     const least = Math.min(READABLE, Number(text.dataset.least) * shownWidth || READABLE);
     if (!shrink(least)) return 1;
-    // Over even at the floor: the floor holds (scaled below it, "이거였어!"
-    // on the ch258 p18 spread read smaller than its own lettering). The
-    // lines stay whole at that size, centred on the text area and shown
-    // past its edge, over the cover round it, in their white rim.
-    // A web view that draws no text smaller than its own minimum (Android's
-    // 8 px) draws the floor larger than set, and the lines run past their
-    // area (ch258 p11 on the S21-shaped emulator): they are scaled back
-    // toward the area as far as the floor, never below it.
-    const drawn = parseFloat(getComputedStyle(text).fontSize);
-    if (drawn > least + 0.01) {
-      lines.selectNodeContents(text);
-      const [l, a] = [lines.getBoundingClientRect(), text.getBoundingClientRect()];
-      const k = Math.max(least / drawn, Math.min(1, a.width / (l.width || 1), a.height / (l.height || 1)));
-      if (k < 1) text.style.transform = `scale(${k.toFixed(4)})`;
+    // Over even at the floor. The lines stay whole, shown past the area's
+    // edge (never cut), and are scaled down whole round their own centre
+    // onto the area's centre, so as to sit inside it:
+    // - in a white balloon, as far as that takes: the Korean never leaves
+    //   the balloon, below the floor if need be (the person's choice,
+    //   2026-11-25), and in a web view that draws the floor larger than
+    //   set (Android's 8 px) the same way;
+    // - on the art (toned letters, no white), only as far as the floor: the
+    //   floor holds ("이거였어!" on the ch258 p18 spread, the credits), and
+    //   the lines run past the area over the art in their white rim. A web
+    //   view that draws no text under its own minimum (Android's 8 px) draws
+    //   the floor larger than set; scaled back to the floor, no further.
+    lines.selectNodeContents(text);
+    const [l, a] = [lines.getBoundingClientRect(), text.getBoundingClientRect()];
+    const white = !!text.parentElement?.querySelector('.rst-fill');
+    const fits = Math.min(1, a.width / (l.width || 1), a.height / (l.height || 1));
+    // Rounded down in a balloon, never past it.
+    const k = white ? Math.floor(fits * 1e4) / 1e4 : Number(Math.max(least / parseFloat(getComputedStyle(text).fontSize), fits).toFixed(4));
+    if (k < 1) {
+      // Moved by a share of the area's own size, the same at any zoom.
+      const pct = (d, size) => `${((-k * d) / (size || 1)) * 100}%`;
+      const [dx, dy] = [l.left + l.width / 2 - (a.left + a.width / 2), l.top + l.height / 2 - (a.top + a.height / 2)];
+      text.style.transform = white ? `translate(${pct(dx, a.width)}, ${pct(dy, a.height)}) scale(${k})` : `scale(${k})`;
     }
     text.style.overflow = 'visible';
     return 0;

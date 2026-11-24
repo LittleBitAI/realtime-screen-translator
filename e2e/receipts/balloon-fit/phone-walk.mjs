@@ -90,10 +90,15 @@ for (const url of urls) {
       const s = getComputedStyle(t); const r = document.createRange(); r.selectNodeContents(t);
       const [l, b] = [r.getBoundingClientRect(), t.parentElement.getBoundingClientRect()];
       const past = l.width > 0 && (l.left < b.left - 1 || l.right > b.right + 1 || l.top < b.top - 1 || l.bottom > b.bottom + 1);
+      // The lines as drawn against their own text area as laid out (its
+      // scale and move taken off for the moment of reading it).
+      const tf = t.style.transform; t.style.transform = 'none'; const a = t.getBoundingClientRect(); t.style.transform = tf;
+      const white = !!t.parentElement.querySelector('.rst-fill');
       return { px: +(parseFloat(s.fontSize) * (s.transform === 'none' ? 1 : new DOMMatrix(s.transform).a)).toFixed(2),
         least: +Math.min(7, Number(t.dataset.least) * i.offsetWidth || 7).toFixed(2),
         cut: s.overflow !== 'visible' && (t.scrollHeight > t.clientHeight + 1 || t.scrollWidth > t.clientWidth + 1),
-        past: past ? (t.parentElement.querySelector('.rst-fill') ? 'white' : 'tone') : null };
+        past: past ? (white ? 'white' : 'tone') : null,
+        white, past_area: l.width > 0 && (l.left < a.left - 1 || l.right > a.right + 1 || l.top < a.top - 1 || l.bottom > a.bottom + 1) };
     }))`);
     // Each tone cover: drawn at the share of its box set, or bent by the
     // site's own sheet (a canvas capped at its box's width) off the letters.
@@ -130,6 +135,7 @@ for (const url of urls) {
   report.chapters.push({ url, slides, pages: pages.length, chips: pages.filter((p) => p.chip).length, same_captures: pages.filter((p) => p.same_capture).length,
     below_least: all.filter((t) => t.px < t.least - 0.05).length, cut: all.filter((t) => t.cut).length,
     past_white: all.filter((t) => t.past === 'white').length, past_tone: all.filter((t) => t.past === 'tone').length,
+    white_past_area: all.filter((t) => t.white && t.past_area).length,
     patches: pages.reduce((a, p) => a + (p.patches ?? 0), 0), patches_off: pages.reduce((a, p) => a + (p.patches_off ?? 0), 0), detail: pages });
 }
 report.gemini_requests_after = (await wait(async () => ({ n: await status() }), 'status', 40)).n;
