@@ -11,6 +11,7 @@
    "cut": 0,
    "past_white": 0,
    "past_tone": 0,
+   "white_past_area": 0,
    "patches": 21,
    "patches_off": 0,
    "detail": [
@@ -26,13 +27,17 @@
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 10.44,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 2,
@@ -51,67 +56,89 @@
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.28,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -130,43 +157,57 @@
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 12.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -185,49 +226,65 @@
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 12.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 15.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 11.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 2,
@@ -246,19 +303,25 @@
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.1,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -277,49 +340,65 @@
        "px": 10.2,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 12.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 12.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 2,
@@ -338,37 +417,49 @@
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.75,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.76,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -387,61 +478,81 @@
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 18.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 12,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 2,
@@ -460,49 +571,65 @@
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 27.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 11.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 2,
@@ -521,55 +648,73 @@
        "px": 9.11,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 12.44,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 16.8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9.38,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 24.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 12.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 3,
@@ -588,25 +733,33 @@
        "px": 17.1,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 14.1,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 14.1,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 13.2,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -625,67 +778,89 @@
        "px": 9.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 10.8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.56,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.28,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 13.2,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 4,
@@ -704,25 +879,33 @@
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 11.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -741,19 +924,25 @@
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -772,31 +961,41 @@
        "px": 10.76,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -815,37 +1014,49 @@
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -864,49 +1075,65 @@
        "px": 11.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 12.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.11,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 12,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.1,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -925,19 +1152,25 @@
        "px": 14.35,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -956,43 +1189,57 @@
        "px": 12,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 1,
@@ -1011,49 +1258,65 @@
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -1072,49 +1335,65 @@
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 19.2,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 17.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 3,
@@ -1129,10 +1408,11 @@
    "pages": 21,
    "chips": 0,
    "same_captures": 0,
-   "below_least": 0,
+   "below_least": 1,
    "cut": 0,
    "past_white": 0,
    "past_tone": 0,
+   "white_past_area": 0,
    "patches": 46,
    "patches_off": 0,
    "detail": [
@@ -1148,19 +1428,25 @@
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9.36,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 3,
@@ -1179,73 +1465,97 @@
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 16.8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 3,
@@ -1264,37 +1574,49 @@
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -1313,73 +1635,97 @@
        "px": 9.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.1,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.65,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
-       "px": 7,
+       "px": 6.72,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 1,
@@ -1398,49 +1744,65 @@
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 7.28,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 15.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 1,
@@ -1459,55 +1821,73 @@
        "px": 12,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 15.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 16.8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 7,
@@ -1526,55 +1906,73 @@
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 15.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 1,
@@ -1593,49 +1991,65 @@
        "px": 12,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 12.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 10.8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 16.8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.66,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 4,
@@ -1654,37 +2068,49 @@
        "px": 10.8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 20.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 16.76,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 3,
@@ -1703,55 +2129,73 @@
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 17.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 7.23,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 2,
@@ -1770,25 +2214,33 @@
        "px": 31.2,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 12,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 19.2,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 11.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 3,
@@ -1807,25 +2259,33 @@
        "px": 10.76,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -1844,43 +2304,57 @@
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 10.8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 1,
@@ -1899,43 +2373,57 @@
        "px": 18.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 19.8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 3,
@@ -1954,49 +2442,65 @@
        "px": 9.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 27.1,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9.87,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 15.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 13.25,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 4,
@@ -2015,25 +2519,33 @@
        "px": 14.22,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 1,
@@ -2052,43 +2564,57 @@
        "px": 10.8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 36,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 24.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.96,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 1,
@@ -2107,43 +2633,57 @@
        "px": 18,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.81,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 12,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 11.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 2,
@@ -2162,67 +2702,89 @@
        "px": 14.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 16.8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.64,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 14.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.16,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 7.54,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 1,
@@ -2241,49 +2803,65 @@
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 2,
@@ -2302,25 +2880,33 @@
        "px": 12.14,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 15.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 14.98,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 3,
@@ -2335,10 +2921,11 @@
    "pages": 19,
    "chips": 0,
    "same_captures": 0,
-   "below_least": 0,
+   "below_least": 1,
    "cut": 0,
    "past_white": 0,
    "past_tone": 1,
+   "white_past_area": 0,
    "patches": 29,
    "patches_off": 0,
    "detail": [
@@ -2354,13 +2941,17 @@
        "px": 7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 2,
@@ -2379,55 +2970,73 @@
        "px": 9.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.1,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 2,
@@ -2446,7 +3055,9 @@
        "px": 10.8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -2465,49 +3076,65 @@
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 12,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 11.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 4,
@@ -2526,37 +3153,49 @@
        "px": 12.95,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 3,
@@ -2575,49 +3214,65 @@
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -2636,37 +3291,49 @@
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 13.54,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 15.74,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -2685,31 +3352,41 @@
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -2728,7 +3405,9 @@
        "px": 14.73,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 1,
@@ -2747,13 +3426,17 @@
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8.28,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 2,
@@ -2772,49 +3455,65 @@
        "px": 9.6,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 11.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.38,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
-       "px": 7,
+       "px": 6.22,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 1,
@@ -2833,37 +3532,49 @@
        "px": 10.92,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.41,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 16.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 24.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 1,
@@ -2882,43 +3593,57 @@
        "px": 9.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.28,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 11.1,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 1,
@@ -2937,85 +3662,113 @@
        "px": 9.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.1,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.65,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 12.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 11.04,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 0,
@@ -3034,37 +3787,49 @@
        "px": 8.38,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 9.3,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       }
      ],
      "patches": 1,
@@ -3083,31 +3848,41 @@
        "px": 9.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 11.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 8.38,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 2,
@@ -3126,19 +3901,25 @@
        "px": 11.7,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 15.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 11.4,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 1,
@@ -3157,31 +3938,41 @@
        "px": 5.18,
        "least": 4.46,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 6.84,
        "least": 4.46,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 4.46,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 4.46,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 4.46,
        "least": 4.46,
        "cut": false,
-       "past": "tone"
+       "past": "tone",
+       "white": false,
+       "past_area": true
       }
      ],
      "patches": 4,
@@ -3200,31 +3991,41 @@
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 10.5,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       },
       {
        "px": 8,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": true,
+       "past_area": false
       },
       {
        "px": 12.9,
        "least": 7,
        "cut": false,
-       "past": null
+       "past": null,
+       "white": false,
+       "past_area": false
       }
      ],
      "patches": 4,
@@ -3234,5 +4035,5 @@
    ]
   }
  ],
- "gemini_requests_after": 61
+ "gemini_requests_after": 0
 }

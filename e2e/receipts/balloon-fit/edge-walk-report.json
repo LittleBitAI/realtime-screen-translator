@@ -8,6 +8,7 @@
   "belowLeast": 0,
   "pastWhite": 0,
   "pastTone": 0,
+  "whitePastArea": 0,
   "unpainted": 0,
   "patches": 21,
   "minPx": "7.0",
@@ -20,6 +21,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 2,
     "unpainted": 0,
     "minPx": 7.92
@@ -32,6 +34,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 7.2
@@ -44,6 +47,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 7.2
@@ -56,6 +60,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 2,
     "unpainted": 0,
     "minPx": 7
@@ -68,6 +73,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 7.452
@@ -80,6 +86,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 2,
     "unpainted": 0,
     "minPx": 7.5
@@ -92,6 +99,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 7.2
@@ -104,6 +112,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 2,
     "unpainted": 0,
     "minPx": 7
@@ -116,6 +125,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 2,
     "unpainted": 0,
     "minPx": 7.5
@@ -128,6 +138,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 3,
     "unpainted": 0,
     "minPx": 7
@@ -140,6 +151,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 11.9342
@@ -152,6 +164,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 4,
     "unpainted": 0,
     "minPx": 7.6176
@@ -164,6 +177,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 8.7
@@ -176,6 +190,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 7.8
@@ -188,6 +203,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 7.10976
@@ -200,6 +216,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 7.10976
@@ -212,6 +229,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 8.1
@@ -224,6 +242,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 8.4
@@ -236,6 +255,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 1,
     "unpainted": 0,
     "minPx": 8.4
@@ -248,6 +268,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 7
@@ -260,6 +281,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 3,
     "unpainted": 0,
     "minPx": 7.8
@@ -275,6 +297,7 @@
   "belowLeast": 0,
   "pastWhite": 0,
   "pastTone": 0,
+  "whitePastArea": 0,
   "unpainted": 0,
   "patches": 46,
   "minPx": "7.0",
@@ -287,6 +310,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 3,
     "unpainted": 0,
     "minPx": 7
@@ -299,6 +323,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 3,
     "unpainted": 0,
     "minPx": 7
@@ -311,6 +336,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 7.2
@@ -323,6 +349,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 1,
     "unpainted": 0,
     "minPx": 7
@@ -335,6 +362,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 1,
     "unpainted": 0,
     "minPx": 7
@@ -347,6 +375,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 7,
     "unpainted": 0,
     "minPx": 7.8
@@ -359,6 +388,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 1,
     "unpainted": 0,
     "minPx": 7.2
@@ -371,6 +401,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 4,
     "unpainted": 0,
     "minPx": 8.7
@@ -383,6 +414,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 3,
     "unpainted": 0,
     "minPx": 7.8
@@ -395,6 +427,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 2,
     "unpainted": 0,
     "minPx": 7
@@ -407,6 +440,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 3,
     "unpainted": 0,
     "minPx": 10.488
@@ -419,6 +453,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 7.5
@@ -431,6 +466,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 1,
     "unpainted": 0,
     "minPx": 7.176
@@ -443,6 +479,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 3,
     "unpainted": 0,
     "minPx": 7.728
@@ -455,6 +492,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 4,
     "unpainted": 0,
     "minPx": 7.2
@@ -467,6 +505,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 1,
     "unpainted": 0,
     "minPx": 7.5
@@ -479,6 +518,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 1,
     "unpainted": 0,
     "minPx": 8.4
@@ -491,6 +531,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 2,
     "unpainted": 0,
     "minPx": 8.81163
@@ -503,6 +544,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 1,
     "unpainted": 0,
     "minPx": 7.5
@@ -515,6 +557,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 2,
     "unpainted": 0,
     "minPx": 7.8
@@ -527,6 +570,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 3,
     "unpainted": 0,
     "minPx": 9.3
@@ -542,6 +586,7 @@
   "belowLeast": 0,
   "pastWhite": 0,
   "pastTone": 1,
+  "whitePastArea": 0,
   "unpainted": 0,
   "patches": 29,
   "minPx": "4.5",
@@ -559,6 +604,7 @@
       "white": false
      }
     ],
+    "whitePastArea": [],
     "patches": 2,
     "unpainted": 0,
     "minPx": 7
@@ -571,6 +617,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 2,
     "unpainted": 0,
     "minPx": 7
@@ -583,6 +630,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 10.8
@@ -595,6 +643,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 4,
     "unpainted": 0,
     "minPx": 7.176
@@ -607,6 +656,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 3,
     "unpainted": 0,
     "minPx": 7.5
@@ -619,6 +669,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 7.5
@@ -631,6 +682,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 7.5
@@ -643,6 +695,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 7
@@ -655,6 +708,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 1,
     "unpainted": 0,
     "minPx": 13.5533
@@ -667,6 +721,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 2,
     "unpainted": 0,
     "minPx": 7.6176
@@ -679,6 +734,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 1,
     "unpainted": 0,
     "minPx": 7.09229
@@ -691,6 +747,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 1,
     "unpainted": 0,
     "minPx": 8.28
@@ -703,6 +760,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 1,
     "unpainted": 0,
     "minPx": 7.35
@@ -715,6 +773,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 0,
     "unpainted": 0,
     "minPx": 7
@@ -727,6 +786,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 1,
     "unpainted": 0,
     "minPx": 7
@@ -739,6 +799,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 2,
     "unpainted": 0,
     "minPx": 7.71125
@@ -751,6 +812,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 1,
     "unpainted": 0,
     "minPx": 11.4
@@ -763,6 +825,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 4,
     "unpainted": 0,
     "minPx": 4.46414
@@ -775,6 +838,7 @@
     "clipped": 0,
     "belowLeast": 0,
     "pastCover": [],
+    "whitePastArea": [],
     "patches": 4,
     "unpainted": 0,
     "minPx": 7

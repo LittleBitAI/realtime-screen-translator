@@ -8,45 +8,45 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 const folder = 'e2e/receipts/balloon-fit';
-const source = '66b5982c77f257d04390f0885def8bc00b1b685c';
+const source = '2d94efe399491be2c2998ad0cff5f0fe10c666cb';
 const run = source.slice(0, 7);
 const pinned = {
-  'api-probe.mjs': '578a89edc76aea7a94ac5855986b1d1c841b2382b71cbdcf91e0148cc629727b',
-  'api-probe.txt': 'bd6da3f5a42ab34e2383a47999f93d131d92520041159ca464fb5f96e7d12d2a',
-  'capture-hashes.json': 'a0cc5b393b7deadbd2442d3c9aeed889152fa52c06ca632b17eb7d5b3404caa3',
+  'api-probe.mjs': '2763a52d76b47fa60c94554d075520c412293ef25c517a2626017268fafe9997',
+  'api-probe.txt': 'd2120e7b8a8cbd5730608ae4bc8ecb6b1b229dcd70de301233fb6eac6d114776',
+  'capture-hashes.json': '91d8b4805d368cca629efb2de198e00e3ccfbd8b7740cda72e68704a5e9a1004',
   'cdp.mjs': '069109bd7e1203ed032cb891e73a7dc4f18f9eb9f0780d9fff33d95c68d71f57',
-  'crops.json': '442ad919305cb8471976d9d7d4ebc0dd3cbff12f5d9077a41c1973d6f5f79c50',
-  'edge-walk-report.json': '97496988809cac312a108aa3439f3b79ff325388e74d71058ed0e2c69940f57a',
-  'edge-walk.mjs': '1cea13597d4b597accdda4e11ed0f7f77b8e77ff1567a7050bd7ee89e8945cb6',
-  'emulator-66b5982-ch256-p12-before-after.png': '0fee2c20b421505f15cf3f86622b9b7ca8db46dbac8e72872bd7f5ce50fc696a',
-  'emulator-66b5982-ch256-p21-before-after.png': 'fa8e75c123ac04ba34759fa62ea0cc7ef44a9773ef326aaec38332361032fbe6',
-  'emulator-66b5982-ch257-p02-before-after.png': '950ab294461133141847aed0aaf250352430e21e5202b8a0f517d06382fe3169',
-  'emulator-66b5982-ch257-p16-before-after.png': 'e79327476cd61271b8dab42b25e7b902c20d9ed249bea2865e02b4dd3fbddd01',
-  'emulator-66b5982-ch257-p19-before-after.png': '0864f0c486aaf01b83f1253eba800c89935dc0de7396d6e97b1086a4c4629461',
-  'emulator-66b5982-ch258-p11-before-after.png': 'da021fe3760ff0af0e48e0f53435831ca5451f8d52551ae16a90f7dfb47abfdf',
-  'emulator-66b5982-ch258-p18-before-after.png': '11818977124cda11b6dedc8e264a2acd6915f8654ab13ccf8647c92e75a2f763',
-  'emulator-66b5982-fill-report.json': '0c62c8b9a51da25b1a88bc62104bcff6db8218758cdfa1c95fbf13227fd74f5e',
-  'emulator-66b5982-report.json': 'd567f8c8bd267ccb97a4a8a6b9a60bf546edbfefed850da69aa3f982b820bd45',
-  'fix-66b5982-ch256-p12-off-before-after.png': 'df179837d291b698aa5d689a4797144b1c3e6209073e24f685c0b59c4a46dd88',
-  'fix-66b5982-ch257-p02-off-before-after.png': '609e7ec9504767c7852aa5cc6f1604a23389cd5b2fd70e80ae5fce48666badf4',
-  'fix-66b5982-ch258-p11-off-before-after.png': 'e8f3790775c097e00026256a1e45e8327e9689c47946e9cff2d3f3c3d16cc312',
-  'focused-tests.txt': '5d187fc64dc7c8d5cb9428aec92c5706d643b10d4fad0e78d9e9d6efcd873f82',
+  'crops.json': '84898468fdd10094af55c877ae2d6d4609576b7d31367402fac31d580d53001c',
+  'edge-walk-report.json': 'd885f9e00df4881f317e5f041d4eef86efad5806b2a4e9ff62bdf6a54c2adf83',
+  'edge-walk.mjs': 'c2d06852f3d5924bd4644928993d24e0a79c53e2d9e3105d82bc7dfdb37cf94b',
+  'emulator-2d94efe-ch256-p12-before-after.png': '691ec2c87501e6247f8fba6a1fe742c183081b1d183595d0760b04072bdab6c4',
+  'emulator-2d94efe-ch256-p21-before-after.png': '31f0f6eee5d81be2196eb0aa28b95ce095f5bd6382e50277b3ac65aa83840edc',
+  'emulator-2d94efe-ch257-p02-before-after.png': '413f3cd19a42918d659bfc202fe429ae866aab41f4d03b2311d8db7e73630cc1',
+  'emulator-2d94efe-ch257-p04-before-after.png': '19689e7d7dcdf5cd5ad67331972dae5def594b7499ca511b9b2c5d68a9d8425f',
+  'emulator-2d94efe-ch257-p16-before-after.png': 'ed7b5f61b76c5cb5eba12ea7ee2805a511c75025b114ecbe0627d0e5b2b85d4f',
+  'emulator-2d94efe-ch257-p19-before-after.png': 'fc2db99cd15dcd37971b162f81332716daea55cc2341bcf7d8a893be0919fbfc',
+  'emulator-2d94efe-ch258-p11-before-after.png': '9dbd881a0de6709883cdff1780f71699cab28cca0e0e6c2e109c3256ca0b5f28',
+  'emulator-2d94efe-ch258-p18-before-after.png': '57e116290de2758c98676843d177b558b1d95340d6c55cceceeac4b3f26036fb',
+  'emulator-2d94efe-fill-report.json': '42f2e132e4fa1ddb4ce4a0ecdeffb60f4f978edf380273ea002f856564170b53',
+  'emulator-2d94efe-report.json': '2c83353b7cc4ddfb40a6c4828a93097233ccd86caae55edcdf9faa47db1472ee',
+  'fix-2d94efe-ch257-p04-off-before-after.png': '8406ceacf83a4a494b75679dd6d75dbc4b7f844a48a7427f9f0e2a2d03231ea8',
+  'fix-2d94efe-ch258-p11-off-before-after.png': 'b268922c77c990af5863dca88779100ce251f71c1ed11ad6e7782fa73b7a5599',
+  'focused-tests.txt': '9566d80c24dc78f6e272a2c8bd9d2faf7b6a359bf6bec1c081f317bf039ca8e8',
   'leak-accepted.json': 'c4be974790f0e20fbba4206279a88b090d795b0de816bb747158c84c00836f30',
   'leak-check.txt': '29e125d1492dab8f26b50aa82c40effc23af1e39b89c8209a55aaeb7366caa18',
   'ledger-approvals.json': 'fb50ac1370ae00e61522e592ee46c7e6a26eebf2036116a95fd95b30351b6ea3',
-  'ledger-attempts.jsonl': '43f9e8a914bad9f7c812ea07329169e4f96c8e4140e4304821e138a148f3f17c',
+  'ledger-attempts.jsonl': 'a0283b330d4842b9e33ce6a1f11be2ac4f4946a4f64e8b05bdc27a89e455f7e4',
   'ledger-decisions.json': '34e95c992a477ad9dd546975dbab0da388cf845b20a1eacbc782512a3347e3f9',
   'ledger-pages.json': '7d5b0889a8275516bc76b56b75b58d26b50aa61b105b47b60eeedd6d85d64f89',
-  'phone-walk.mjs': '2209bf2234a22ca7c10ee03716a8dfc22abf9304c2def2e695c244edb62dc978',
-  'replay-layouts.json': '0c36abcf78f4683ca4d350bb13aea782e9147acc2a59eca98ac47bcd72590ec8',
+  'phone-walk.mjs': '889bd3fc54cd76aec454129fc89d8c06c831d34803a68282c9b1b021c81912c6',
+  'replay-layouts.json': 'e2b448f5c8dcfb1fb98aea21f7c3c604367f06a32936c65141c737171b30927f',
   's21-883938c-ch256-p12-before-after.png': '96f20d3e5f784ae7e4523454e8ff2ad96847b7daad2da89fa4322b333cf417d9',
   's21-883938c-ch257-p15-before-after.png': '1c397c7a97a0228aae340e49b47e7c8d8b9d1457b09f09612ca2af64fcd21e10',
   's21-883938c-ch258-p14-before-after.png': 'ec5e5d925152b4ebd9109c3ad854e4399d13bcda6ca4a9e229efefd6a2f8c6b2',
   's21-883938c-report.json': '8ff0fefe65f83f87364efaa5b39291c4587ecdc2da2e6c168e0165a0ff154307',
-  'windows-66b5982-ch257-p19-20-before-after.png': 'a34fa01286ac9e8dc9611ea09b23e6f5fe6e7c488d6888fbeb4d692df29ddddf',
-  'windows-66b5982-ch258-p18-before-after.png': 'c63ad36f686692147c5c44e35910c1fc255661ee727a14615ef51a99dd66cb91',
-  'windows-66b5982-fill-report.json': 'a977b428baf6d773fc6062c876a247648b874d02718c3b77d2afee1a2dc2f0e8',
-  'windows-66b5982-report.json': 'f26684a463c565f5f6cba70bed68ec1600e60191332566b34dd72d78cf772f85',
+  'windows-2d94efe-ch257-p19-20-before-after.png': '4b460b28a24177d3ee2409e15f8b6e68df9d27cb5cdca73a93c014c5e23cc28d',
+  'windows-2d94efe-ch258-p18-before-after.png': 'f360f5cacd2b0f449cbbaf7630138539b094719b824aa1ba92c4bc7560fe84ed',
+  'windows-2d94efe-fill-report.json': '04b4575f0ec68edf630d88f181617cc15d6cb999bf5893bb5010a871f490ea26',
+  'windows-2d94efe-report.json': 'fea045f3f3c046612716b870b8a02d2cf35683eb07c274c3a21ffb0b49e8ef25',
 };
 const git = (...args) => execFileSync('git', args, { maxBuffer: 64 << 20 });
 const read = (name) => git('show', `HEAD:${folder}/${name}`);
@@ -88,19 +88,22 @@ test('the walks drew every page of the three chapters, the read-throughs with no
   assert.deepEqual(Object.values(edge).map((c) => [c.total, c.drawn, c.inOrder, c.clipped, c.unpainted]), [[21, 21, true, 0, 0], [21, 21, true, 0, 0], [19, 19, true, 0, 0]]);
 });
 
-test('no Korean is drawn below the page\'s least size, cut off, or past a white cover', () => {
+test('no Korean leaves its white cover\'s text area or is cut off, and none on the art is drawn below its least size', () => {
   // Edge: the size drawn (set size times any scale) against the least size.
   for (const [ch, c] of Object.entries(json('edge-walk-report.json'))) {
-    assert.deepEqual([c.belowLeast, c.clipped, c.pastWhite], [0, 0, 0], ch);
-    assert.ok(c.pages.every((p) => p.belowLeast === 0 && p.pastCover.every((x) => !x.white)), ch);
+    assert.deepEqual([c.belowLeast, c.clipped, c.pastWhite, c.whitePastArea], [0, 0, 0, 0], ch);
+    assert.ok(c.pages.every((p) => p.belowLeast === 0 && p.pastCover.every((x) => !x.white) && Array.isArray(p.whitePastArea) && p.whitePastArea.length === 0), ch);
   }
-  // The installed apps: every text measured, none below its least size, cut or past white.
+  // The installed apps: every text measured; none cut; in a white cover
+  // inside its own text area (scaled below the least size there if need
+  // be, the person's choice); on the art never below its least size.
   for (const name of walks) {
     for (const c of json(name).chapters) {
       const texts = c.detail.flatMap((p) => p.texts ?? []);
       assert.ok(texts.length > 0, `${name} ${c.url}: texts measured`);
-      assert.deepEqual([c.below_least, c.cut, c.past_white], [0, 0, 0], `${name} ${c.url}`);
-      assert.ok(texts.every((t) => t.px >= t.least - 0.05 && !t.cut && t.past !== 'white'), `${name} ${c.url}`);
+      assert.ok(texts.every((t) => typeof t.white === 'boolean' && typeof t.past_area === 'boolean'), `${name} ${c.url}: each text's cover and area read`);
+      assert.deepEqual([c.cut, c.past_white, c.white_past_area], [0, 0, 0], `${name} ${c.url}`);
+      assert.ok(texts.every((t) => !t.cut && (t.white ? !t.past_area && t.past !== 'white' : t.px >= t.least - 0.05)), `${name} ${c.url}`);
     }
   }
 });
@@ -128,6 +131,13 @@ test('the reused S21 walk stands only for pages this head draws as it drew them,
   // the site's canvas cap, and the emulator walk is their evidence.
   for (const [k, p] of Object.entries(r.pages)) assert.equal(p.real_s21_stands, p.same_as_883938c && p.covers_wider_than_box === 0, k);
   assert.equal(Object.values(r.pages).filter((p) => p.real_s21_stands).length, 19);
+  // Nor where this head's reader draws a balloon line on Android otherwise
+  // than at 883938c: scaled below the least size to stay inside its area.
+  const ids = { 9439528: 'ch256', 9478775: 'ch257', 9494751: 'ch258' };
+  const smaller = json(`emulator-${run}-report.json`).chapters.flatMap((c) => c.detail
+    .filter((p) => (p.texts ?? []).some((t) => t.white && t.px < t.least - 0.05))
+    .map((p) => `${ids[c.url.split('/').pop()]}/${String(p.page).padStart(2, '0')}.json`));
+  assert.ok(smaller.every((k) => r.pages[k] && !r.pages[k].real_s21_stands), smaller.join(' '));
   const crops = json('crops.json');
   for (const c of crops) assert.equal(createHash('sha256').update(read(c.file)).digest('hex'), c.sha256, c.file);
   const shown = new Set(crops.filter((c) => c.file.startsWith(`emulator-${run}-`)).flatMap((c) => c.pages.map((p) => `${c.file.split('-')[2]}/${String(p.page).padStart(2, '0')}.json`)));
@@ -223,17 +233,51 @@ test('the leak check over this head\'s layouts shows no source dialogue: every m
   assert.equal(text.split('\n').filter((l) => /^ch\d+ \d+ dialogue \d+\/\d+$/.test(l)).length, 61, 'every page checked');
 });
 
+// The API probe's receipt against what each case sent: the outcome
+// expected, the request's model path and prefill, and for a page kept the
+// Korean the stand-in answered, as this check knows it (`korean`, by case),
+// both as recorded in the answer and as the library gave it back. Text
+// decoded in another code page on the way fails here. The problems, none if so.
+function probeProblems(text, korean) {
+  const lines = text.trim().split('\n');
+  const problems = lines.at(-1) === `PASS ${lines.length - 1} cases` ? [] : [`closing line ${lines.at(-1)}`];
+  for (const c of lines.slice(0, -1).map((l) => JSON.parse(l))) {
+    if (c.observed !== c.expected || !c.pass) problems.push(`${c.case}: observed ${c.observed}`);
+    if (c.request?.path !== '/v1beta/models/gemini-3.1-flash-lite:generateContent' || c.request?.prefill !== '{"items":[') problems.push(`${c.case}: request`);
+    const want = korean[c.case] ?? null;
+    let answered = null;
+    try { answered = want && JSON.parse(`{"items":[${c.answered}`).items.map((i) => i.ko); } catch { answered = 'unreadable'; }
+    for (const [what, got] of [['answered', answered], ['answered_ko', c.answered_ko ?? null], ['kept', c.kept ?? null]]) {
+      if (JSON.stringify(got) !== JSON.stringify(want)) problems.push(`${c.case}: ${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
+    }
+  }
+  return problems;
+}
+
+test('an API probe receipt passes only when a kept page holds the Korean answered, unchanged', () => {
+  const korean = { 'a kept page': ['가나'] };
+  const line = (o) => JSON.stringify({ case: 'a kept page', request: { path: '/v1beta/models/gemini-3.1-flash-lite:generateContent', prefill: '{"items":[' },
+    answered: '{"ko":"가나"}]}', expected: 'kept', observed: 'kept', answered_ko: ['가나'], kept: ['가나'], pass: true, ...o });
+  const receipt = (...ls) => `${ls.join('\n')}\nPASS ${ls.length} cases`;
+  const forms = [
+    ['the Korean kept as answered', receipt(line({})), true],
+    ['answer and page both decoded in another code page', receipt(line({ answered: '{"ko":"?섎"}]}', answered_ko: ['?섎'], kept: ['?섎'] })), false],
+    ['the page keeping other Korean than answered', receipt(line({ kept: ['가'] })), false],
+    ['the page keeping nothing', receipt(line({ kept: null })), false],
+    ['no Korean recorded as answered', receipt(line({ answered_ko: undefined })), false],
+    ['an outcome other than expected', receipt(line({ observed: 'failed' })), false],
+    ['a case marked failed', receipt(line({ pass: false })), false],
+    ['a closing line counting other cases', `${line({})}\nPASS 2 cases`, false],
+  ];
+  for (const [name, text, ok] of forms) assert.equal(probeProblems(text, korean).length === 0, ok, name);
+});
+
 test('the focused checks and the API probe passed', () => {
   const t = read('focused-tests.txt').toString('utf8');
   assert.match(t, new RegExp(`source commit ${source}`));
   assert.match(t, /Summary \[[^\]]*\] (\d+) tests run: \1 passed, 0 skipped/);
-  assert.match(t, /Tests\s+26 passed \(26\)/);
+  assert.match(t, /Tests\s+28 passed \(28\)/);
   assert.doesNotMatch(t, /FAIL|×/);
-  const probe = read('api-probe.txt').toString('utf8').trim().split('\n');
-  assert.equal(probe.at(-1), 'PASS 2 cases');
-  for (const c of probe.slice(0, -1).map((l) => JSON.parse(l))) {
-    assert.equal(c.observed, c.expected, c.case);
-    assert.equal(c.request.path, '/v1beta/models/gemini-3.1-flash-lite:generateContent', c.case);
-    assert.equal(c.request.prefill, '{"items":[', c.case);
-  }
+  // The probe's readable answer carries '안녕'; the repaired one keeps no page.
+  assert.deepEqual(probeProblems(read('api-probe.txt').toString('utf8'), { 'readable answer': ['안녕'] }), []);
 });

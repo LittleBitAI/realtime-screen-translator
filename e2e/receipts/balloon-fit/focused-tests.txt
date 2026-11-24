@@ -1,278 +1,276 @@
-source commit 66b5982c77f257d04390f0885def8bc00b1b685c
+source commit 2d94efe399491be2c2998ad0cff5f0fe10c666cb
 (working tree: only e2e/receipts/balloon-fit changed; rustc 1.98.1, cargo-nextest 0.9.152 (26ebeda79 2026-11-13), node v24.18.0)
 $ cargo nextest run -p realtime-screen-translator (src-tauri)
    Compiling realtime-screen-translator v0.1.0 (C:\Users\dasdk\PycharmProjects\realtime-screen-translator\src-tauri)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 4m 50s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3m 41s
 ────────────
- Nextest run ID 6aa3301f-9413-470a-b49e-b7f631e2abdb with nextest profile: default
+ Nextest run ID 71b05e0e-d95b-4f7e-be67-b883a23977cf with nextest profile: default
     Starting 228 tests across 51 binaries
-        PASS [   0.078s] (  1/228) realtime-screen-translator backend::reader::tests::a_rectangle_cover_stops_short_of_the_next_caption
-        PASS [   0.087s] (  2/228) realtime-screen-translator backend::reader::tests::a_line_for_two_balloons_is_set_a_sentence_in_each_in_reading_order
-        PASS [   0.209s] (  3/228) realtime-screen-translator backend::reader::tests::a_balloon_box_too_large_does_not_spread_the_shape_over_the_art
-        PASS [   0.254s] (  4/228) realtime-screen-translator backend::reader::tests::a_line_lettered_in_another_items_block_is_drawn_in_its_cover
-        PASS [   0.287s] (  5/228) realtime-screen-translator backend::reader::tests::a_line_shared_between_places_follows_its_source_where_that_fits_their_letters
-        PASS [   0.185s] (  6/228) realtime-screen-translator backend::reader::tests::a_rectangle_never_covers_another_covers_korean
-        PASS [   0.189s] (  7/228) realtime-screen-translator backend::reader::tests::a_shape_covers_its_text_and_stays_in_its_balloon
-        PASS [   0.093s] (  8/228) realtime-screen-translator backend::reader::tests::a_text_box_without_its_balloon_is_covered_a_little_past_its_edges
-        PASS [   0.074s] (  9/228) realtime-screen-translator backend::reader::tests::lettering_in_two_places_is_covered_in_two_and_the_art_between_kept
-        PASS [   0.378s] ( 10/228) realtime-screen-translator backend::reader::tests::a_last_line_under_the_box_is_covered_to_its_end_letters
-        PASS [   0.217s] ( 11/228) realtime-screen-translator backend::reader::tests::art_beside_a_found_balloon_is_not_gathered_into_its_cover
-        PASS [   0.143s] ( 12/228) realtime-screen-translator backend::reader::tests::marks_off_a_blocks_corner_are_art_unless_a_line_runs_there
-        PASS [   0.396s] ( 13/228) realtime-screen-translator backend::reader::tests::unclaimed_lettering_of_the_lines_size_mostly_on_its_box_is_covered_with_it
-        PASS [   0.555s] ( 14/228) realtime-screen-translator backend::reader::tests::letters_in_a_balloon_are_covered_whether_the_box_is_loose_or_tight_on_them
-        PASS [   0.017s] ( 15/228) realtime-screen-translator backend::tests::a_range_scrolled_past_stays_a_gap_until_saved
-        PASS [   0.059s] ( 16/228) realtime-screen-translator backend::tests::new_part_is_what_the_screen_adds
-        PASS [   0.055s] ( 17/228) realtime-screen-translator backend::tests::title_is_the_utc_start_time
-        PASS [   0.031s] ( 18/228) realtime-screen-translator balloon::tests::a_box_counts_the_letters_centred_in_it_and_not_dots
-        PASS [   1.065s] ( 19/228) realtime-screen-translator backend::reader::tests::a_page_saved_by_an_earlier_version_is_laid_out_again_and_keeps_what_that_version_reads
-        PASS [   0.065s] ( 20/228) realtime-screen-translator balloon::tests::a_box_off_its_line_moves_onto_it
-        PASS [   0.021s] ( 21/228) realtime-screen-translator balloon::tests::a_caption_does_not_gather_letters_from_inside_another_items_lettering
-        PASS [   0.060s] ( 22/228) realtime-screen-translator balloon::tests::a_diamond_of_lettering_is_covered_inside_its_ellipse
-        PASS [   0.079s] ( 23/228) realtime-screen-translator balloon::tests::a_neighbouring_balloon_is_left_alone
-        PASS [   0.028s] ( 24/228) realtime-screen-translator balloon::tests::a_picture_beside_lettering_on_the_art_is_left_whole
-        PASS [   0.874s] ( 25/228) realtime-screen-translator backend::reader::tests::lettering_on_the_art_is_covered_letter_by_letter_under_larger_korean
-        PASS [   0.022s] ( 26/228) realtime-screen-translator balloon::tests::a_reading_lettered_over_its_line_goes_with_it
-        PASS [   0.025s] ( 27/228) realtime-screen-translator balloon::tests::a_short_lines_box_moves_onto_its_few_marks_just_past_it
-        PASS [   0.062s] ( 28/228) realtime-screen-translator balloon::tests::a_strokes_soft_edge_is_covered_too
-        PASS [   0.137s] ( 29/228) realtime-screen-translator balloon::tests::a_tone_panels_specks_under_lettering_are_not_letters
-        PASS [   0.178s] ( 30/228) realtime-screen-translator balloon::tests::a_word_just_off_the_items_box_is_gathered_and_one_further_off_is_not
-        PASS [   0.168s] ( 31/228) realtime-screen-translator balloon::tests::boxes_shifted_a_balloon_over_keep_their_order
-        PASS [   0.082s] ( 32/228) realtime-screen-translator balloon::tests::dialogue_goes_to_its_lettering_over_marks_on_the_art
-        PASS [   0.063s] ( 33/228) realtime-screen-translator balloon::tests::every_dot_of_an_ellipsis_up_to_a_letter_apart_is_covered
-        PASS [   0.044s] ( 34/228) realtime-screen-translator balloon::tests::gathering_stays_on_the_items_box
-        PASS [   0.033s] ( 35/228) realtime-screen-translator balloon::tests::lettering_with_no_balloon_is_covered_letter_by_letter
-        PASS [   0.067s] ( 36/228) realtime-screen-translator balloon::tests::lettering_on_white_skin_is_not_a_balloon
-        PASS [   0.070s] ( 37/228) realtime-screen-translator balloon::tests::marks_much_smaller_than_the_lettering_in_a_box_do_not_take_its_line
-        PASS [   0.095s] ( 38/228) realtime-screen-translator balloon::tests::letters_edged_in_white_on_the_art_are_found_only_by_edged
-        PASS [   1.055s] ( 39/228) realtime-screen-translator backend::reader::tests::the_next_save_to_take_the_lock_finds_only_kept_page_images
-        PASS [   0.021s] ( 40/228) realtime-screen-translator balloon::tests::text_without_a_closed_balloon_is_not_found
-        PASS [   0.093s] ( 41/228) realtime-screen-translator balloon::tests::screentone_around_a_balloon_stays_out_of_its_lettering
-        PASS [   0.023s] ( 42/228) realtime-screen-translator detect::tests::text_areas_are_kept_and_balloon_outlines_and_weak_boxes_are_not
-        PASS [   0.042s] ( 43/228) realtime-screen-translator balloon::tests::white_edged_lettering_on_an_open_tone_is_not_a_balloon
-        PASS [   0.030s] ( 44/228) realtime-screen-translator export::tests::a_reader_line_is_drawn_inside_the_area_its_size_was_chosen_for
-        PASS [   0.026s] ( 45/228) realtime-screen-translator export::tests::placement_follows_its_balloon_outline_in_its_band
-        PASS [   0.035s] ( 46/228) realtime-screen-translator export::tests::placement_is_white_with_dark_text_and_leaves_the_rest
-        PASS [   0.036s] ( 47/228) realtime-screen-translator export::tests::tone_covers_a_letter_but_not_the_speed_line_through_it
-        PASS [   0.090s] ( 48/228) realtime-screen-translator export::tests::long_picture_is_written_band_by_band
-        PASS [   0.127s] ( 49/228) realtime-screen-translator export::tests::tone_is_smooth_not_a_mosaic
-        PASS [   0.126s] ( 50/228) realtime-screen-translator export::tests::tone_leaves_a_panel_border_its_rect_reaches
-        PASS [   0.110s] ( 51/228) realtime-screen-translator export::tests::tone_takes_in_edging_on_the_dark_side_of_a_panel_edge
-        PASS [   0.042s] ( 52/228) realtime-screen-translator export::tests::tone_takes_in_white_edging_off_white_paper
-        PASS [   0.023s] ( 53/228) realtime-screen-translator export::tests::too_tall_webp_is_refused
-        PASS [   0.021s] ( 54/228) realtime-screen-translator fingerprint::tests::same_hash_with_other_shape_gets_its_own_key
-        PASS [   0.036s] ( 55/228) realtime-screen-translator export::tests::whiten_covers_what_tone_does_white
-        PASS [   0.028s] ( 56/228) realtime-screen-translator fingerprint::tests::shifted_gradient_stays_close_and_flipped_one_does_not
-        PASS [   0.017s] ( 57/228) realtime-screen-translator gemini::tests::a_page_answer_is_read_into_its_balloons
-        PASS [   0.022s] ( 58/228) realtime-screen-translator gemini::tests::a_whole_answer_with_a_broken_item_is_read_item_by_item
-        PASS [   0.027s] ( 59/228) realtime-screen-translator gemini::tests::an_answer_with_a_balloon_missing_its_korean_or_box_is_unreadable
-        PASS [   0.026s] ( 60/228) realtime-screen-translator gemini::tests::an_answer_with_an_item_no_repair_reads_is_unreadable
-        PASS [   0.030s] ( 61/228) realtime-screen-translator gemini::tests::an_answer_with_anything_but_balloons_between_them_is_unreadable
-        PASS [   0.233s] ( 62/228) realtime-screen-translator export::tests::tone_keeps_a_light_edge_from_running_deep_into_dark
-        PASS [   0.028s] ( 63/228) realtime-screen-translator gemini::tests::prefill_continuation_parses_and_refusal_does_not
-        PASS [   0.025s] ( 64/228) realtime-screen-translator gemini::tests::the_prompt_asks_for_dialogue_lettered_on_the_art
-        PASS [   0.050s] ( 65/228) realtime-screen-translator gemini::tests::the_prompt_carries_the_chapter_so_far
-        PASS [   0.073s] ( 66/228) realtime-screen-translator layout::tests::a_line_for_several_balloons_is_cut_at_sentence_ends
-        PASS [   0.079s] ( 67/228) realtime-screen-translator layout::tests::korean_takes_the_lettering_size_until_it_must_fit
-        PASS [   0.079s] ( 68/228) realtime-screen-translator layout::tests::long_line_in_narrow_balloon_fits
-        PASS [   0.054s] ( 69/228) realtime-screen-translator layout::tests::sliver_crop_is_widened_and_stays_on_its_balloon
-        PASS [   0.997s] ( 70/228) realtime-screen-translator balloon::tests::a_block_of_two_lines_is_cut_where_they_part
-        PASS [   0.126s] ( 71/228) realtime-screen-translator layout::tests::tiny_balloon_grows_instead_of_overflowing
-        PASS [   0.123s] ( 72/228) realtime-screen-translator tracker::tests::shift_is_found_and_other_page_is_not
-        PASS [   0.131s] ( 73/228) realtime-screen-translator tracker::tests::thumbnail_is_96_wide_and_averages
-        PASS [   0.128s] ( 74/228) realtime-screen-translator vault::tests::sealed_key_round_trips_and_hides_the_plain_text
-        PASS [   2.140s] ( 75/228) realtime-screen-translator backend::reader::tests::a_page_slow_to_load_is_waited_for_by_the_page_after_it
-        PASS [   0.116s] ( 76/228) realtime-screen-translator::android_plugin_edges the_capture_prompt_asks_for_the_whole_screen
-        PASS [   0.195s] ( 77/228) realtime-screen-translator::android_plugin_edges every_command_rust_calls_is_a_plugin_command_and_none_hides_tauris
-        PASS [   2.026s] ( 78/228) realtime-screen-translator backend::reader::tests::an_earlier_page_kept_without_its_answer_still_gives_the_next_request_its_lines
-        PASS [   3.258s] ( 79/228) realtime-screen-translator::backend_edges crop_of_a_forgotten_frame_is_refused
-        PASS [   3.585s] ( 80/228) realtime-screen-translator::backend_edges failed_translation_is_asked_again
-        PASS [   6.066s] ( 81/228) realtime-screen-translator backend::reader::tests::lettering_larger_than_any_letter_is_covered_where_its_box_says
-        PASS [   4.492s] ( 82/228) realtime-screen-translator::backend_edges same_hash_with_another_shape_keeps_both_translations
-        PASS [   4.946s] ( 83/228) realtime-screen-translator::backend_edges part_scrolled_past_without_stopping_is_saved_when_the_screen_rests_on_it
-        PASS [   0.422s] ( 84/228) realtime-screen-translator::band_cut_and_lost_capture_edges android_tells_rust_capture_was_lost_and_takes_the_overlay_down
-        PASS [   4.858s] ( 85/228) realtime-screen-translator::backend_edges strip_that_is_not_the_screen_rows_is_refused
-        PASS [   4.998s] ( 86/228) realtime-screen-translator::backend_edges same_balloon_seen_in_several_places_while_waiting_is_placed_everywhere
-        PASS [   5.100s] ( 87/228) realtime-screen-translator::backend_edges no_retry_goes_out_after_stop
-        PASS [   2.988s] ( 88/228) realtime-screen-translator::band_and_strip_edges a_strip_outside_what_p6_asked_for_is_not_stored
-        PASS [   1.951s] ( 89/228) realtime-screen-translator::band_cut_and_lost_capture_edges a_text_area_cut_by_a_fixed_bar_is_replaced_by_the_whole_one_a_scroll_shows
-        PASS [   3.249s] ( 90/228) realtime-screen-translator::band_and_strip_edges content_scrolled_into_the_first_screens_status_bar_rows_is_saved
-        PASS [   1.828s] ( 91/228) realtime-screen-translator::band_cut_and_lost_capture_edges capture_stopped_from_the_system_ends_the_session_so_it_can_start_again
-        PASS [   0.603s] ( 92/228) realtime-screen-translator::button_and_crop_edges clear_of_keeps_the_rows_around_the_button
-        PASS [   2.580s] ( 93/228) realtime-screen-translator::blocked_capture_edges a_black_capture_with_the_bars_and_our_button_lit_is_blocked
-        PASS [   2.528s] ( 94/228) realtime-screen-translator::blocked_capture_edges a_dark_page_with_one_white_balloon_is_read_and_saved
-        PASS [   0.033s] ( 95/228) realtime-screen-translator::capture_queue_edges frames_without_the_shapes_are_not_handed_on_as_the_screen
-        PASS [   0.036s] ( 96/228) realtime-screen-translator::capture_queue_edges three_pinned_frames_do_not_stall_delivery
-        PASS [   1.681s] ( 97/228) realtime-screen-translator::button_hidden_text_edges the_rows_behind_the_button_are_looked_at_in_the_frame_without_it
-        PASS [   1.763s] ( 98/228) realtime-screen-translator::button_hidden_text_edges without_a_clean_frame_the_rows_behind_the_button_are_looked_at_once_scrolled_out
-        PASS [   2.165s] ( 99/228) realtime-screen-translator::button_and_crop_edges rows_behind_the_floating_button_are_saved_only_once_they_scroll_clear_of_it
-        PASS [   3.912s] (100/228) realtime-screen-translator::blocked_capture_edges a_dark_page_with_its_balloon_at_the_top_edge_is_read_and_saved
-        PASS [   2.868s] (101/228) realtime-screen-translator::button_and_crop_edges crops_of_another_kind_or_off_the_screen_are_not_translated
-        PASS [   2.352s] (102/228) realtime-screen-translator::clean_frame_edges a_hidden_button_frame_of_another_screen_is_not_used
-        PASS [   1.707s] (103/228) realtime-screen-translator::contract test_blocked_capture_raises_notice
-        PASS [   1.970s] (104/228) realtime-screen-translator::clean_frame_edges a_screen_switched_off_without_scrolling_is_exported_whole_and_without_the_button
-        PASS [   8.329s] (105/228) realtime-screen-translator::contract test_books_remain_after_restart
-        PASS [  12.356s] (106/228) realtime-screen-translator::batch_error_edges a_crop_failing_in_a_batch_does_not_strand_the_ones_before_it
-        PASS [   8.381s] (107/228) realtime-screen-translator::contract test_crop_over_existing_placement_is_discarded
-        PASS [   7.077s] (108/228) realtime-screen-translator::contract test_export_bakes_white_shape_and_korean
-        PASS [   8.282s] (109/228) realtime-screen-translator::contract test_effect_crop_gets_no_placement
-        PASS [   7.440s] (110/228) realtime-screen-translator::contract test_effect_inside_balloon_is_stored_as_skip
-        PASS [   7.538s] (111/228) realtime-screen-translator::contract test_export_writes_picture_files
-        PASS [   1.106s] (112/228) realtime-screen-translator::contract test_fast_scroll_keeps_placements_and_aligns_on_stop
-        PASS [   1.227s] (113/228) realtime-screen-translator::contract test_frames_never_call_gemini_and_one_crop_per_balloon
-        PASS [   1.948s] (114/228) realtime-screen-translator::contract test_gemini_requests_turn_guardrails_off
-        PASS [   2.335s] (115/228) realtime-screen-translator::contract test_fingerprint_matches_after_restart_and_move
-        PASS [   2.531s] (116/228) realtime-screen-translator::contract test_fixed_band_is_not_repeated
-        PASS [   2.531s] (117/228) realtime-screen-translator::contract test_gemini_requests_carry_prefill
-        PASS [   1.892s] (118/228) realtime-screen-translator::contract test_key_is_stored_encrypted_and_stays_on_device
-        PASS [   1.525s] (119/228) realtime-screen-translator::contract test_korean_stays_inside_white_shape
-        PASS [  12.496s] (120/228) realtime-screen-translator::capture_capability_edges start_opens_a_session_only_where_capture_is_possible_and_granted
-        PASS [   1.947s] (121/228) realtime-screen-translator::contract test_page_change_closes_stitched_picture
-        PASS [   1.639s] (122/228) realtime-screen-translator::contract test_read_and_translate_go_separately
-        PASS [   1.595s] (123/228) realtime-screen-translator::contract test_scroll_back_sends_no_gemini_request
-        PASS [   1.860s] (124/228) realtime-screen-translator::contract test_previous_page_restores_without_detect
-        PASS [   1.674s] (125/228) realtime-screen-translator::contract test_read_request_carries_only_crops
-        PASS [   1.995s] (126/228) realtime-screen-translator::contract test_scroll_back_does_not_append_twice
-        PASS [   5.647s] (127/228) realtime-screen-translator::contract test_no_login_command_exists
-        PASS [   0.446s] (128/228) realtime-screen-translator::contract test_scroll_continues_while_gemini_is_slow
-        PASS [   1.171s] (129/228) realtime-screen-translator::contract test_status_tells_on_and_off
-        PASS [   2.067s] (130/228) realtime-screen-translator::contract test_start_without_permission_is_refused
-        PASS [   2.066s] (131/228) realtime-screen-translator::contract test_still_screen_sends_nothing
-        PASS [   2.071s] (132/228) realtime-screen-translator::contract test_start_without_key_is_refused
-        PASS [   2.084s] (133/228) realtime-screen-translator::contract test_slide_reading_makes_picture_per_page
-        PASS [   2.083s] (134/228) realtime-screen-translator::contract test_scroll_reading_makes_one_long_picture
-        PASS [   2.831s] (135/228) realtime-screen-translator::contract test_scroll_detects_only_new_region
-        PASS [   2.860s] (136/228) realtime-screen-translator::contract test_start_then_frame_and_crop_yields_korean_placement
-        PASS [   0.036s] (137/228) realtime-screen-translator::cut_box_and_notice_edges a_text_area_seen_whole_after_a_scroll_is_read_where_it_reaches_the_new_rows
-        PASS [   0.018s] (138/228) realtime-screen-translator::cut_box_and_notice_edges an_answer_with_anything_after_its_json_is_not_read
-        PASS [   2.073s] (139/228) realtime-screen-translator::contract test_windows_starts_without_permission_prompt
-        PASS [   2.089s] (140/228) realtime-screen-translator::contract test_vertical_shift_is_judged_scroll
-        PASS [   2.202s] (141/228) realtime-screen-translator::contract test_stop_removes_overlay_and_halts_gemini
-        PASS [   2.186s] (142/228) realtime-screen-translator::contract test_wrong_key_raises_notice
-        PASS [   2.199s] (143/228) realtime-screen-translator::contract test_whole_change_is_judged_page_and_clears
-        PASS [   3.122s] (144/228) realtime-screen-translator::contract test_stop_and_start_opens_new_picture
-        PASS [   1.435s] (145/228) realtime-screen-translator::cut_box_and_notice_edges the_missing_model_notice_goes_once_detection_runs
-        PASS [   0.346s] (146/228) realtime-screen-translator::edge_box_and_creep_edges a_square_creeping_a_row_a_frame_is_a_scroll
-        PASS [   0.308s] (147/228) realtime-screen-translator::edge_box_and_creep_edges a_whole_text_area_at_the_edge_of_a_turned_page_is_read
-        PASS [   0.468s] (148/228) realtime-screen-translator::flat_overlap_edges pages_that_line_up_only_on_a_blank_margin_are_a_page_turn
-        PASS [   0.502s] (149/228) realtime-screen-translator::edge_box_and_creep_edges a_whole_text_area_at_the_edge_of_the_first_screen_is_read_at_once
-        PASS [   0.501s] (150/228) realtime-screen-translator::erased_shape_edges the_going_of_an_erased_shape_is_no_page_turn
-        PASS [   0.016s] (151/228) realtime-screen-translator::lifecycle_and_export_edges a_black_capture_with_a_stray_lit_pixel_in_it_is_blocked
-        PASS [   0.657s] (152/228) realtime-screen-translator::edge_box_and_creep_edges a_text_area_cut_by_the_edge_gives_way_to_the_whole_one_a_scroll_shows
-        PASS [   0.573s] (153/228) realtime-screen-translator::fast_scroll_edges a_scroll_of_three_quarters_of_the_screen_between_frames_is_followed
-        PASS [   0.060s] (154/228) realtime-screen-translator::long_translation_edges a_grown_shape_is_kept_on_the_screen_and_still_covers_its_text_area
-        PASS [   0.133s] (155/228) realtime-screen-translator::lifecycle_and_export_edges the_rounded_shape_covers_the_source_text_to_its_corners
-        PASS [   0.383s] (156/228) realtime-screen-translator::known_edge_and_gallery_full_edges a_text_area_at_the_edge_already_translated_goes_on_at_once
-        PASS [   0.032s] (157/228) realtime-screen-translator::look_under_and_corner_edges a_shape_moved_onto_the_screen_still_covers_its_text_areas_corners
-        PASS [   0.811s] (158/228) realtime-screen-translator::lifecycle_and_export_edges a_stop_still_tearing_down_does_not_take_down_the_next_start
-        PASS [   0.660s] (159/228) realtime-screen-translator::long_translation_edges a_long_translation_at_the_screen_edge_is_placed_whole_on_screen
-        PASS [   0.640s] (160/228) realtime-screen-translator::look_under_and_corner_edges a_page_turned_under_opaque_shapes_is_found_by_looking_under_them
-        PASS [   0.812s] (161/228) realtime-screen-translator::lifecycle_and_export_edges exports_at_the_same_time_write_separate_files
-        PASS [   1.095s] (162/228) realtime-screen-translator::known_edge_and_gallery_full_edges a_gallery_with_no_room_left_is_storage_full
-        PASS [   0.057s] (163/228) realtime-screen-translator::look_under_and_corner_edges android_tells_of_a_tap_and_hides_the_shapes_for_a_look
-        PASS [   0.073s] (164/228) realtime-screen-translator::look_under_and_corner_edges the_windows_overlay_follows_the_monitor_when_it_changes
-        PASS [   0.088s] (165/228) realtime-screen-translator::overlay_and_storage_edges line_breaks_in_a_translation_count_as_lines_of_the_shape
-        PASS [   0.051s] (166/228) realtime-screen-translator::overlay_hide_timeout_edges a_hide_the_main_thread_comes_to_late_is_called_off
-        PASS [   0.041s] (167/228) realtime-screen-translator::overlay_text_fit_edges the_overlay_makes_the_korean_smaller_while_it_runs_over_the_shape
-        PASS [   0.016s] (168/228) realtime-screen-translator::overlay_text_fit_edges the_overlay_sets_lines_1_2_em_apart_as_the_fit_assumes
-        PASS [   0.419s] (169/228) realtime-screen-translator::overlay_and_storage_edges our_overlay_in_the_capture_is_neither_a_page_turn_nor_a_scroll
-        PASS [   0.285s] (170/228) realtime-screen-translator::page_size_and_covered_page_edges a_dark_page_whose_shape_covers_its_only_balloon_is_not_blocked
-        PASS [   0.434s] (171/228) realtime-screen-translator::overlay_and_storage_edges a_picture_whose_stored_range_lags_its_strips_is_exported_whole
-        PASS [   0.454s] (172/228) realtime-screen-translator::page_band_edges a_new_page_is_detected_and_saved_whole_after_a_band_was_learnt
-        PASS [   0.199s] (173/228) realtime-screen-translator::page_size_and_covered_page_edges a_page_seen_on_a_screen_of_another_size_is_not_reopened
-        PASS [   0.371s] (174/228) realtime-screen-translator::partly_changed_page_edges a_page_whose_words_changed_in_one_of_two_balloons_is_turned_to
-        PASS [   1.826s] (175/228) realtime-screen-translator::look_under_and_corner_edges a_tap_on_the_same_page_turns_nothing
-        PASS [   0.801s] (176/228) realtime-screen-translator::pipeline switched_on_by_the_button_the_loop_reads_follows_and_saves
-        PASS [   0.761s] (177/228) realtime-screen-translator::placement_write_retry_edges a_placement_that_could_not_be_written_is_placed_once_its_rows_come_again
-        PASS [   4.375s] (178/228) realtime-screen-translator::cut_crop_pending_edges a_whole_crop_shown_while_its_cut_one_waits_is_read_and_placed
-        PASS [   1.239s] (179/228) realtime-screen-translator::reader_edges a_page_answered_from_the_library_counts_among_its_chapters_earlier_pages
-        PASS [   0.682s] (180/228) realtime-screen-translator::reader_edges a_page_is_translated_once_per_language_and_kept_as_a_book
-        PASS [   0.562s] (181/228) realtime-screen-translator::reader_edges a_page_whose_saving_fails_says_so_and_is_saved_by_the_next_call_without_gemini
-        PASS [   1.167s] (182/228) realtime-screen-translator::reader_edges a_page_carries_the_earlier_pages_lines_in_its_own_source_language
-        PASS [   0.303s] (183/228) realtime-screen-translator::reader_edges empty_and_failed_imports_leave_no_chapter_or_copied_files
-        PASS [   0.828s] (184/228) realtime-screen-translator::reader_edges saved_links_share_book_identity_with_the_reader_and_lists_keep_their_order
-        PASS [   1.161s] (185/228) realtime-screen-translator::reader_edges copies_of_one_page_read_at_once_send_it_to_gemini_once
-        PASS [   0.827s] (186/228) realtime-screen-translator::screen_edges a_balloon_gemini_failed_on_is_detected_again_when_the_reader_scrolls
-        PASS [   1.455s] (187/228) realtime-screen-translator::reader_edges imported_chapter_survives_restart_and_shares_the_url_cache_by_language
-        PASS [   0.481s] (188/228) realtime-screen-translator::screen_edges a_turned_screen_starts_a_new_picture_in_its_own_size
-        PASS [   0.656s] (189/228) realtime-screen-translator::screen_edges a_scroll_of_fractional_rows_adds_up_and_is_set_right_at_rest
-        PASS [   0.702s] (190/228) realtime-screen-translator::screen_edges a_crop_whose_picture_is_not_its_size_is_not_sent
-        PASS [   0.028s] (191/228) realtime-screen-translator::shape_blocked_and_disk_full_edges a_full_disk_met_by_the_database_is_storage_full
-        PASS [   0.222s] (192/228) realtime-screen-translator::screen_edges rows_whose_detection_failed_are_detected_again_after_the_screen_moves
-        PASS [   0.512s] (193/228) realtime-screen-translator::shape_blocked_and_disk_full_edges a_blocked_capture_that_holds_only_the_white_shapes_is_blocked
-        PASS [   0.540s] (194/228) realtime-screen-translator::side_panel_scroll_edges only_the_manga_scrolling_beside_a_still_panel_is_a_scroll
-        PASS [   0.600s] (195/228) realtime-screen-translator::side_panel_change_edges a_change_in_the_side_panel_after_a_scroll_is_detected
-        PASS [   2.897s] (196/228) realtime-screen-translator::reader_edges a_page_read_while_the_one_before_is_with_gemini_carries_its_lines
-        PASS [   0.293s] (197/228) realtime-screen-translator::side_panel_translation_edges a_translation_in_the_still_side_panel_stays_while_the_rest_scrolls
-        PASS [   0.417s] (198/228) realtime-screen-translator::slow_scroll_and_button_crop_edges a_scroll_a_quarter_row_a_frame_adds_up
-        PASS [   2.659s] (199/228) realtime-screen-translator::reader_edges oversize_pages_are_rejected_across_formats_before_a_chapter_is_published
-        PASS [   0.239s] (200/228) realtime-screen-translator::small_change_on_still_screen_edges a_small_part_changing_on_a_still_screen_is_detected_again
-        PASS [   1.313s] (201/228) realtime-screen-translator::screen_edges stop_cuts_off_a_gemini_request_in_flight_and_nothing_goes_out_after
-        PASS [   0.029s] (202/228) realtime-screen-translator::stale_peek_frame_edges a_peek_is_taken_only_once_the_shapes_are_gone_from_it
-        PASS [   0.016s] (203/228) realtime-screen-translator::stale_peek_frame_edges frames_are_timed_by_when_the_mirror_composed_them
-        PASS [   5.700s] (204/228) realtime-screen-translator::lifecycle_and_export_edges a_start_whose_book_cannot_be_made_takes_capture_and_overlay_down
-        PASS [   0.764s] (205/228) realtime-screen-translator::stale_clean_frame_edges a_frame_with_the_button_gone_still_fills_the_rows_behind_it
-        PASS [   0.920s] (206/228) realtime-screen-translator::slow_scroll_and_button_crop_edges without_a_frame_free_of_the_button_a_crop_it_lies_over_is_not_sent
-        PASS [   0.713s] (207/228) realtime-screen-translator::stale_clean_frame_edges a_late_image_that_still_shows_the_button_is_not_saved_as_clean
-        PASS [   0.828s] (208/228) realtime-screen-translator::store_sync_edges commits_do_not_wait_on_the_disk_and_survive_reopening
-        PASS [   5.850s] (209/228) realtime-screen-translator::overlay_and_storage_edges stop_takes_capture_and_overlay_down_even_when_the_book_cannot_be_closed
-        PASS [   2.162s] (210/228) realtime-screen-translator::side_panel_translation_edges a_panel_crop_of_a_frame_before_the_scroll_is_placed_on_its_balloon
-        PASS [   2.130s] (211/228) realtime-screen-translator::side_panel_translation_edges a_panel_translation_coming_after_the_scroll_is_on_its_balloon
-        PASS [   0.815s] (212/228) realtime-screen-translator::strip_retry_under_shapes_edges rows_saved_again_under_a_shape_come_from_a_frame_without_the_shapes
-        PASS [   1.434s] (213/228) realtime-screen-translator::strip_file_and_shape_edges a_strip_is_kept_as_lossless_webp_under_a_relative_path
-        PASS [   0.048s] (214/228) realtime-screen-translator::windows_overlay_and_button_mask_edges the_app_draws_on_the_windows_overlay_instead_of_only_sending_an_event
-        PASS [   1.546s] (215/228) realtime-screen-translator::strip_file_and_shape_edges a_shape_grown_for_a_long_translation_does_not_cover_one_already_shown
-        PASS [   0.022s] (216/228) realtime-screen-translator::windows_overlay_and_button_mask_edges the_windows_overlay_page_draws_white_shapes_with_the_korean_in_them
-        PASS [   0.263s] (217/228) realtime-screen-translator::windows_words_edges a_change_under_a_translation_just_drawn_is_the_overlay_coming_on
-        PASS [   0.428s] (218/228) realtime-screen-translator::windows_overlay_and_button_mask_edges the_buttons_black_block_does_not_make_a_scroll_look_still
-        PASS [   2.370s] (219/228) realtime-screen-translator::strip_file_and_shape_edges a_large_capture_is_saved_and_reopened_for_export_in_both_strip_formats
-        PASS [   1.125s] (220/228) realtime-screen-translator::web_host_files saved_list_memberships_preserve_the_book_through_the_http_api
-        PASS [   1.168s] (221/228) realtime-screen-translator::web_host_files the_browser_host_never_reports_a_capture_it_cannot_do
-        PASS [   0.280s] (222/228) realtime-screen-translator::windows_words_edges a_page_alike_but_for_its_words_is_a_page_turn_under_an_overlay_held_alike_since_its_draw
-        PASS [   1.226s] (223/228) realtime-screen-translator::web_host_files the_files_route_serves_previews_and_exports_and_denies_every_other_form
-        PASS [   0.444s] (224/228) realtime-screen-translator::windows_words_edges where_the_overlay_is_not_captured_the_whole_text_area_is_read_at_once
-        PASS [   0.476s] (225/228) realtime-screen-translator::windows_words_edges a_page_alike_but_for_its_words_is_a_page_turn_where_the_overlay_is_not_captured
-        PASS [   1.827s] (226/228) realtime-screen-translator::web_host_files a_browser_export_can_be_fetched_by_the_reader_in_each_format
-        PASS [   1.241s] (227/228) realtime-screen-translator::windows_words_edges a_translated_page_scrolled_where_the_overlay_is_not_captured_is_a_scroll
-        PASS [   4.166s] (228/228) realtime-screen-translator::tap_before_translation_edges a_tap_to_other_words_before_the_translation_came_turns_the_page
+        PASS [   0.322s] (  1/228) realtime-screen-translator backend::reader::tests::a_rectangle_cover_stops_short_of_the_next_caption
+        PASS [   0.455s] (  2/228) realtime-screen-translator backend::reader::tests::a_balloon_box_too_large_does_not_spread_the_shape_over_the_art
+        PASS [   0.466s] (  3/228) realtime-screen-translator backend::reader::tests::a_line_shared_between_places_follows_its_source_where_that_fits_their_letters
+        PASS [   0.472s] (  4/228) realtime-screen-translator backend::reader::tests::a_line_lettered_in_another_items_block_is_drawn_in_its_cover
+        PASS [   0.489s] (  5/228) realtime-screen-translator backend::reader::tests::a_line_for_two_balloons_is_set_a_sentence_in_each_in_reading_order
+        PASS [   0.104s] (  6/228) realtime-screen-translator backend::reader::tests::a_rectangle_never_covers_another_covers_korean
+        PASS [   0.039s] (  7/228) realtime-screen-translator backend::reader::tests::a_shape_covers_its_text_and_stays_in_its_balloon
+        PASS [   0.506s] (  8/228) realtime-screen-translator backend::reader::tests::a_last_line_under_the_box_is_covered_to_its_end_letters
+        PASS [   0.123s] (  9/228) realtime-screen-translator backend::reader::tests::a_text_box_without_its_balloon_is_covered_a_little_past_its_edges
+        PASS [   0.149s] ( 10/228) realtime-screen-translator backend::reader::tests::lettering_in_two_places_is_covered_in_two_and_the_art_between_kept
+        PASS [   0.291s] ( 11/228) realtime-screen-translator backend::reader::tests::art_beside_a_found_balloon_is_not_gathered_into_its_cover
+        PASS [   0.197s] ( 12/228) realtime-screen-translator backend::reader::tests::marks_off_a_blocks_corner_are_art_unless_a_line_runs_there
+        PASS [   0.542s] ( 13/228) realtime-screen-translator backend::reader::tests::letters_in_a_balloon_are_covered_whether_the_box_is_loose_or_tight_on_them
+        PASS [   0.300s] ( 14/228) realtime-screen-translator backend::reader::tests::unclaimed_lettering_of_the_lines_size_mostly_on_its_box_is_covered_with_it
+        PASS [   0.027s] ( 15/228) realtime-screen-translator backend::tests::a_range_scrolled_past_stays_a_gap_until_saved
+        PASS [   0.105s] ( 16/228) realtime-screen-translator backend::tests::new_part_is_what_the_screen_adds
+        PASS [   0.092s] ( 17/228) realtime-screen-translator backend::tests::title_is_the_utc_start_time
+        PASS [   0.021s] ( 18/228) realtime-screen-translator balloon::tests::a_box_counts_the_letters_centred_in_it_and_not_dots
+        PASS [   0.023s] ( 19/228) realtime-screen-translator balloon::tests::a_box_off_its_line_moves_onto_it
+        PASS [   0.022s] ( 20/228) realtime-screen-translator balloon::tests::a_caption_does_not_gather_letters_from_inside_another_items_lettering
+        PASS [   0.069s] ( 21/228) realtime-screen-translator balloon::tests::a_diamond_of_lettering_is_covered_inside_its_ellipse
+        PASS [   0.920s] ( 22/228) realtime-screen-translator backend::reader::tests::lettering_on_the_art_is_covered_letter_by_letter_under_larger_korean
+        PASS [   0.083s] ( 23/228) realtime-screen-translator balloon::tests::a_neighbouring_balloon_is_left_alone
+        PASS [   0.060s] ( 24/228) realtime-screen-translator balloon::tests::a_picture_beside_lettering_on_the_art_is_left_whole
+        PASS [   0.135s] ( 25/228) realtime-screen-translator balloon::tests::a_reading_lettered_over_its_line_goes_with_it
+        PASS [   0.119s] ( 26/228) realtime-screen-translator balloon::tests::a_short_lines_box_moves_onto_its_few_marks_just_past_it
+        PASS [   0.259s] ( 27/228) realtime-screen-translator balloon::tests::a_tone_panels_specks_under_lettering_are_not_letters
+        PASS [   0.317s] ( 28/228) realtime-screen-translator balloon::tests::a_strokes_soft_edge_is_covered_too
+        PASS [   0.239s] ( 29/228) realtime-screen-translator balloon::tests::a_word_just_off_the_items_box_is_gathered_and_one_further_off_is_not
+        PASS [   0.187s] ( 30/228) realtime-screen-translator balloon::tests::boxes_shifted_a_balloon_over_keep_their_order
+        PASS [   0.028s] ( 31/228) realtime-screen-translator balloon::tests::dialogue_goes_to_its_lettering_over_marks_on_the_art
+        PASS [   0.256s] ( 32/228) realtime-screen-translator balloon::tests::every_dot_of_an_ellipsis_up_to_a_letter_apart_is_covered
+        PASS [   0.248s] ( 33/228) realtime-screen-translator balloon::tests::gathering_stays_on_the_items_box
+        PASS [   1.158s] ( 34/228) realtime-screen-translator balloon::tests::a_block_of_two_lines_is_cut_where_they_part
+        PASS [   0.147s] ( 35/228) realtime-screen-translator balloon::tests::lettering_with_no_balloon_is_covered_letter_by_letter
+        PASS [   0.195s] ( 36/228) realtime-screen-translator balloon::tests::lettering_on_white_skin_is_not_a_balloon
+        PASS [   0.192s] ( 37/228) realtime-screen-translator balloon::tests::letters_edged_in_white_on_the_art_are_found_only_by_edged
+        PASS [   0.094s] ( 38/228) realtime-screen-translator balloon::tests::marks_much_smaller_than_the_lettering_in_a_box_do_not_take_its_line
+        PASS [   0.097s] ( 39/228) realtime-screen-translator balloon::tests::screentone_around_a_balloon_stays_out_of_its_lettering
+        PASS [   0.089s] ( 40/228) realtime-screen-translator balloon::tests::text_without_a_closed_balloon_is_not_found
+        PASS [   0.104s] ( 41/228) realtime-screen-translator balloon::tests::white_edged_lettering_on_an_open_tone_is_not_a_balloon
+        PASS [   0.092s] ( 42/228) realtime-screen-translator detect::tests::text_areas_are_kept_and_balloon_outlines_and_weak_boxes_are_not
+        PASS [   0.263s] ( 43/228) realtime-screen-translator export::tests::long_picture_is_written_band_by_band
+        PASS [   2.213s] ( 44/228) realtime-screen-translator backend::reader::tests::the_next_save_to_take_the_lock_finds_only_kept_page_images
+        PASS [   0.324s] ( 45/228) realtime-screen-translator export::tests::a_reader_line_is_drawn_inside_the_area_its_size_was_chosen_for
+        PASS [   3.006s] ( 46/228) realtime-screen-translator backend::reader::tests::a_page_saved_by_an_earlier_version_is_laid_out_again_and_keeps_what_that_version_reads
+        PASS [   0.269s] ( 47/228) realtime-screen-translator export::tests::placement_follows_its_balloon_outline_in_its_band
+        PASS [   0.111s] ( 48/228) realtime-screen-translator export::tests::tone_covers_a_letter_but_not_the_speed_line_through_it
+        PASS [   0.111s] ( 49/228) realtime-screen-translator export::tests::placement_is_white_with_dark_text_and_leaves_the_rest
+        PASS [   0.126s] ( 50/228) realtime-screen-translator export::tests::tone_is_smooth_not_a_mosaic
+        PASS [   0.142s] ( 51/228) realtime-screen-translator export::tests::tone_leaves_a_panel_border_its_rect_reaches
+        PASS [   0.076s] ( 52/228) realtime-screen-translator export::tests::tone_takes_in_edging_on_the_dark_side_of_a_panel_edge
+        PASS [   0.083s] ( 53/228) realtime-screen-translator export::tests::too_tall_webp_is_refused
+        PASS [   0.153s] ( 54/228) realtime-screen-translator export::tests::tone_takes_in_white_edging_off_white_paper
+        PASS [   0.103s] ( 55/228) realtime-screen-translator export::tests::whiten_covers_what_tone_does_white
+        PASS [   0.194s] ( 56/228) realtime-screen-translator fingerprint::tests::same_hash_with_other_shape_gets_its_own_key
+        PASS [   0.369s] ( 57/228) realtime-screen-translator export::tests::tone_keeps_a_light_edge_from_running_deep_into_dark
+        PASS [   0.159s] ( 58/228) realtime-screen-translator fingerprint::tests::shifted_gradient_stays_close_and_flipped_one_does_not
+        PASS [   0.145s] ( 59/228) realtime-screen-translator gemini::tests::a_page_answer_is_read_into_its_balloons
+        PASS [   0.184s] ( 60/228) realtime-screen-translator gemini::tests::a_whole_answer_with_a_broken_item_is_read_item_by_item
+        PASS [   0.132s] ( 61/228) realtime-screen-translator gemini::tests::an_answer_with_an_item_no_repair_reads_is_unreadable
+        PASS [   0.141s] ( 62/228) realtime-screen-translator gemini::tests::an_answer_with_a_balloon_missing_its_korean_or_box_is_unreadable
+        PASS [   0.153s] ( 63/228) realtime-screen-translator gemini::tests::an_answer_with_anything_but_balloons_between_them_is_unreadable
+        PASS [   0.091s] ( 64/228) realtime-screen-translator gemini::tests::the_prompt_asks_for_dialogue_lettered_on_the_art
+        PASS [   0.139s] ( 65/228) realtime-screen-translator gemini::tests::prefill_continuation_parses_and_refusal_does_not
+        PASS [   0.056s] ( 66/228) realtime-screen-translator gemini::tests::the_prompt_carries_the_chapter_so_far
+        PASS [   0.047s] ( 67/228) realtime-screen-translator layout::tests::a_line_for_several_balloons_is_cut_at_sentence_ends
+        PASS [   0.042s] ( 68/228) realtime-screen-translator layout::tests::korean_takes_the_lettering_size_until_it_must_fit
+        PASS [   0.055s] ( 69/228) realtime-screen-translator layout::tests::long_line_in_narrow_balloon_fits
+        PASS [   0.055s] ( 70/228) realtime-screen-translator layout::tests::sliver_crop_is_widened_and_stays_on_its_balloon
+        PASS [   0.059s] ( 71/228) realtime-screen-translator layout::tests::tiny_balloon_grows_instead_of_overflowing
+        PASS [   0.083s] ( 72/228) realtime-screen-translator tracker::tests::shift_is_found_and_other_page_is_not
+        PASS [   0.076s] ( 73/228) realtime-screen-translator vault::tests::sealed_key_round_trips_and_hides_the_plain_text
+        PASS [   0.128s] ( 74/228) realtime-screen-translator tracker::tests::thumbnail_is_96_wide_and_averages
+        PASS [   3.711s] ( 75/228) realtime-screen-translator backend::reader::tests::a_page_slow_to_load_is_waited_for_by_the_page_after_it
+        PASS [   0.135s] ( 76/228) realtime-screen-translator::android_plugin_edges every_command_rust_calls_is_a_plugin_command_and_none_hides_tauris
+        PASS [   0.116s] ( 77/228) realtime-screen-translator::android_plugin_edges the_capture_prompt_asks_for_the_whole_screen
+        PASS [   4.291s] ( 78/228) realtime-screen-translator backend::reader::tests::an_earlier_page_kept_without_its_answer_still_gives_the_next_request_its_lines
+        PASS [   1.448s] ( 79/228) realtime-screen-translator::backend_edges failed_translation_is_asked_again
+        PASS [   1.739s] ( 80/228) realtime-screen-translator::backend_edges same_hash_with_another_shape_keeps_both_translations
+        PASS [   1.903s] ( 81/228) realtime-screen-translator::backend_edges crop_of_a_forgotten_frame_is_refused
+        PASS [   1.922s] ( 82/228) realtime-screen-translator::backend_edges part_scrolled_past_without_stopping_is_saved_when_the_screen_rests_on_it
+        PASS [   0.082s] ( 83/228) realtime-screen-translator::band_cut_and_lost_capture_edges android_tells_rust_capture_was_lost_and_takes_the_overlay_down
+        PASS [   1.564s] ( 84/228) realtime-screen-translator::band_and_strip_edges content_scrolled_into_the_first_screens_status_bar_rows_is_saved
+        PASS [   3.342s] ( 85/228) realtime-screen-translator::backend_edges no_retry_goes_out_after_stop
+        PASS [   3.307s] ( 86/228) realtime-screen-translator::backend_edges same_balloon_seen_in_several_places_while_waiting_is_placed_everywhere
+        PASS [   2.277s] ( 87/228) realtime-screen-translator::backend_edges strip_that_is_not_the_screen_rows_is_refused
+        PASS [   1.352s] ( 88/228) realtime-screen-translator::band_cut_and_lost_capture_edges capture_stopped_from_the_system_ends_the_session_so_it_can_start_again
+        PASS [   1.944s] ( 89/228) realtime-screen-translator::band_and_strip_edges a_strip_outside_what_p6_asked_for_is_not_stored
+        PASS [   1.533s] ( 90/228) realtime-screen-translator::band_cut_and_lost_capture_edges a_text_area_cut_by_a_fixed_bar_is_replaced_by_the_whole_one_a_scroll_shows
+        PASS [   0.102s] ( 91/228) realtime-screen-translator::button_and_crop_edges clear_of_keeps_the_rows_around_the_button
+        PASS [   6.679s] ( 92/228) realtime-screen-translator backend::reader::tests::lettering_larger_than_any_letter_is_covered_where_its_box_says
+        PASS [   0.655s] ( 93/228) realtime-screen-translator::blocked_capture_edges a_black_capture_with_the_bars_and_our_button_lit_is_blocked
+        PASS [   0.835s] ( 94/228) realtime-screen-translator::blocked_capture_edges a_dark_page_with_one_white_balloon_is_read_and_saved
+        PASS [   0.018s] ( 95/228) realtime-screen-translator::capture_queue_edges frames_without_the_shapes_are_not_handed_on_as_the_screen
+        PASS [   0.020s] ( 96/228) realtime-screen-translator::capture_queue_edges three_pinned_frames_do_not_stall_delivery
+        PASS [   0.752s] ( 97/228) realtime-screen-translator::button_hidden_text_edges the_rows_behind_the_button_are_looked_at_in_the_frame_without_it
+        PASS [   0.772s] ( 98/228) realtime-screen-translator::button_hidden_text_edges without_a_clean_frame_the_rows_behind_the_button_are_looked_at_once_scrolled_out
+        PASS [   1.052s] ( 99/228) realtime-screen-translator::button_and_crop_edges rows_behind_the_floating_button_are_saved_only_once_they_scroll_clear_of_it
+        PASS [   1.067s] (100/228) realtime-screen-translator::button_and_crop_edges crops_of_another_kind_or_off_the_screen_are_not_translated
+        PASS [   0.810s] (101/228) realtime-screen-translator::clean_frame_edges a_screen_switched_off_without_scrolling_is_exported_whole_and_without_the_button
+        PASS [   1.798s] (102/228) realtime-screen-translator::blocked_capture_edges a_dark_page_with_its_balloon_at_the_top_edge_is_read_and_saved
+        PASS [   1.093s] (103/228) realtime-screen-translator::clean_frame_edges a_hidden_button_frame_of_another_screen_is_not_used
+        PASS [   1.464s] (104/228) realtime-screen-translator::contract test_blocked_capture_raises_notice
+        PASS [   2.386s] (105/228) realtime-screen-translator::contract test_crop_over_existing_placement_is_discarded
+        PASS [   7.899s] (106/228) realtime-screen-translator::contract test_effect_crop_gets_no_placement
+        PASS [   8.497s] (107/228) realtime-screen-translator::contract test_books_remain_after_restart
+        PASS [   7.978s] (108/228) realtime-screen-translator::contract test_effect_inside_balloon_is_stored_as_skip
+        PASS [   9.778s] (109/228) realtime-screen-translator::batch_error_edges a_crop_failing_in_a_batch_does_not_strand_the_ones_before_it
+        PASS [   8.699s] (110/228) realtime-screen-translator::contract test_export_bakes_white_shape_and_korean
+        PASS [   8.342s] (111/228) realtime-screen-translator::contract test_export_writes_picture_files
+        PASS [   7.321s] (112/228) realtime-screen-translator::contract test_fast_scroll_keeps_placements_and_aligns_on_stop
+        PASS [   1.142s] (113/228) realtime-screen-translator::contract test_frames_never_call_gemini_and_one_crop_per_balloon
+        PASS [   2.145s] (114/228) realtime-screen-translator::contract test_fixed_band_is_not_repeated
+        PASS [   2.045s] (115/228) realtime-screen-translator::contract test_gemini_requests_carry_prefill
+        PASS [   2.314s] (116/228) realtime-screen-translator::contract test_fingerprint_matches_after_restart_and_move
+        PASS [   1.341s] (117/228) realtime-screen-translator::contract test_gemini_requests_turn_guardrails_off
+        PASS [   1.283s] (118/228) realtime-screen-translator::contract test_korean_stays_inside_white_shape
+        PASS [  11.676s] (119/228) realtime-screen-translator::capture_capability_edges start_opens_a_session_only_where_capture_is_possible_and_granted
+        PASS [   1.736s] (120/228) realtime-screen-translator::contract test_key_is_stored_encrypted_and_stays_on_device
+        PASS [   1.544s] (121/228) realtime-screen-translator::contract test_previous_page_restores_without_detect
+        PASS [   1.533s] (122/228) realtime-screen-translator::contract test_read_and_translate_go_separately
+        PASS [   1.530s] (123/228) realtime-screen-translator::contract test_read_request_carries_only_crops
+        PASS [   1.801s] (124/228) realtime-screen-translator::contract test_page_change_closes_stitched_picture
+        PASS [   1.227s] (125/228) realtime-screen-translator::contract test_scroll_back_sends_no_gemini_request
+        PASS [   1.495s] (126/228) realtime-screen-translator::contract test_scroll_back_does_not_append_twice
+        PASS [   4.963s] (127/228) realtime-screen-translator::contract test_no_login_command_exists
+        PASS [   0.182s] (128/228) realtime-screen-translator::contract test_scroll_continues_while_gemini_is_slow
+        PASS [   0.664s] (129/228) realtime-screen-translator::contract test_status_tells_on_and_off
+        PASS [   0.987s] (130/228) realtime-screen-translator::contract test_start_without_permission_is_refused
+        PASS [   1.442s] (131/228) realtime-screen-translator::contract test_scroll_reading_makes_one_long_picture
+        PASS [   1.555s] (132/228) realtime-screen-translator::contract test_scroll_detects_only_new_region
+        PASS [   1.555s] (133/228) realtime-screen-translator::contract test_still_screen_sends_nothing
+        PASS [   1.555s] (134/228) realtime-screen-translator::contract test_start_then_frame_and_crop_yields_korean_placement
+        PASS [   1.655s] (135/228) realtime-screen-translator::contract test_start_without_key_is_refused
+        PASS [   1.664s] (136/228) realtime-screen-translator::contract test_slide_reading_makes_picture_per_page
+        PASS [   0.057s] (137/228) realtime-screen-translator::cut_box_and_notice_edges an_answer_with_anything_after_its_json_is_not_read
+        PASS [   0.072s] (138/228) realtime-screen-translator::cut_box_and_notice_edges a_text_area_seen_whole_after_a_scroll_is_read_where_it_reaches_the_new_rows
+        PASS [   2.700s] (139/228) realtime-screen-translator::contract test_stop_and_start_opens_new_picture
+        PASS [   2.656s] (140/228) realtime-screen-translator::contract test_wrong_key_raises_notice
+        PASS [   3.225s] (141/228) realtime-screen-translator::contract test_stop_removes_overlay_and_halts_gemini
+        PASS [   2.770s] (142/228) realtime-screen-translator::contract test_vertical_shift_is_judged_scroll
+        PASS [   2.657s] (143/228) realtime-screen-translator::contract test_windows_starts_without_permission_prompt
+        PASS [   2.657s] (144/228) realtime-screen-translator::contract test_whole_change_is_judged_page_and_clears
+        PASS [   2.494s] (145/228) realtime-screen-translator::cut_box_and_notice_edges the_missing_model_notice_goes_once_detection_runs
+        PASS [   1.003s] (146/228) realtime-screen-translator::edge_box_and_creep_edges a_square_creeping_a_row_a_frame_is_a_scroll
+        PASS [   1.482s] (147/228) realtime-screen-translator::edge_box_and_creep_edges a_whole_text_area_at_the_edge_of_the_first_screen_is_read_at_once
+        PASS [   2.908s] (148/228) realtime-screen-translator::edge_box_and_creep_edges a_whole_text_area_at_the_edge_of_a_turned_page_is_read
+        PASS [   2.904s] (149/228) realtime-screen-translator::flat_overlap_edges pages_that_line_up_only_on_a_blank_margin_are_a_page_turn
+        PASS [   0.019s] (150/228) realtime-screen-translator::lifecycle_and_export_edges a_black_capture_with_a_stray_lit_pixel_in_it_is_blocked
+        PASS [   3.058s] (151/228) realtime-screen-translator::edge_box_and_creep_edges a_text_area_cut_by_the_edge_gives_way_to_the_whole_one_a_scroll_shows
+        PASS [   3.226s] (152/228) realtime-screen-translator::erased_shape_edges the_going_of_an_erased_shape_is_no_page_turn
+        PASS [   3.618s] (153/228) realtime-screen-translator::fast_scroll_edges a_scroll_of_three_quarters_of_the_screen_between_frames_is_followed
+        PASS [   6.302s] (154/228) realtime-screen-translator::cut_crop_pending_edges a_whole_crop_shown_while_its_cut_one_waits_is_read_and_placed
+        PASS [   0.323s] (155/228) realtime-screen-translator::long_translation_edges a_grown_shape_is_kept_on_the_screen_and_still_covers_its_text_area
+        PASS [   0.722s] (156/228) realtime-screen-translator::lifecycle_and_export_edges the_rounded_shape_covers_the_source_text_to_its_corners
+        PASS [   0.178s] (157/228) realtime-screen-translator::look_under_and_corner_edges a_shape_moved_onto_the_screen_still_covers_its_text_areas_corners
+        PASS [   2.936s] (158/228) realtime-screen-translator::known_edge_and_gallery_full_edges a_text_area_at_the_edge_already_translated_goes_on_at_once
+        PASS [   0.089s] (159/228) realtime-screen-translator::look_under_and_corner_edges android_tells_of_a_tap_and_hides_the_shapes_for_a_look
+        PASS [   0.017s] (160/228) realtime-screen-translator::look_under_and_corner_edges the_windows_overlay_follows_the_monitor_when_it_changes
+        PASS [   2.348s] (161/228) realtime-screen-translator::look_under_and_corner_edges a_page_turned_under_opaque_shapes_is_found_by_looking_under_them
+        PASS [   0.017s] (162/228) realtime-screen-translator::overlay_and_storage_edges line_breaks_in_a_translation_count_as_lines_of_the_shape
+        PASS [   2.687s] (163/228) realtime-screen-translator::long_translation_edges a_long_translation_at_the_screen_edge_is_placed_whole_on_screen
+        PASS [   3.579s] (164/228) realtime-screen-translator::lifecycle_and_export_edges a_stop_still_tearing_down_does_not_take_down_the_next_start
+        PASS [   2.381s] (165/228) realtime-screen-translator::look_under_and_corner_edges a_tap_on_the_same_page_turns_nothing
+        PASS [   3.452s] (166/228) realtime-screen-translator::lifecycle_and_export_edges exports_at_the_same_time_write_separate_files
+        PASS [   6.354s] (167/228) realtime-screen-translator::known_edge_and_gallery_full_edges a_gallery_with_no_room_left_is_storage_full
+        PASS [   0.029s] (168/228) realtime-screen-translator::overlay_hide_timeout_edges a_hide_the_main_thread_comes_to_late_is_called_off
+        PASS [   0.037s] (169/228) realtime-screen-translator::overlay_text_fit_edges the_overlay_makes_the_korean_smaller_while_it_runs_over_the_shape
+        PASS [   0.043s] (170/228) realtime-screen-translator::overlay_text_fit_edges the_overlay_sets_lines_1_2_em_apart_as_the_fit_assumes
+        PASS [   2.379s] (171/228) realtime-screen-translator::overlay_and_storage_edges a_picture_whose_stored_range_lags_its_strips_is_exported_whole
+        PASS [   0.618s] (172/228) realtime-screen-translator::page_size_and_covered_page_edges a_page_seen_on_a_screen_of_another_size_is_not_reopened
+        PASS [   0.730s] (173/228) realtime-screen-translator::page_size_and_covered_page_edges a_dark_page_whose_shape_covers_its_only_balloon_is_not_blocked
+        PASS [   1.071s] (174/228) realtime-screen-translator::overlay_and_storage_edges our_overlay_in_the_capture_is_neither_a_page_turn_nor_a_scroll
+        PASS [   0.830s] (175/228) realtime-screen-translator::partly_changed_page_edges a_page_whose_words_changed_in_one_of_two_balloons_is_turned_to
+        PASS [   1.021s] (176/228) realtime-screen-translator::page_band_edges a_new_page_is_detected_and_saved_whole_after_a_band_was_learnt
+        PASS [   1.173s] (177/228) realtime-screen-translator::pipeline switched_on_by_the_button_the_loop_reads_follows_and_saves
+        PASS [   2.048s] (178/228) realtime-screen-translator::placement_write_retry_edges a_placement_that_could_not_be_written_is_placed_once_its_rows_come_again
+        PASS [   2.680s] (179/228) realtime-screen-translator::reader_edges a_page_is_translated_once_per_language_and_kept_as_a_book
+        PASS [   7.759s] (180/228) realtime-screen-translator::lifecycle_and_export_edges a_start_whose_book_cannot_be_made_takes_capture_and_overlay_down
+        PASS [   3.046s] (181/228) realtime-screen-translator::reader_edges a_page_whose_saving_fails_says_so_and_is_saved_by_the_next_call_without_gemini
+        PASS [   4.023s] (182/228) realtime-screen-translator::reader_edges a_page_answered_from_the_library_counts_among_its_chapters_earlier_pages
+        PASS [   2.078s] (183/228) realtime-screen-translator::reader_edges copies_of_one_page_read_at_once_send_it_to_gemini_once
+        PASS [   5.006s] (184/228) realtime-screen-translator::reader_edges a_page_carries_the_earlier_pages_lines_in_its_own_source_language
+        PASS [   4.907s] (185/228) realtime-screen-translator::reader_edges a_page_read_while_the_one_before_is_with_gemini_carries_its_lines
+        PASS [   2.383s] (186/228) realtime-screen-translator::reader_edges empty_and_failed_imports_leave_no_chapter_or_copied_files
+        PASS [   5.982s] (187/228) realtime-screen-translator::overlay_and_storage_edges stop_takes_capture_and_overlay_down_even_when_the_book_cannot_be_closed
+        PASS [   1.302s] (188/228) realtime-screen-translator::screen_edges a_balloon_gemini_failed_on_is_detected_again_when_the_reader_scrolls
+        PASS [   1.570s] (189/228) realtime-screen-translator::reader_edges saved_links_share_book_identity_with_the_reader_and_lists_keep_their_order
+        PASS [   0.635s] (190/228) realtime-screen-translator::screen_edges rows_whose_detection_failed_are_detected_again_after_the_screen_moves
+        PASS [   0.068s] (191/228) realtime-screen-translator::shape_blocked_and_disk_full_edges a_full_disk_met_by_the_database_is_storage_full
+        PASS [   1.179s] (192/228) realtime-screen-translator::screen_edges a_scroll_of_fractional_rows_adds_up_and_is_set_right_at_rest
+        PASS [   2.994s] (193/228) realtime-screen-translator::reader_edges imported_chapter_survives_restart_and_shares_the_url_cache_by_language
+        PASS [   1.472s] (194/228) realtime-screen-translator::screen_edges a_crop_whose_picture_is_not_its_size_is_not_sent
+        PASS [   1.059s] (195/228) realtime-screen-translator::shape_blocked_and_disk_full_edges a_blocked_capture_that_holds_only_the_white_shapes_is_blocked
+        PASS [   1.271s] (196/228) realtime-screen-translator::side_panel_change_edges a_change_in_the_side_panel_after_a_scroll_is_detected
+        PASS [   2.125s] (197/228) realtime-screen-translator::screen_edges a_turned_screen_starts_a_new_picture_in_its_own_size
+        PASS [   0.850s] (198/228) realtime-screen-translator::side_panel_translation_edges a_translation_in_the_still_side_panel_stays_while_the_rest_scrolls
+        PASS [   2.305s] (199/228) realtime-screen-translator::screen_edges stop_cuts_off_a_gemini_request_in_flight_and_nothing_goes_out_after
+        PASS [   2.062s] (200/228) realtime-screen-translator::side_panel_scroll_edges only_the_manga_scrolling_beside_a_still_panel_is_a_scroll
+        PASS [   3.872s] (201/228) realtime-screen-translator::side_panel_translation_edges a_panel_translation_coming_after_the_scroll_is_on_its_balloon
+        PASS [   4.068s] (202/228) realtime-screen-translator::side_panel_translation_edges a_panel_crop_of_a_frame_before_the_scroll_is_placed_on_its_balloon
+        PASS [   3.268s] (203/228) realtime-screen-translator::slow_scroll_and_button_crop_edges a_scroll_a_quarter_row_a_frame_adds_up
+        PASS [   0.108s] (204/228) realtime-screen-translator::stale_peek_frame_edges a_peek_is_taken_only_once_the_shapes_are_gone_from_it
+        PASS [   0.142s] (205/228) realtime-screen-translator::stale_peek_frame_edges frames_are_timed_by_when_the_mirror_composed_them
+        PASS [   3.174s] (206/228) realtime-screen-translator::small_change_on_still_screen_edges a_small_part_changing_on_a_still_screen_is_detected_again
+        PASS [   3.370s] (207/228) realtime-screen-translator::slow_scroll_and_button_crop_edges without_a_frame_free_of_the_button_a_crop_it_lies_over_is_not_sent
+        PASS [   3.810s] (208/228) realtime-screen-translator::stale_clean_frame_edges a_frame_with_the_button_gone_still_fills_the_rows_behind_it
+        PASS [   1.440s] (209/228) realtime-screen-translator::store_sync_edges commits_do_not_wait_on_the_disk_and_survive_reopening
+        PASS [   3.491s] (210/228) realtime-screen-translator::stale_clean_frame_edges a_late_image_that_still_shows_the_button_is_not_saved_as_clean
+        PASS [   1.696s] (211/228) realtime-screen-translator::strip_retry_under_shapes_edges rows_saved_again_under_a_shape_come_from_a_frame_without_the_shapes
+        PASS [   1.704s] (212/228) realtime-screen-translator::strip_file_and_shape_edges a_strip_is_kept_as_lossless_webp_under_a_relative_path
+        PASS [   2.054s] (213/228) realtime-screen-translator::strip_file_and_shape_edges a_shape_grown_for_a_long_translation_does_not_cover_one_already_shown
+        PASS [   1.032s] (214/228) realtime-screen-translator::web_host_files saved_list_memberships_preserve_the_book_through_the_http_api
+        PASS [   0.453s] (215/228) realtime-screen-translator::windows_overlay_and_button_mask_edges the_app_draws_on_the_windows_overlay_instead_of_only_sending_an_event
+        PASS [   1.672s] (216/228) realtime-screen-translator::web_host_files a_browser_export_can_be_fetched_by_the_reader_in_each_format
+        PASS [   0.468s] (217/228) realtime-screen-translator::windows_overlay_and_button_mask_edges the_windows_overlay_page_draws_white_shapes_with_the_korean_in_them
+        PASS [   1.435s] (218/228) realtime-screen-translator::web_host_files the_browser_host_never_reports_a_capture_it_cannot_do
+        PASS [   3.243s] (219/228) realtime-screen-translator::strip_file_and_shape_edges a_large_capture_is_saved_and_reopened_for_export_in_both_strip_formats
+        PASS [   1.633s] (220/228) realtime-screen-translator::windows_overlay_and_button_mask_edges the_buttons_black_block_does_not_make_a_scroll_look_still
+        PASS [   2.271s] (221/228) realtime-screen-translator::web_host_files the_files_route_serves_previews_and_exports_and_denies_every_other_form
+        PASS [  10.802s] (222/228) realtime-screen-translator::reader_edges oversize_pages_are_rejected_across_formats_before_a_chapter_is_published
+        PASS [   1.556s] (223/228) realtime-screen-translator::windows_words_edges a_change_under_a_translation_just_drawn_is_the_overlay_coming_on
+        PASS [   1.754s] (224/228) realtime-screen-translator::windows_words_edges a_page_alike_but_for_its_words_is_a_page_turn_under_an_overlay_held_alike_since_its_draw
+        PASS [   4.333s] (225/228) realtime-screen-translator::tap_before_translation_edges a_tap_to_other_words_before_the_translation_came_turns_the_page
+        PASS [   2.185s] (226/228) realtime-screen-translator::windows_words_edges a_page_alike_but_for_its_words_is_a_page_turn_where_the_overlay_is_not_captured
+        PASS [   1.595s] (227/228) realtime-screen-translator::windows_words_edges where_the_overlay_is_not_captured_the_whole_text_area_is_read_at_once
+        PASS [   3.306s] (228/228) realtime-screen-translator::windows_words_edges a_translated_page_scrolled_where_the_overlay_is_not_captured_is_a_scroll
 ────────────
-     Summary [  42.217s] 228 tests run: 228 passed, 0 skipped
+     Summary [  52.520s] 228 tests run: 228 passed, 0 skipped
 $ corepack pnpm exec vitest run --reporter=verbose src/lib/reader.test.js src/lib/reader-order.test.js src/lib/reader-toggle.test.js src/lib/reader-chapter-order.test.js src/lib/reader-chapter-turns.test.js src/lib/reader-chapter-broken-image.test.js src/lib/reader-site-loading.test.js src/lib/gemini-ledger.test.js
-오전 6:49:24 [vite-plugin-svelte] no Svelte config found at C:/Users/dasdk/PycharmProjects/realtime-screen-translator - using default configuration.
+오전 8:33:20 [vite-plugin-svelte] no Svelte config found at C:/Users/dasdk/PycharmProjects/realtime-screen-translator - using default configuration.
 
  RUN  v5.1.0 C:/Users/dasdk/PycharmProjects/realtime-screen-translator
 
- ✓ src/lib/gemini-ledger.test.js > gemini ledger > keys a page by the language its instruction names, whatever its earlier lines quote 259ms
- ✓ src/lib/gemini-ledger.test.js > gemini ledger > counts a page's failed attempt against its later request with earlier lines 121ms
- ✓ src/lib/gemini-ledger.test.js > gemini ledger > sends an approved attempt past an unreadable saved answer, and replays the readable one after 172ms
- ✓ src/lib/gemini-ledger.test.js > gemini ledger > a repeat request with a count with no time or decision goes out only on a grant in force 110ms
- ✓ src/lib/gemini-ledger.test.js > gemini ledger > a repeat request with a grant dated later goes out only on a grant in force 126ms
- ✓ src/lib/gemini-ledger.test.js > gemini ledger > a repeat request with a grant with no decision goes out only on a grant in force 127ms
- ✓ src/lib/gemini-ledger.test.js > gemini ledger > a repeat request with a grant with a blank decision goes out only on a grant in force 99ms
- ✓ src/lib/gemini-ledger.test.js > gemini ledger > a repeat request with a grant with no time goes out only on a grant in force 108ms
- ✓ src/lib/gemini-ledger.test.js > gemini ledger > a repeat request with a dated grant with its decision goes out only on a grant in force 161ms
- ✓ src/lib/reader-chapter-broken-image.test.js > reader page script, a chapter picture that fails to decode > translates the later page when an earlier picture fails to decode 121ms
- ✓ src/lib/reader-toggle.test.js > reader page script, original and back > places a page’s Korean over it when the translation comes back on 164ms
- ✓ src/lib/reader-order.test.js > reader page script, pages in order > sends pages in reading order even when a later page's picture is fetched sooner 214ms
- ✓ src/lib/reader-chapter-order.test.js > reader page script, chapter pages in order > sends chapter pages in reading order even when a later page's picture loads sooner 208ms
- ✓ src/lib/reader.test.js > reader page script > shows a page it could not keep in the library, says so, and saves it on a tap 209ms
- ✓ src/lib/reader.test.js > reader page script > shapes each cover to its balloon or the art tone, sets the Korean in its text area, and draws nothing for a line kept without a shape 62ms
- ✓ src/lib/reader-site-loading.test.js > reader page script, site pictures still loading > sends a page only after every earlier page picture has loaded or failed 374ms
- ✓ src/lib/reader-chapter-turns.test.js > reader page script, one chapter page at a time > sends each chapter page only after the earlier page has been answered 377ms
- ✓ src/lib/reader.test.js > reader page script > draws a tone cover at the size set over a site with no rule of its own 188ms
- ✓ src/lib/reader.test.js > reader page script > draws a tone cover at the size set over a site with canvases capped at their box 75ms
- ✓ src/lib/reader.test.js > reader page script > draws a tone cover at the size set over a site with canvases capped by a more specific rule 63ms
- ✓ src/lib/reader.test.js > reader page script > draws a tone cover at the size set over a site with canvases capped by an important rule 61ms
- ✓ src/lib/reader.test.js > reader page script > sets a line lettered in two balloons a share in each 54ms
- ✓ src/lib/reader.test.js > reader page script > keeps a dash on the line of the word before it 71ms
- ✓ src/lib/reader.test.js > reader page script > never draws Korean too long for its text area below the least size, and keeps its lines whole and shown, in a web view drawing the size set 80ms
- ✓ src/lib/reader.test.js > reader page script > never draws Korean too long for its text area below the least size, and keeps its lines whole and shown, in a web view with an 8 px minimum 59ms
- ✓ src/lib/reader.test.js > reader page script > loads and translates a chapter picture only as it approaches the view 126ms
+ ✓ src/lib/gemini-ledger.test.js > gemini ledger > keys a page by the language its instruction names, whatever its earlier lines quote 513ms
+ ✓ src/lib/gemini-ledger.test.js > gemini ledger > counts a page's failed attempt against its later request with earlier lines 151ms
+ ✓ src/lib/gemini-ledger.test.js > gemini ledger > sends an approved attempt past an unreadable saved answer, and replays the readable one after 314ms
+ ✓ src/lib/gemini-ledger.test.js > gemini ledger > a repeat request with a count with no time or decision goes out only on a grant in force 215ms
+ ✓ src/lib/reader-chapter-turns.test.js > reader page script, one chapter page at a time > sends each chapter page only after the earlier page has been answered 378ms
+ ✓ src/lib/gemini-ledger.test.js > gemini ledger > a repeat request with a grant dated later goes out only on a grant in force 230ms
+ ✓ src/lib/reader-toggle.test.js > reader page script, original and back > places a page’s Korean over it when the translation comes back on 92ms
+ ✓ src/lib/gemini-ledger.test.js > gemini ledger > a repeat request with a grant with no decision goes out only on a grant in force 227ms
+ ✓ src/lib/reader-order.test.js > reader page script, pages in order > sends pages in reading order even when a later page's picture is fetched sooner 146ms
+ ✓ src/lib/reader-chapter-order.test.js > reader page script, chapter pages in order > sends chapter pages in reading order even when a later page's picture loads sooner 141ms
+ ✓ src/lib/gemini-ledger.test.js > gemini ledger > a repeat request with a grant with a blank decision goes out only on a grant in force 134ms
+ ✓ src/lib/reader.test.js > reader page script > shows a page it could not keep in the library, says so, and saves it on a tap 147ms
+ ✓ src/lib/reader-site-loading.test.js > reader page script, site pictures still loading > sends a page only after every earlier page picture has loaded or failed 325ms
+ ✓ src/lib/reader.test.js > reader page script > shapes each cover to its balloon or the art tone, sets the Korean in its text area, and draws nothing for a line kept without a shape 68ms
+ ✓ src/lib/reader.test.js > reader page script > draws a tone cover at the size set over a site with no rule of its own 83ms
+ ✓ src/lib/gemini-ledger.test.js > gemini ledger > a repeat request with a grant with no time goes out only on a grant in force 117ms
+ ✓ src/lib/gemini-ledger.test.js > gemini ledger > a repeat request with a dated grant with its decision goes out only on a grant in force 152ms
+ ✓ src/lib/reader.test.js > reader page script > draws a tone cover at the size set over a site with canvases capped at their box 66ms
+ ✓ src/lib/reader.test.js > reader page script > draws a tone cover at the size set over a site with canvases capped by a more specific rule 62ms
+ ✓ src/lib/reader.test.js > reader page script > draws a tone cover at the size set over a site with canvases capped by an important rule 60ms
+ ✓ src/lib/reader.test.js > reader page script > sets a line lettered in two balloons a share in each 61ms
+ ✓ src/lib/reader.test.js > reader page script > keeps a dash on the line of the word before it 60ms
+ ✓ src/lib/reader.test.js > reader page script > keeps Korean too long for its text area inside a white cover, and at the least size on the art, in a web view drawing the size set, lines overflowing round the area 64ms
+ ✓ src/lib/reader-chapter-broken-image.test.js > reader page script, a chapter picture that fails to decode > translates the later page when an earlier picture fails to decode 87ms
+ ✓ src/lib/reader.test.js > reader page script > keeps Korean too long for its text area inside a white cover, and at the least size on the art, in a web view drawing the size set, lines overflowing below the area 62ms
+ ✓ src/lib/reader.test.js > reader page script > keeps Korean too long for its text area inside a white cover, and at the least size on the art, in a web view with an 8 px minimum, lines overflowing round the area 60ms
+ ✓ src/lib/reader.test.js > reader page script > keeps Korean too long for its text area inside a white cover, and at the least size on the art, in a web view with an 8 px minimum, lines too wide and overflowing below 62ms
+ ✓ src/lib/reader.test.js > reader page script > loads and translates a chapter picture only as it approaches the view 122ms
 
  Test Files  8 passed (8)
-      Tests  26 passed (26)
-   Start at  06:49:24
-   Duration  25.81s (environment 97%, tests 2%)
-
-Environment  jsdom was created 8 times · 165.92s total, 97% of tracked time
-             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
-             learn more: https://vitest.dev/guide/improving-performance#test-environments
+      Tests  28 passed (28)
+   Start at  08:33:20
+   Duration  2.96s (environment 67%, tests 31%, import 1%, transform 1%)
