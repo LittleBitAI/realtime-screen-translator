@@ -513,7 +513,15 @@ pub(crate) fn laid_out(items: &[PageItem], page: &export::Rgb, lang: &str) -> (V
             on[i] = Some(blocks.len() - 1);
         }
     }
-    let pieces = balloon::gather(&wanted, &blocks, &on);
+    // Lettering on the art with only white edging round its strokes (a
+    // shout over hair, "GAH!" ahead of its balloon's line, ch257 p19): its
+    // blocks on the art lying mostly on a found line's box are only for
+    // gathering into that line, after the lines are matched: not lettering
+    // a cover keeps clear of, nor a line's own.
+    let mostly = |b: &[f64; 4], t: &[f64; 4]| (b[2].min(t[2]) - b[0].max(t[0])).max(0.0) * (b[3].min(t[3]) - b[1].max(t[1])).max(0.0) >= 0.5 * (b[2] - b[0]) * (b[3] - b[1]);
+    let mut all = blocks.clone();
+    all.extend(balloon::edged(&pg, vertical).into_iter().filter(|b| !b.in_balloon && wanted.iter().zip(&on).any(|((t, _), o)| o.is_some() && mostly(&b.bounds, t))));
+    let pieces = balloon::gather(&wanted, &all, &on);
     let union = |p: &[[f64; 4]]| p.iter().fold([f64::MAX, f64::MAX, f64::MIN, f64::MIN], |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
     let texts: Vec<[f64; 4]> = pieces.iter().zip(&wanted).map(|(p, &(t, _))| if p.is_empty() { t } else { union(p) }).collect();
     let host = hosts(&wanted, &blocks, &on, &speakers);
@@ -531,10 +539,10 @@ pub(crate) fn laid_out(items: &[PageItem], page: &export::Rgb, lang: &str) -> (V
             // as the letters each holds.
             // The line's lettering size: its largest, where a reading is
             // lettered small over it ("nana" over "7!", ch256 p4).
-            let glyph = on[i].map(|j| pieces[i].iter().filter_map(|p| blocks.iter().find(|b| b.bounds == *p)).map(|b| b.glyph).fold(blocks[j].glyph, f64::max));
+            let glyph = on[i].map(|j| pieces[i].iter().filter_map(|p| all.iter().find(|b| b.bounds == *p)).map(|b| b.glyph).fold(blocks[j].glyph, f64::max));
             let within = |p: &[f64; 4], c: [f64; 4]| p[0] >= c[0] && p[1] >= c[1] && p[2] <= c[2] && p[3] <= c[3];
             let letters_in = |c: [f64; 4]| -> f64 {
-                pieces[i].iter().filter(|p| within(p, c)).filter_map(|p| blocks.iter().find(|b| b.bounds == *p)).map(|b| b.letters as f64).sum()
+                pieces[i].iter().filter(|p| within(p, c)).filter_map(|p| all.iter().find(|b| b.bounds == *p)).map(|b| b.letters as f64).sum()
             };
             // Beside a balloon of its own, a piece with no balloon round it
             // is the item's only if it lies mostly in Gemini's box: else it
@@ -555,7 +563,9 @@ pub(crate) fn laid_out(items: &[PageItem], page: &export::Rgb, lang: &str) -> (V
                 }
                 let rects: Vec<[f64; 4]> = std::iter::once(cover).chain(sep.iter().copied()).collect();
                 let shares: Vec<f64> = rects.iter().map(|&r| letters_in(r).max(1.0)).collect();
-                let runs = share_out(&it.ko, &rects, &shares);
+                // The source says the order only for a line of its own (no
+                // other line's Korean joined to it).
+                let runs = share_out(&it.ko, if lines.len() == 1 { &own.src } else { "" }, &rects, &shares);
                 (sep, runs)
             };
             // Each piece apart under its own balloon's outline, or else a
@@ -603,13 +613,18 @@ pub(crate) fn laid_out(items: &[PageItem], page: &export::Rgb, lang: &str) -> (V
                 }
                 Some((fill, at, light))
             };
-            let beside = |sep: &[[f64; 4]]| -> Vec<(Vec<[i64; 2]>, Vec<[i64; 4]>, [i64; 4], Option<u8>)> {
+            // Each piece kept clear of the item's own cover (`clear`) too:
+            // a shout on the art beside its balloon ("GAH!", ch257 p19) does
+            // not reach into the balloon's lettering.
+            let beside = |sep: &[[f64; 4]], clear: &[[f64; 4]]| -> Vec<(Vec<[i64; 2]>, Vec<[i64; 4]>, [i64; 4], Option<u8>)> {
+                let off: Vec<[f64; 4]> = others.iter().chain(clear).copied().collect();
                 sep.iter()
                     .map(|p| {
                         if let Some(f) = balloon::find(&pg, *p, glyph.unwrap_or(0.0), &others) {
                             let [x0, y0, x1, y1] = f.text;
                             return (f.outline, vec![], [x0, y0, x1 - x0, y1 - y0], None);
                         }
+                        let others = &off;
                         let (mx, my) = (((p[2] - p[0]) * GROW).max(GROW_MIN_PX), ((p[3] - p[1]) * GROW).max(GROW_MIN_PX));
                         let r = apart([p[0] - mx, p[1] - my, p[2] + mx, p[3] + my], *p, &others);
                         let r = [r[0] as i64, r[1] as i64, r[2].ceil() as i64, r[3].ceil() as i64];
@@ -665,7 +680,9 @@ let found = on[i].and_then(|j| {
                         let b = f.bounds;
                         b[0] as f64 <= t[0] && b[1] as f64 <= t[1] && b[2] as f64 >= t[2] && b[3] as f64 >= t[3]
                     })
-                    .or_else(|| around(own, glyph))
+                    // The block's balloon sought at the block's own size: a
+                    // piece apart may be lettered larger ("GAH!", ch257 p19).
+                    .or_else(|| around(own, blocks[j].glyph))
             });
             let rectish = found.is_none();
             let mut b = match found {
@@ -673,7 +690,7 @@ let found = on[i].and_then(|j| {
                     let [x0, y0, x1, y1] = f.text;
                     let (tw, th) = ((x1 - x0) as u32, (y1 - y0) as u32);
                     let (sep, runs) = apart_from(f.bounds.map(|v| v as f64), true);
-                    let more = beside(&sep);
+                    let more = beside(&sep, &[f.bounds.map(|v| v as f64)]);
                     let parts = parts(runs, [x0, y0, tw as i64, th as i64], &more, 1.0);
                     let tone: Vec<[i64; 4]> = more.iter().flat_map(|m| m.1.iter().copied()).collect();
                     let light = all_light(&mut more.iter().map(|m| (!m.1.is_empty(), m.3)));
@@ -730,7 +747,7 @@ let found = on[i].and_then(|j| {
                             // Letters missing from all its pieces are faint
                             // lettering; letters in a piece apart are not, and
                             // the box between is art (ch257 p8, Rentarou's face).
-                            let found: usize = pieces[i].iter().filter_map(|p| blocks.iter().find(|b| b.bounds == *p)).map(|b| b.letters).sum();
+                            let found: usize = pieces[i].iter().filter_map(|p| all.iter().find(|b| b.bounds == *p)).map(|b| b.letters).sum();
                             let reach = if found.max(blocks[j].letters) < wanted[i].1 { balloon::REACH } else { WIDEN };
                             let (t, g, r) = (blocks[j].bounds, reach * blocks[j].glyph, wanted[i].0);
                             let clip = [r[0].max(t[0] - g), r[1].max(t[1] - g), r[2].min(t[2] + g), r[3].min(t[3] + g)];
@@ -787,7 +804,7 @@ let found = on[i].and_then(|j| {
                         !claimed && alike && b.letters >= balloon::WORD_LETTERS && balloon::on_box(wanted[i].0, b.bounds) >= 0.5
                     };
                     let own = blocks.iter().enumerate().filter(|&(j, b)| mine(j, b)).fold(own, |o, (_, b)| [o[0].min(b.bounds[0] as i64), o[1].min(b.bounds[1] as i64), o[2].max(b.bounds[2].ceil() as i64), o[3].max(b.bounds[3].ceil() as i64)]);
-                    let more = beside(&sep);
+                    let more = beside(&sep, &[]);
                     // The white goes over every dark letter in the
                     // lettering's area. The Korean goes over the blocks
                     // found there (not the art marks round them: an ear, a
@@ -947,8 +964,11 @@ fn hosts(wanted: &[([f64; 4], usize)], blocks: &[balloon::Block], on: &[Option<u
 /// shared out at its sentence ends: a run for each in reading order (top to
 /// bottom, right to left across a row), as near its `shares` of the letters
 /// as the sentence ends allow, returned in `rects`' order. None when it has
-/// fewer sentences than places; the first then holds it all.
-fn share_out(ko: &str, rects: &[[f64; 4]], shares: &[f64]) -> Option<Vec<String>> {
+/// fewer sentences than places; the first then holds it all. Where the
+/// source line `src`, cut the same way, fits the places' letters better in
+/// another order, that order: the line as lettered says which part comes
+/// first ("GAH!" left of its balloon's "NO PRE-SCHOOLER...", ch257 p19).
+fn share_out(ko: &str, src: &str, rects: &[[f64; 4]], shares: &[f64]) -> Option<Vec<String>> {
     // Insertion by "comes first": wholly above, or level and to the right.
     let first = |a: &[f64; 4], b: &[f64; 4]| a[3] <= b[1] || (b[3] > a[1] && a[0] + a[2] > b[0] + b[2]);
     let mut order: Vec<usize> = (0..rects.len()).collect();
@@ -959,12 +979,37 @@ fn share_out(ko: &str, rects: &[[f64; 4]], shares: &[f64]) -> Option<Vec<String>
             m -= 1;
         }
     }
+    // How far the source's runs, in an order, are from their places' shares.
+    let misfit = |o: &[usize]| -> Option<f64> {
+        let runs = layout::split(src, &o.iter().map(|&k| shares[k]).collect::<Vec<_>>())?;
+        let size = |s: &str| s.chars().filter(|c| c.is_alphanumeric()).count() as f64;
+        let (total, whole) = (runs.iter().map(|r| size(r)).sum::<f64>().max(1.0), shares.iter().sum::<f64>().max(f64::MIN_POSITIVE));
+        Some(runs.iter().zip(o).map(|(r, &k)| (size(r) / total - shares[k] / whole).abs()).sum())
+    };
+    // ponytail: every order of up to four places; more keep reading order.
+    if (2..=4).contains(&rects.len()) {
+        if let Some(mut best) = misfit(&order) {
+            for o in orders(rects.len()) {
+                if let Some(m) = misfit(&o).filter(|&m| m < best - 1e-9) {
+                    (best, order) = (m, o);
+                }
+            }
+        }
+    }
     let runs = layout::split(ko, &order.iter().map(|&k| shares[k]).collect::<Vec<_>>())?;
     let mut out = vec![String::new(); rects.len()];
     for (&k, run) in order.iter().zip(runs) {
         out[k] = run;
     }
     Some(out)
+}
+
+/// Every order of `0..n`.
+fn orders(n: usize) -> Vec<Vec<usize>> {
+    if n == 0 {
+        return vec![vec![]];
+    }
+    orders(n - 1).into_iter().flat_map(|o| (0..n).map(move |at| { let mut o = o.clone(); o.insert(at, n - 1); o })).collect()
 }
 
 /// A rectangle cover `c` over lettering `own`, cut back from the other
@@ -1498,20 +1543,41 @@ mod tests {
     fn a_line_for_two_balloons_is_set_a_sentence_in_each_in_reading_order() {
         let (left, right) = ([10.0, 100.0, 70.0, 140.0], [200.0, 90.0, 260.0, 140.0]);
         let two = "수영부 부장이야. 3학년 5반, 누레미 스이무.";
-        assert_eq!(share_out(two, &[left, right], &[1.0, 1.0]).unwrap(), ["3학년 5반, 누레미 스이무.", "수영부 부장이야."]);
+        assert_eq!(share_out(two, "", &[left, right], &[1.0, 1.0]).unwrap(), ["3학년 5반, 누레미 스이무.", "수영부 부장이야."]);
         // ch257 p8: cut nearest the letters each piece holds, not a sentence each.
         let p8 = "어떡하지... 뭐 쓸만한 통나무라도 있나...?! 아, 알겠다! 신발을 손에 끼고—";
-        assert_eq!(share_out(p8, &[left, right], &[30.0, 30.0]).unwrap(), ["아, 알겠다! 신발을 손에 끼고—", "어떡하지... 뭐 쓸만한 통나무라도 있나...?!"]);
+        assert_eq!(share_out(p8, "", &[left, right], &[30.0, 30.0]).unwrap(), ["아, 알겠다! 신발을 손에 끼고—", "어떡하지... 뭐 쓸만한 통나무라도 있나...?!"]);
         // A balloon wholly above comes first wherever it is across.
         let above = [300.0, 0.0, 360.0, 40.0];
-        assert_eq!(share_out("응. 알았어.", &[left, above], &[1.0, 1.0]).unwrap(), ["알았어.", "응."]);
-        assert_eq!(share_out("그 모든 것, 아니 그 이상으로.", &[left, right], &[1.0, 1.0]), None);
+        assert_eq!(share_out("응. 알았어.", "", &[left, above], &[1.0, 1.0]).unwrap(), ["알았어.", "응."]);
+        assert_eq!(share_out("그 모든 것, 아니 그 이상으로.", "", &[left, right], &[1.0, 1.0]), None);
 
         // The shares, and the size set along the outline, survive the library.
         let parts = vec![layout::Part { text: [210, 95, 40, 40], font_px: 12, ko: "수영부 부장이야.".into() }, layout::Part { text: [15, 105, 50, 30], font_px: 11, ko: "3학년 5반, 누레미 스이무.".into() }];
         let (outline, b) = joined(vec![rect_outline([0, 80, 80, 150]), rect_outline([190, 80, 270, 150])]);
         let shape = PageBox { x: b[0], y: b[1], w: 270, h: 70, radius: 0, font_px: 12, ko: two.into(), outline, text: [15, 105, 50, 30], parts, patch: None, flow_px: Some(14) };
         assert_eq!(page_box(&row(String::new(), &shape)), shape);
+    }
+
+    /// The source line, cut at its sentence ends, says which place each
+    /// part goes to where its parts fit the places' letters better in an
+    /// order other than reading order; else reading order holds.
+    #[test]
+    fn a_line_shared_between_places_follows_its_source_where_that_fits_their_letters() {
+        // A balloon on the right (its block's 30 letters) and a shout of 7
+        // on the art left of it.
+        let (balloon, shout) = ([500.0, 780.0, 650.0, 1080.0], [320.0, 790.0, 500.0, 920.0]);
+        let (short, long) = ("으악!", "미취학 아동이 그런 표정을 짓냐.");
+        let (shout_first, long_first) = (format!("{short} {long}"), format!("{long} {short}"));
+        let cases = [
+            ("the shout first in the source: the short place", &shout_first, "GAH! NO PRE-SCHOOLER MAKES A FACE LIKE THAT.", [30.0, 7.0], [long, short]),
+            ("the balloon first in the source: reading order agrees", &long_first, "NO PRE-SCHOOLER MAKES A FACE LIKE THAT. GAH!", [30.0, 7.0], [long, short]),
+            ("places alike: the source cannot tell, reading order", &shout_first, "GAH! NO PRE-SCHOOLER MAKES A FACE LIKE THAT.", [1.0, 1.0], [short, long]),
+            ("a source of one sentence cannot tell, reading order", &shout_first, "GAH NO PRE-SCHOOLER MAKES A FACE LIKE THAT", [30.0, 7.0], [short, long]),
+        ];
+        for (form, ko, src, shares, want) in cases {
+            assert_eq!(share_out(ko, src, &[balloon, shout], &shares).unwrap(), want, "{form}");
+        }
     }
 
     /// The user, on the phone: lettering on the art with no balloon had a

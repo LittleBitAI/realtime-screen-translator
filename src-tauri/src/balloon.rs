@@ -476,6 +476,10 @@ pub const LETTER_MAX: f64 = 0.07;
 /// the size its box gives them.
 pub const BIG_LETTER: f64 = 1.5;
 const PAPER_AROUND: f64 = 0.6;
+/// White edging round a letter on the art: of the pixels this near its
+/// strokes, this much is paper (hair and tone round a stroke: about 0.6).
+const EDGED_RING: usize = 2;
+const EDGED: f64 = 0.8;
 
 /// Every block of lettering on the page. Gemini only says roughly where a
 /// balloon is (its boxes can be off by a whole balloon), so the shapes are
@@ -486,6 +490,23 @@ pub fn blocks(page: &Page, vertical: bool) -> Vec<Block> {
 
 /// [`blocks`] of letters up to `hi` pixels tall (wide, for vertical text).
 pub fn blocks_up_to(page: &Page, vertical: bool, hi: f64) -> Vec<Block> {
+    found(page, vertical, hi, false)
+}
+
+/// The blocks [`blocks`] does not find once letters on the art with only
+/// white edging round their strokes count too: a shout lettered over hair
+/// ("GAH!", ch257 p19). Sound effects are lettered so as well, so these
+/// are only for [`gather`] to take into a line it has already found. A
+/// block meeting one [`blocks`] finds of a word or more is that lettering
+/// found again, an edged mark or two more: not new lettering.
+pub fn edged(page: &Page, vertical: bool) -> Vec<Block> {
+    let hi = LETTER_MAX * page.w as f64;
+    let plain = found(page, vertical, hi, false);
+    let meets = |a: [f64; 4], b: [f64; 4]| a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+    found(page, vertical, hi, true).into_iter().filter(|b| !plain.iter().any(|p| p.letters >= WORD_LETTERS && meets(p.bounds, b.bounds))).collect()
+}
+
+fn found(page: &Page, vertical: bool, hi: f64, edged: bool) -> Vec<Block> {
     let (w, h) = (page.w as usize, page.h as usize);
     let lo = LETTER_MIN * page.w as f64;
     let dark: Vec<bool> = page.px.iter().map(|&v| v < INK).collect();
@@ -523,9 +544,8 @@ pub fn blocks_up_to(page: &Page, vertical: bool, hi: f64) -> Vec<Block> {
         }
         marks.push(m);
     }
-    let on_paper = |m: &[usize; 5]| {
-        let (mw, mh) = ((m[2] - m[0]) as f64, (m[3] - m[1]) as f64);
-        let r = (mh.min(mw) / 3.0).max(2.0) as usize;
+    // How much of a ring `r` wide round a mark's bounds is paper.
+    let paper_round = |m: &[usize; 5], r: usize| {
         let (x0, y0, x1, y1) = (m[0].saturating_sub(r), m[1].saturating_sub(r), (m[2] + r).min(w), (m[3] + r).min(h));
         let (mut paper, mut all) = (0, 0);
         for y in y0..y1 {
@@ -537,7 +557,42 @@ pub fn blocks_up_to(page: &Page, vertical: bool, hi: f64) -> Vec<Block> {
                 paper += light(x, y) as usize;
             }
         }
-        all > 0 && paper as f64 >= PAPER_AROUND * all as f64
+        if all > 0 { paper as f64 / all as f64 } else { 0.0 }
+    };
+    // How much of the pixels within `r` of a mark's own strokes is paper:
+    // its edging, where the ring round its bounds also takes in its joined
+    // neighbours and the art under them.
+    let edging = |id: usize, m: &[usize; 5], r: usize| {
+        let (x0, y0, x1, y1) = (m[0].saturating_sub(r), m[1].saturating_sub(r), (m[2] + r).min(w), (m[3] + r).min(h));
+        let bw = x1 - x0;
+        let mut near = vec![false; bw * (y1 - y0)];
+        for y in m[1]..m[3] {
+            for x in m[0]..m[2] {
+                if owner[y * w + x] == id as u32 {
+                    for ny in y.saturating_sub(r).max(y0)..(y + r + 1).min(y1) {
+                        for nx in x.saturating_sub(r).max(x0)..(x + r + 1).min(x1) {
+                            near[(ny - y0) * bw + nx - x0] = true;
+                        }
+                    }
+                }
+            }
+        }
+        let (mut paper, mut all) = (0, 0);
+        for (k, _) in near.iter().enumerate().filter(|(_, n)| **n) {
+            let (x, y) = (x0 + k % bw, y0 + k / bw);
+            if owner[y * w + x] != id as u32 {
+                all += 1;
+                paper += light(x, y) as usize;
+            }
+        }
+        if all > 0 { paper as f64 / all as f64 } else { 0.0 }
+    };
+    // Paper round it, or, on the art, white edging all round its strokes: a
+    // shout lettered over hair and foliage ("GAH!", ch257 p19) has paper
+    // only in its edging, its letters joined so close that their bounds overlap.
+    let on_paper = |id: usize, m: &[usize; 5]| {
+        let (mw, mh) = ((m[2] - m[0]) as f64, (m[3] - m[1]) as f64);
+        paper_round(m, (mh.min(mw) / 3.0).max(2.0) as usize) >= PAPER_AROUND || edged && edging(id, m, EDGED_RING) >= EDGED
     };
     // Letters: the size of lettering, with paper around them. Smaller marks
     // on paper (dots, commas, the bits of an ellipsis) may join a block
@@ -549,7 +604,7 @@ pub fn blocks_up_to(page: &Page, vertical: bool, hi: f64) -> Vec<Block> {
     for (id, m) in marks.into_iter().enumerate() {
         let (mw, mh) = ((m[2] - m[0]) as f64, (m[3] - m[1]) as f64);
         let size = if vertical { mw } else { mh };
-        if size > hi || mw > 12.0 * mh || mh > 12.0 * mw || mw.max(mh) < 2.0 || !on_paper(&m) {
+        if size > hi || mw > 12.0 * mh || mh > 12.0 * mw || mw.max(mh) < 2.0 || !on_paper(id, &m) {
             continue;
         }
         if size < lo {
@@ -1090,10 +1145,13 @@ pub fn nudge(items: &mut [([f64; 4], usize)], blocks: &[Block], on: &mut [Option
             continue;
         }
         let gap = |r: [f64; 4]| (r[0] - t[2]).max(t[0] - r[2]).max(r[1] - t[3]).max(t[1] - r[3]);
+        // A word, or for a short line a third of its letters: "hff..."
+        // just under its box is two marks, "h" and a joined "ff" (ch257 p16).
+        let least = WORD_LETTERS.min(items[i].1 / 3).max(2);
         let near = blocks
             .iter()
             .enumerate()
-            .filter(|&(j, b)| !on.contains(&Some(j)) && b.letters >= WORD_LETTERS && gap(b.bounds) <= REACH * b.glyph)
+            .filter(|&(j, b)| !on.contains(&Some(j)) && b.letters >= least && gap(b.bounds) <= REACH * b.glyph)
             .min_by(|a, b| gap(a.1.bounds).total_cmp(&gap(b.1.bounds)).then(b.1.letters.cmp(&a.1.letters)));
         let Some((j, b)) = near else { continue };
         let r = b.bounds;
@@ -1929,6 +1987,72 @@ mod tests {
         let mut texts = gather(&items, &blocks, &on).remove(0);
         texts.sort_by(|a, b| a[0].total_cmp(&b[0]));
         assert_eq!(texts, vec![blocks[0].bounds, blocks[1].bounds, blocks[2].bounds]);
+    }
+
+    /// A box with no lettering on it moves onto a block just past it of a
+    /// word, or for a short line a third of its letters (ch257 p16, "hff..."
+    /// two marks under its box); a long line does not move onto a couple of
+    /// marks, nor any line onto lettering out of reach.
+    #[test]
+    fn a_short_lines_box_moves_onto_its_few_marks_just_past_it() {
+        let block = |bounds: [f64; 4], letters| Block { bounds, letters, glyph: 20.0, in_balloon: false };
+        let item = [474.0, 1533.0, 570.0, 1614.0];
+        let cases = [
+            ("two marks under a short line's box", 6, block([515.0, 1615.0, 559.0, 1640.0], 2), true),
+            ("two marks under a long line's box", 30, block([515.0, 1615.0, 559.0, 1640.0], 2), false),
+            ("a word under a long line's box", 30, block([515.0, 1615.0, 600.0, 1640.0], 4), true),
+            ("two marks out of reach of a short line's box", 6, block([515.0, 1614.0 + 3.0 * REACH * 20.0, 559.0, 1640.0 + 3.0 * REACH * 20.0], 2), false),
+        ];
+        for (form, chars, b, moves) in cases {
+            let (mut items, mut on) = ([(item, chars)], vec![None]);
+            nudge(&mut items, &[b], &mut on);
+            assert_eq!(on == vec![Some(0)], moves, "{form}");
+        }
+    }
+
+    /// Letters on the art with only a thin white edging round their strokes,
+    /// joined edging to edging (a shout over hair, "GAH!" ch257 p19), are
+    /// lettering [`edged`] finds and [`blocks`] does not; the same letters
+    /// with no edging are the hair's, and lettering [`blocks`] finds on
+    /// paper is not found again by [`edged`].
+    #[test]
+    fn letters_edged_in_white_on_the_art_are_found_only_by_edged() {
+        let (w, h) = (400u32, 200u32);
+        let meets = |a: [f64; 4], b: [f64; 4]| a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+        let span = [100.0, 80.0, 176.0, 104.0];
+        // Four hollow letters 16 x 24 on a ground, each in a white rim.
+        let draw = |hair: bool, rim: u32| {
+            let mut px: Vec<u8> = (0..w * h).map(|i| if hair && i % w % 4 < 2 { 60 } else if hair { 170 } else { 255 }).collect();
+            for k in 0..4 {
+                let (x0, y0) = (100 + k * (16 + 2 * rim), 80);
+                for y in y0 - rim..y0 + 24 + rim {
+                    for x in x0 - rim..x0 + 16 + rim {
+                        px[(y * w + x) as usize] = 255;
+                    }
+                }
+                for y in y0..y0 + 24 {
+                    for x in x0..x0 + 16 {
+                        if x < x0 + 3 || x >= x0 + 13 || y < y0 + 3 || y >= y0 + 21 {
+                            px[(y * w + x) as usize] = 0;
+                        }
+                    }
+                }
+            }
+            px
+        };
+        // (form, ground of hair, rim, found by `blocks`, by `edged`)
+        let cases = [
+            ("edged in white on hair", true, 2, false, true),
+            ("no edging on hair", true, 0, false, false),
+            ("on paper", false, 2, true, false),
+        ];
+        for (form, hair, rim, plain, edging) in cases {
+            let px = draw(hair, rim);
+            let p = Page { w, h, px: &px };
+            let found = |b: &[Block]| b.iter().any(|b| b.letters >= 3 && meets(b.bounds, span));
+            assert_eq!(found(&blocks(&p, false)), plain, "{form}: blocks");
+            assert_eq!(found(&edged(&p, false)), edging, "{form}: edged");
+        }
     }
 
     /// Lettering on a face (ch256 p8, "...SHE NEEDS OPPORTUNITIES"): the
