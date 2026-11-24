@@ -777,6 +777,16 @@ let found = on[i].and_then(|j| {
                     let own = [(t[0] - mx).max(s.x as f64) as i64, (t[1] - my).max(s.y as f64) as i64, ((t[2] + mx).ceil() as i64).min(s.x + s.w as i64), ((t[3] + my).ceil() as i64).min(s.y + s.h as i64)];
                     let rect = [s.x, s.y, s.x + s.w as i64, s.y + s.h as i64];
                     let own = if own[0] < own[2] && own[1] < own[3] { own } else { rect };
+                    // Lettering nobody took, of the line's size, lying mostly
+                    // on Gemini's box drawn loosely, is the line's own split
+                    // off: its letters are sought there too ("4...?" and
+                    // "???" of "3... 4...? 7...???" past the box, ch256 p21).
+                    let mine = |j: usize, b: &balloon::Block| {
+                        let claimed = on.contains(&Some(j)) || pieces.iter().enumerate().any(|(k, p)| k != i && p.contains(&b.bounds));
+                        let alike = glyph.is_some_and(|g| b.glyph.max(g) <= 1.6 * b.glyph.min(g));
+                        !claimed && alike && b.letters >= balloon::WORD_LETTERS && balloon::on_box(wanted[i].0, b.bounds) >= 0.5
+                    };
+                    let own = blocks.iter().enumerate().filter(|&(j, b)| mine(j, b)).fold(own, |o, (_, b)| [o[0].min(b.bounds[0] as i64), o[1].min(b.bounds[1] as i64), o[2].max(b.bounds[2].ceil() as i64), o[3].max(b.bounds[3].ceil() as i64)]);
                     let more = beside(&sep);
                     // The white goes over every dark letter in the
                     // lettering's area. The Korean goes over the blocks
@@ -1583,6 +1593,53 @@ mod tests {
         // too, not in the block between them.
         let last = b.parts.iter().find(|p| p.text[1] > 225).unwrap_or_else(|| panic!("a part for the last line: {b:?}"));
         assert!(last.text[0] <= 192 && last.text[0] + last.text[2] >= 314 && last.ko == "그거야!", "{last:?}");
+    }
+
+    /// ch256 p21: "4...?" and "???" of "3... 4...? 7...???", a block no item
+    /// took lying half past Gemini's box, showed past the cover. Lettering
+    /// of the line's size that no other item took, lying mostly on the box
+    /// drawn loosely, is the line's own and is covered with it; lettering of
+    /// another size, another item's, or mostly off the box is not.
+    #[test]
+    fn unclaimed_lettering_of_the_lines_size_mostly_on_its_box_is_covered_with_it() {
+        // The second block's letter size and left edge, a second item over
+        // it, and whether the first item's cover takes its last letter.
+        let forms = [
+            ("of the line's size, mostly on the box", 1, 230, false, true),
+            ("of the line's size, mostly off the box", 1, 262, false, false),
+            ("twice the line's size, mostly on the box", 2, 230, false, false),
+            ("of the line's size, another item's", 1, 230, true, false),
+        ];
+        for (name, k, bx, second, want) in forms {
+            let (w, h) = (600u32, 400u32);
+            let mut page = export::Rgb { w, h, px: vec![60; (w * h * 3) as usize] };
+            let mut ink = |x0: u32, y0: u32, x1: u32, y1: u32, v: u8| (y0..y1).for_each(|y| (x0..x1).for_each(|x| page.px[((y * w + x) * 3) as usize..][..3].fill(v)));
+            // Two blocks of four ring letters in white edging on the art.
+            let (lw, lh, step) = (14 * k, 16 * k, 20 * k);
+            ink(94, 194, 180, 222, 255);
+            ink(bx - 6, 200 + 8 - lh / 2 - 6, bx + 3 * step + lw + 6, 200 + 8 + lh / 2 + 6, 255);
+            let first = [100u32, 120, 140, 160].map(|x| (x, 200u32, 14u32, 16u32));
+            let other = [0u32, 1, 2, 3].map(|n| (bx + n * step, 200 + 8 - lh / 2, lw, lh));
+            for (x, y, lw, lh) in first.into_iter().chain(other) {
+                let s = lw * 3 / 14;
+                ink(x, y, x + lw, y + lh, 0);
+                ink(x + s, y + s, x + lw - s, y + lh - s, 255);
+            }
+            let mut items = vec![PageItem { src: "AB".into(), ko: "하나 둘".into(), ..item([190.0 / 400.0, 90.0 / 600.0, 230.0 / 400.0, 270.0 / 600.0], None) }];
+            if second {
+                items.push(PageItem { src: "CDEF".into(), ko: "셋 넷".into(), ..item([190.0 / 400.0, (bx - 5) as f64 / 600.0, 230.0 / 400.0, (bx + 3 * step + lw + 5) as f64 / 600.0], None) });
+            }
+            let b = &shapes(&items, &page, "en")[0];
+            let patch = b.patch.as_ref().unwrap_or_else(|| panic!("{name}: a tone patch: {b:?}"));
+            let (pw, px) = export::patch_px(patch).unwrap();
+            let covered = |x: i64, y: i64| {
+                let (x, y) = (x - patch.at[0], y - patch.at[1]);
+                x >= 0 && y >= 0 && x < pw as i64 && y < patch.at[3] && px[(y as usize * pw as usize + x as usize) * 4 + 3] == 255
+            };
+            assert!(covered(101, 208), "{name}: the line's own letters: {b:?}");
+            let (lx, ly) = ((bx + 3 * step + 1) as i64, (200 + 8) as i64);
+            assert_eq!(covered(lx, ly), want, "{name}: the second block's last letter at ({lx}, {ly})");
+        }
     }
 
     /// ch257 p15: a shout lettered across the panel ("IN HER HUH?!"), its

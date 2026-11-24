@@ -982,6 +982,14 @@ pub fn usual(blocks: &[Block]) -> Option<f64> {
     sizes.get(sizes.len() / 2).copied()
 }
 
+/// How much of `r` lies in Gemini's box `t`, drawn loosely: a tenth of the
+/// box round it still counts (ch256 p4, the "34!" below its box).
+pub fn on_box(t: [f64; 4], r: [f64; 4]) -> f64 {
+    let (gx, gy) = (MATCH_LOOSE * (t[2] - t[0]), MATCH_LOOSE * (t[3] - t[1]));
+    let w = ((t[2] + gx).min(r[2]) - (t[0] - gx).max(r[0])).max(0.0);
+    w * ((t[3] + gy).min(r[3]) - (t[1] - gy).max(r[1])).max(0.0) / ((r[2] - r[0]) * (r[3] - r[1])).max(1.0)
+}
+
 /// Which block each of Gemini's items sits on: `items` are its text boxes
 /// (picture pixels) and how many letters its source text has. Nearest first,
 /// then trades that lower the total cost; one block per item, and an item
@@ -991,13 +999,7 @@ pub fn assign(items: &[([f64; 4], usize)], blocks: &[Block], page_w: u32) -> Vec
     // Marks much smaller than the page's usual lettering (a face's eyes, a
     // pattern) are seldom dialogue.
     let usual = usual(blocks);
-    // How much of `r` lies in Gemini's box `t`, drawn loosely: a tenth of
-    // the box round it still counts (ch256 p4, the "34!" below its box).
-    let held = |t: [f64; 4], r: [f64; 4]| {
-        let (gx, gy) = (MATCH_LOOSE * (t[2] - t[0]), MATCH_LOOSE * (t[3] - t[1]));
-        let w = ((t[2] + gx).min(r[2]) - (t[0] - gx).max(r[0])).max(0.0);
-        w * ((t[3] + gy).min(r[3]) - (t[1] - gy).max(r[1])).max(0.0) / ((r[2] - r[0]) * (r[3] - r[1])).max(1.0)
-    };
+    let held = on_box;
     let mut pairs = vec![];
     for (i, &(t, chars)) in items.iter().enumerate() {
         let (ix, iy) = centre(t);
