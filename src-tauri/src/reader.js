@@ -701,7 +701,6 @@
     text.style.textWrap = '';
     text.style.overflowWrap = 'normal';
     text.style.overflow = '';
-    text.style.transform = '';
     const f = text.rstFlow;
     if (f) {
       squeeze(text, 0);
@@ -730,14 +729,11 @@
     // p18), as large as the original lettering there, never below it.
     text.style.overflowWrap = 'anywhere';
     if (!shrink(Math.min(READABLE, Number(text.dataset.least) * shownWidth || READABLE))) return 1;
-    // Over even at the floor: the lines are scaled down whole into the text
-    // area, which lies under the cover, so none is cut off and none leaves
-    // the balloon; pinch zoom still reads them.
-    lines.selectNodeContents(text);
-    const [l, a] = [lines.getBoundingClientRect(), text.getBoundingClientRect()];
-    const k = Math.min(1, a.width / (l.width || 1), a.height / (l.height || 1));
+    // Over even at the floor: the floor holds (scaled below it, "이거였어!"
+    // on the ch258 p18 spread read smaller than its own lettering). The
+    // lines stay whole at that size, centred on the text area and shown
+    // past its edge, over the cover round it, in their white rim.
     text.style.overflow = 'visible';
-    text.style.transform = `scale(${k.toFixed(4)})`;
     return 0;
   }
 

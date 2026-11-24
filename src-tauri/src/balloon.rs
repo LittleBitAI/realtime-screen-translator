@@ -1025,7 +1025,18 @@ pub fn assign(items: &[([f64; 4], usize)], blocks: &[Block], page_w: u32) -> Vec
             // that is another line, under a box Gemini set a balloon over
             // (ch258 p14, "THE RIVER STYX-" under the box of "THERE...").
             let theirs = if chars > 0 && b.letters >= chars && b.glyph * 1.6 >= largest { held(t, r) } else { 0.0 };
-            let cost = d + (MATCH_COUNT * count + MATCH_SMALL * small) * (1.0 - theirs) + bare;
+            // Marks within the box much smaller than lettering there that
+            // reads as many letters as well are not the line, however near
+            // its middle: a sweat drop and hatching under "AH..." took it, and
+            // "AH..." showed (ch257 p15). Not beside a larger shout of fewer
+            // letters ("BA-THMP..." over "AH. THAT'S WHAT IT WAS.", ch258 p16).
+            let rival = blocks
+                .iter()
+                .filter(|o| held(t, o.bounds) >= 0.5 && ((o.letters as f64 + 1.0) / (chars as f64 + 1.0)).ln().abs() <= count + 1e-9)
+                .map(|o| o.glyph)
+                .fold(0.0, f64::max);
+            let dwarfed = if held(t, r) >= 0.5 && b.glyph * 1.6 < rival { MATCH_SMALL * (rival / (1.6 * b.glyph)).ln() } else { 0.0 };
+            let cost = d + (MATCH_COUNT * count + MATCH_SMALL * small) * (1.0 - theirs) + bare + dwarfed;
             if cost <= MATCH_MAX {
                 pairs.push((cost, i, j));
             }
@@ -1780,6 +1791,29 @@ mod tests {
         let wh = block([258.0, 1350.0, 379.0, 1388.0], 4, 34.0, false);
         let eye = block([706.0, 1393.0, 715.0, 1428.0], 2, 16.0, true);
         assert_eq!(assign(&[([266.0, 1326.0, 451.0, 1431.0], 2)], &[wh, eye], 1080), vec![Some(0)]);
+    }
+
+    /// ch257 p15: "AH..." lettered at the top of Gemini's box, on the art,
+    /// and a sweat drop and hatching at its middle, with as many marks: the
+    /// nearer, much smaller marks took the item, and its cover hid the art
+    /// and left "AH..." showing. Within a box, marks much smaller than
+    /// lettering there that reads as many letters as well are not the line;
+    /// alone there, as large, or beside a larger shout of fewer letters
+    /// (ch258 p16, "BA-THMP..." over "AH. THAT'S WHAT IT WAS."), they are.
+    #[test]
+    fn marks_much_smaller_than_the_lettering_in_a_box_do_not_take_its_line() {
+        let block = |bounds: [f64; 4], letters, glyph| Block { bounds, letters, glyph, in_balloon: true };
+        let item = |chars| [([30.0, 1187.0, 198.0, 1387.0], chars)];
+        let (top, middle) = ([90.0, 1180.0, 152.0, 1224.0], [77.0, 1256.0, 118.0, 1297.0]);
+        let forms = [
+            ("larger lettering at the top, smaller marks in the middle", 2, vec![block(top, 2, 44.0), block(middle, 2, 21.0)], Some(0)),
+            ("small lettering alone in the box", 2, vec![block(middle, 2, 21.0)], Some(0)),
+            ("lettering of like size at the top and in the middle", 2, vec![block(top, 2, 44.0), block(middle, 2, 36.0)], Some(1)),
+            ("a larger shout of fewer letters at the top, the line in the middle", 16, vec![block(top, 6, 44.0), block(middle, 16, 21.0)], Some(1)),
+        ];
+        for (name, chars, blocks, want) in forms {
+            assert_eq!(assign(&item(chars), &blocks, 1200)[0], want, "{name}");
+        }
     }
 
     /// ch257 p4: Gemini's boxes for "NOBODY INVITED YOU." and "OH,

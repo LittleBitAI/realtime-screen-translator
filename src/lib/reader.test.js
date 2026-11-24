@@ -149,7 +149,7 @@ describe('reader page script', () => {
   // its width: 20 page px of lettering is 10 on screen, 8 is 4.
   // Three pages, one each: lettering of 20 px (least 7), of 8 px (least 4),
   // and none found (least 7).
-  it('scales Korean too long for its text area at the least size down whole into that area, never past it', async () => {
+  it('never sets Korean too long for its text area below the least size, and keeps its lines whole and shown', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('cors'); }));
     // A rectangle cover, and a balloon with its outline holding a line in
     // two shares: each a 16 x 10 text area.
@@ -172,14 +172,15 @@ describe('reader page script', () => {
     const texts = await vi.waitFor(() => {
       const t = [...document.querySelectorAll('.rst-text')];
       expect(t).toHaveLength(9);
-      expect(t.every((x) => x.style.transform)).toBe(true);
+      expect(t.every((x) => x.style.overflow === 'visible')).toBe(true);
       return t;
     });
-    // Each in its own area, as placed, scaled to a quarter: the lines' height to the area's.
-    expect(texts.map((t) => [t.style.left, t.style.top, t.style.width, t.style.height, t.style.overflow, t.style.transform])).toEqual([0, 1, 2].flatMap(() => [
-      ['41.6667%', '37.5%', '13.3333%', '12.5%', 'visible', 'scale(0.25)'],
-      ['8.33333%', '37.5%', '13.3333%', '12.5%', 'visible', 'scale(0.25)'],
-      ['75%', '37.5%', '13.3333%', '12.5%', 'visible', 'scale(0.25)'],
+    // Each in its own area, as placed, at the page's least size and not
+    // scaled below it: the size drawn is the size set.
+    expect(texts.map((t) => [t.style.left, t.style.top, t.style.width, t.style.height, t.style.transform])).toEqual([0, 1, 2].flatMap(() => [
+      ['41.6667%', '37.5%', '13.3333%', '12.5%', ''],
+      ['8.33333%', '37.5%', '13.3333%', '12.5%', ''],
+      ['75%', '37.5%', '13.3333%', '12.5%', ''],
     ]));
     expect(texts.map((t) => Number(parseFloat(t.style.fontSize).toFixed(3)))).toEqual([7, 7, 7, 4, 4, 4, 7, 7, 7]);
   });

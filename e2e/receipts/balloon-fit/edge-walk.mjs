@@ -63,12 +63,25 @@ for (const ch of ['256', '257', '258']) {
         const boxes = layer ? [...layer.querySelectorAll('.rst-box')] : [];
         const texts = layer ? [...layer.querySelectorAll('.rst-text')] : [];
         const patches = layer ? [...layer.querySelectorAll('canvas.rst-patch')] : [];
+        // A text's lines as drawn, and the size drawn against the page's
+        // least size (readable, or its own lettering where that is smaller).
+        const range = document.createRange();
+        const extent = (t) => { range.selectNodeContents(t); return range.getBoundingClientRect(); };
+        // The size set, times any scale the text is drawn at.
+        const drawn = (t) => { const s = getComputedStyle(t); return parseFloat(s.fontSize) * (s.transform === 'none' ? 1 : new DOMMatrix(s.transform).a); };
+        const least = (t) => Math.min(7, Number(t.dataset.least) * img.offsetWidth || 7);
         return { loaded: img.complete && img.naturalWidth > 0, boxes: boxes.length, texts: texts.length,
-          clipped: texts.filter((t) => t.scrollHeight > t.clientHeight + 1 || t.scrollWidth > t.clientWidth + 1).length,
+          // Cut off: lines past a text area that hides its overflow.
+          clipped: texts.filter((t) => getComputedStyle(t).overflow !== 'visible' && (t.scrollHeight > t.clientHeight + 1 || t.scrollWidth > t.clientWidth + 1)).length,
+          belowLeast: texts.filter((t) => drawn(t) < least(t) - 0.05).length,
+          // Lines shown past their cover's box: a white cover's (a balloon),
+          // or toned letters' on the art, where the lines' white rim sits on it.
+          pastCover: texts.filter((t) => { const [l, b] = [extent(t), t.parentElement.getBoundingClientRect()]; return l.width > 0 && (l.left < b.left - 1 || l.right > b.right + 1 || l.top < b.top - 1 || l.bottom > b.bottom + 1); })
+            .map((t) => ({ ko: t.textContent, white: !!t.parentElement.querySelector('.rst-fill') })),
           // Painted: the decoded patch drawn, some pixel of it opaque. The
           // canvas has its size before its picture is decoded and drawn.
           patches: patches.length, unpainted: patches.filter((c) => !c.width || !c.height || !c.getContext('2d').getImageData(0, 0, c.width, c.height).data.some((v, j) => j % 4 === 3 && v > 0)).length,
-          minPx: texts.length ? Math.min(...texts.map((t) => { const r = t.getBoundingClientRect(); const f = parseFloat(getComputedStyle(t).fontSize); return f * (r.width / (t.offsetWidth || r.width || 1)); })) : null };
+          minPx: texts.length ? Math.min(...texts.map(drawn)) : null };
       })()`);
       if (state.loaded && state.boxes > 0 && state.patches === 0 || state.loaded && state.boxes > 0 && state.unpainted === 0) break;
     }
@@ -79,7 +92,7 @@ for (const ch of ['256', '257', '258']) {
   }
   const sent = (await s.run('window.__rstCalls')).filter(([c]) => c === 'post_chapter_page').map(([, id]) => id);
   report[`ch${ch}`] = { total, drawn: seen.filter((p) => p.loaded && p.boxes > 0).length, inOrder: sent.every((v, i) => i === 0 || v > sent[i - 1]), sent: sent.length,
-    clipped: seen.reduce((a, p) => a + p.clipped, 0), unpainted: seen.reduce((a, p) => a + p.unpainted, 0), patches: seen.reduce((a, p) => a + p.patches, 0),
+    clipped: seen.reduce((a, p) => a + p.clipped, 0), belowLeast: seen.reduce((a, p) => a + p.belowLeast, 0), pastWhite: seen.reduce((a, p) => a + p.pastCover.filter((c) => c.white).length, 0), pastTone: seen.reduce((a, p) => a + p.pastCover.filter((c) => !c.white).length, 0), unpainted: seen.reduce((a, p) => a + p.unpainted, 0), patches: seen.reduce((a, p) => a + p.patches, 0),
     minPx: Math.min(...seen.filter((p) => p.minPx).map((p) => p.minPx)).toFixed(1), pages: seen };
   console.log(`ch${ch}`, JSON.stringify({ ...report[`ch${ch}`], pages: undefined }));
 }

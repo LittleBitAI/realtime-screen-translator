@@ -82,7 +82,19 @@ for (const url of urls) {
     if (!state.length) { console.log(chapter, 'slide', k + 1, 'no page picture'); continue; }
     await delay(500);
     // The sizes as captured: read after the layer's last refit, not when it first appears.
-    const texts = await site.run(`[...document.querySelector('.swiper').swiper.slides[${k}].querySelectorAll('img.reader-img')].map((i) => [...(i.nextElementSibling?.querySelectorAll('.rst-text') ?? [])].map(t => parseFloat(t.style.fontSize)))`);
+    // Each text: the size drawn (set size times any scale), the page's least
+    // size there (readable, or its own lettering where smaller), whether
+    // its lines are cut off, and whether they show past a white cover's
+    // box (a balloon) or toned letters' box (on the art).
+    const texts = await site.run(`[...document.querySelector('.swiper').swiper.slides[${k}].querySelectorAll('img.reader-img')].map((i) => [...(i.nextElementSibling?.querySelectorAll('.rst-text') ?? [])].map((t) => {
+      const s = getComputedStyle(t); const r = document.createRange(); r.selectNodeContents(t);
+      const [l, b] = [r.getBoundingClientRect(), t.parentElement.getBoundingClientRect()];
+      const past = l.width > 0 && (l.left < b.left - 1 || l.right > b.right + 1 || l.top < b.top - 1 || l.bottom > b.bottom + 1);
+      return { px: +(parseFloat(s.fontSize) * (s.transform === 'none' ? 1 : new DOMMatrix(s.transform).a)).toFixed(2),
+        least: +Math.min(7, Number(t.dataset.least) * i.offsetWidth || 7).toFixed(2),
+        cut: s.overflow !== 'visible' && (t.scrollHeight > t.clientHeight + 1 || t.scrollWidth > t.clientWidth + 1),
+        past: past ? (t.parentElement.querySelector('.rst-fill') ? 'white' : 'tone') : null };
+    }))`);
     state.forEach((p, j) => { if (!p.chip) p.texts = texts[j]; });
     const name = `${dir}/${String(pages.length + 1).padStart(2, '0')}`;
     // Each capture after the page has drawn twice since the switch: the
@@ -104,11 +116,14 @@ for (const url of urls) {
     await drawn();
     for (const p of state) {
       pages.push({ page: pages.length + 1, slide: k + 1, ...p, same_capture: same });
-      console.log(chapter, 'page', pages.length, JSON.stringify({ ...p, texts: undefined, min_font: Math.min(...(p.texts ?? [0])) }));
+      console.log(chapter, 'page', pages.length, JSON.stringify({ ...p, texts: undefined, min_font: Math.min(...(p.texts ?? []).map((t) => t.px)) }));
     }
   }
   site.close();
-  report.chapters.push({ url, slides, pages: pages.length, chips: pages.filter((p) => p.chip).length, same_captures: pages.filter((p) => p.same_capture).length, detail: pages });
+  const all = pages.flatMap((p) => p.texts ?? []);
+  report.chapters.push({ url, slides, pages: pages.length, chips: pages.filter((p) => p.chip).length, same_captures: pages.filter((p) => p.same_capture).length,
+    below_least: all.filter((t) => t.px < t.least - 0.05).length, cut: all.filter((t) => t.cut).length,
+    past_white: all.filter((t) => t.past === 'white').length, past_tone: all.filter((t) => t.past === 'tone').length, detail: pages });
 }
 report.gemini_requests_after = (await wait(async () => ({ n: await status() }), 'status', 40)).n;
 writeFileSync(`${out}/report.json`, JSON.stringify(report, null, 1));
