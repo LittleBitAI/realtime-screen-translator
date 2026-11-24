@@ -477,7 +477,8 @@ pub const LETTER_MAX: f64 = 0.07;
 pub const BIG_LETTER: f64 = 1.5;
 const PAPER_AROUND: f64 = 0.6;
 /// White edging round a letter on the art: of the pixels this near its
-/// strokes, this much is paper (hair and tone round a stroke: about 0.6).
+/// strokes, this much is paper: 0.84 and up for the letters of "GAH!" on
+/// hair, up to 0.67 for the hair and tone round a stroke (ch257 p19).
 const EDGED_RING: usize = 2;
 const EDGED: f64 = 0.8;
 
@@ -503,7 +504,7 @@ pub fn edged(page: &Page, vertical: bool) -> Vec<Block> {
     let hi = LETTER_MAX * page.w as f64;
     let plain = found(page, vertical, hi, false);
     let meets = |a: [f64; 4], b: [f64; 4]| a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
-    found(page, vertical, hi, true).into_iter().filter(|b| !plain.iter().any(|p| p.letters >= WORD_LETTERS && meets(p.bounds, b.bounds))).collect()
+    found(page, vertical, hi, true).into_iter().filter(|b| !plain.contains(b) && !plain.iter().any(|p| p.letters >= WORD_LETTERS && meets(p.bounds, b.bounds))).collect()
 }
 
 fn found(page: &Page, vertical: bool, hi: f64, edged: bool) -> Vec<Block> {
@@ -1133,8 +1134,8 @@ pub fn assign(items: &[([f64; 4], usize)], blocks: &[Block], page_w: u32) -> Vec
 
 /// Gemini's box for an item [`assign`] left without lettering, moved onto
 /// the line it missed: when the box meets no block at all and a word or
-/// more nobody took lies within [`REACH`] letters of it, the box moves just
-/// far enough to hold that line, and the line is the item's (ch257 p10, a
+/// more nobody took lies within [`REACH`] letters of it, the box moves over
+/// that line, holding it at its near edge, and the line is the item's (ch257 p10, a
 /// footnote's box two lines above it; its cover went to the frills there).
 /// Of lines equally near, the longest.
 pub fn nudge(items: &mut [([f64; 4], usize)], blocks: &[Block], on: &mut [Option<usize>]) {
@@ -1154,9 +1155,12 @@ pub fn nudge(items: &mut [([f64; 4], usize)], blocks: &[Block], on: &mut [Option
             .filter(|&(j, b)| !on.contains(&Some(j)) && b.letters >= least && gap(b.bounds) <= REACH * b.glyph)
             .min_by(|a, b| gap(a.1.bounds).total_cmp(&gap(b.1.bounds)).then(b.1.letters.cmp(&a.1.letters)));
         let Some((j, b)) = near else { continue };
+        // The box moves over the block to hold it at its near edge: the
+        // box held none of its lettering, so the rest of it lies on past the
+        // block, not back toward the box ("hff..." under "hff...", ch257 p16).
         let r = b.bounds;
-        let dx = if r[0] >= t[2] { r[2] - t[2] } else if r[2] <= t[0] { r[0] - t[0] } else { 0.0 };
-        let dy = if r[1] >= t[3] { r[3] - t[3] } else if r[3] <= t[1] { r[1] - t[1] } else { 0.0 };
+        let dx = if r[0] >= t[2] { r[0] - t[0] } else if r[2] <= t[0] { r[2] - t[2] } else { 0.0 };
+        let dy = if r[1] >= t[3] { r[1] - t[1] } else if r[3] <= t[1] { r[3] - t[3] } else { 0.0 };
         items[i].0 = [t[0] + dx, t[1] + dy, t[2] + dx, t[3] + dy];
         on[i] = Some(j);
     }
@@ -1991,8 +1995,9 @@ mod tests {
 
     /// A box with no lettering on it moves onto a block just past it of a
     /// word, or for a short line a third of its letters (ch257 p16, "hff..."
-    /// two marks under its box); a long line does not move onto a couple of
-    /// marks, nor any line onto lettering out of reach.
+    /// two marks under its box), holding it at its near edge so the box
+    /// reaches on over the lines after it; a long line does not move onto a
+    /// couple of marks, nor any line onto lettering out of reach.
     #[test]
     fn a_short_lines_box_moves_onto_its_few_marks_just_past_it() {
         let block = |bounds: [f64; 4], letters| Block { bounds, letters, glyph: 20.0, in_balloon: false };
@@ -2005,8 +2010,11 @@ mod tests {
         ];
         for (form, chars, b, moves) in cases {
             let (mut items, mut on) = ([(item, chars)], vec![None]);
-            nudge(&mut items, &[b], &mut on);
+            nudge(&mut items, &[b.clone()], &mut on);
             assert_eq!(on == vec![Some(0)], moves, "{form}");
+            // Moved down over the block, its top on the block's top.
+            let want = if moves { [item[0], b.bounds[1], item[2], b.bounds[1] + item[3] - item[1]] } else { item };
+            assert_eq!(items[0].0, want, "{form}: where the box is");
         }
     }
 

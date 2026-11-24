@@ -161,6 +161,18 @@ const HALO_PAST: i64 = 2;
 /// taken in, the fill is carried in from the dark lines it stops at. A PNG
 /// opaque on what is covered, at `x, y, w, h`; None for no area.
 pub(crate) fn tone(page: &Rgb, rects: &[[i64; 4]], edging: i64) -> Option<layout::Patch> {
+    cover(page, rects, edging, false)
+}
+
+/// What [`tone`] covers, white: letters drawn in white edging on the art
+/// covered in their own shape, letters and edging, with nothing carried in
+/// over them from a ground they did not show (ch257 p19, "GAH!" across
+/// gray hair and black foliage, toned a dark smudge).
+pub(crate) fn whiten(page: &Rgb, rects: &[[i64; 4]], edging: i64) -> Option<layout::Patch> {
+    cover(page, rects, edging, true)
+}
+
+fn cover(page: &Rgb, rects: &[[i64; 4]], edging: i64, white: bool) -> Option<layout::Patch> {
     let (w, h) = (page.w as i64, page.h as i64);
     let rs: Vec<[i64; 4]> = rects.iter().map(|r| [r[0].max(0), r[1].max(0), r[2].min(w), r[3].min(h)]).filter(|r| r[0] < r[2] && r[1] < r[3]).collect();
     let b = rs.iter().fold([i64::MAX, i64::MAX, i64::MIN, i64::MIN], |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
@@ -385,7 +397,7 @@ pub(crate) fn tone(page: &Rgb, rects: &[[i64; 4]], edging: i64) -> Option<layout
     for y in f[1]..f[3] {
         for x in f[0]..f[2] {
             let i = (y - f[1]) as usize * fw + (x - f[0]) as usize;
-            let [r, g, bl] = c[i].map(|v| v.round().clamp(0.0, 255.0) as u8);
+            let [r, g, bl] = if white { [255; 3] } else { c[i].map(|v| v.round().clamp(0.0, 255.0) as u8) };
             px.extend_from_slice(&[r, g, bl, if inside[i] { 255 } else { 0 }]);
         }
     }
@@ -856,6 +868,42 @@ mod tests {
             assert!(at(x, 20)[3] == 255 && at(x, 20)[0].abs_diff(art) < 30, "({x}, 20): {:?}", at(x, 20));
         }
         assert!(at(85, 11)[3] == 255 && at(153, 22)[3] == 255);
+    }
+
+    /// [`whiten`] covers just what [`tone`] does, white: an edged letter on
+    /// a ground half gray hair and half black foliage ("GAH!", ch257 p19)
+    /// is white in its own shape, letter and edging, with nothing carried
+    /// in; the art past its edging is left as drawn.
+    #[test]
+    fn whiten_covers_what_tone_does_white() {
+        let mut page = Rgb { w: 120, h: 40, px: vec![0; 120 * 40 * 3] };
+        for y in 0..40 {
+            for x in 0..120 {
+                page.put(x, y, if x < 60 { [170; 3] } else { [20; 3] });
+            }
+        }
+        // A letter across the two grounds, edged in white 4 px wide.
+        for y in 8..32 {
+            for x in 46..74 {
+                page.put(x, y, if (12..28).contains(&y) && (50..70).contains(&x) { [0; 3] } else { [255; 3] });
+            }
+        }
+        let rects = [[48, 10, 72, 30]];
+        let (t, wt) = (tone(&page, &rects, 4).unwrap(), whiten(&page, &rects, 4).unwrap());
+        let (tw, tpx) = patch_px(&t).unwrap();
+        let (ww, wpx) = patch_px(&wt).unwrap();
+        assert_eq!((t.at, tw), (wt.at, ww), "the same patch");
+        for (k, (a, b)) in tpx.chunks(4).zip(wpx.chunks(4)).enumerate() {
+            let (x, y) = (t.at[0] + (k % tw as usize) as i64, t.at[1] + k as i64 / tw as i64);
+            assert_eq!(a[3], b[3], "({x}, {y}): covered alike");
+            if b[3] == 255 {
+                assert_eq!(&b[..3], &[255; 3], "({x}, {y}): white");
+            }
+        }
+        // The letter and its edging covered; the art past it is not.
+        let at = |x: i64, y: i64| wpx[((y - wt.at[1]) as usize * ww as usize + (x - wt.at[0]) as usize) * 4 + 3];
+        assert!([(52, 20), (68, 20), (47, 20), (73, 20)].iter().all(|&(x, y)| at(x, y) == 255));
+        assert!([(40, 20), (80, 20)].iter().all(|&(x, y)| at(x, y) == 0));
     }
 
     /// The user, on the phone: lettering across a panel's edge, the white

@@ -515,12 +515,14 @@ pub(crate) fn laid_out(items: &[PageItem], page: &export::Rgb, lang: &str) -> (V
     }
     // Lettering on the art with only white edging round its strokes (a
     // shout over hair, "GAH!" ahead of its balloon's line, ch257 p19): its
-    // blocks on the art lying mostly on a found line's box are only for
-    // gathering into that line, after the lines are matched: not lettering
-    // a cover keeps clear of, nor a line's own.
+    // blocks on the art lying mostly on the box of a line found in a
+    // balloon are only for gathering into that line, after the lines are
+    // matched: not lettering a cover keeps clear of, nor a line's own. A
+    // line on the art takes in its own edged letters where it is covered
+    // ("hff... hff...", ch257 p16).
     let mostly = |b: &[f64; 4], t: &[f64; 4]| (b[2].min(t[2]) - b[0].max(t[0])).max(0.0) * (b[3].min(t[3]) - b[1].max(t[1])).max(0.0) >= 0.5 * (b[2] - b[0]) * (b[3] - b[1]);
     let mut all = blocks.clone();
-    all.extend(balloon::edged(&pg, vertical).into_iter().filter(|b| !b.in_balloon && wanted.iter().zip(&on).any(|((t, _), o)| o.is_some() && mostly(&b.bounds, t))));
+    all.extend(balloon::edged(&pg, vertical).into_iter().filter(|b| !b.in_balloon && wanted.iter().zip(&on).any(|((t, _), o)| o.is_some_and(|j| blocks[j].in_balloon) && mostly(&b.bounds, t))));
     let pieces = balloon::gather(&wanted, &all, &on);
     let union = |p: &[[f64; 4]]| p.iter().fold([f64::MAX, f64::MAX, f64::MIN, f64::MIN], |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
     let texts: Vec<[f64; 4]> = pieces.iter().zip(&wanted).map(|(p, &(t, _))| if p.is_empty() { t } else { union(p) }).collect();
@@ -639,7 +641,20 @@ pub(crate) fn laid_out(items: &[PageItem], page: &export::Rgb, lang: &str) -> (V
                         // Its Korean goes over all the letters covered, not
                         // the block alone: "이거였어!" set in "THAT'S IT!"'s
                         // block was 1.7 px.
-                        let (white, tone, light, a) = lettering(&[line], glyph, &[], None).map_or_else(|| (rect_outline(r), vec![], None, r), |f| (vec![], f.0, f.2, [r[0].min(f.1[0]), r[1].min(f.1[1]), r[2].max(f.1[2]), r[3].max(f.1[3])]));
+                        // Lettering in white edging ([`balloon::edged`]) is
+                        // covered white in its shape, its block's own marks
+                        // alone (not the foliage and hair the search round it
+                        // meets, whitened streaks on them), and the Korean goes
+                        // over that shape, its rim on it, not over the rect round it.
+                        let shaped = all[blocks.len()..].iter().any(|b| b.bounds == *p);
+                        let own = |f: (Vec<[i64; 4]>, [i64; 4], Option<u8>)| -> Option<(Vec<[i64; 4]>, [i64; 4], Option<u8>)> {
+                            let marks: Vec<[i64; 4]> = f.0.into_iter().filter(|m| { let (cx, cy) = ((m[0] + m[2]) as f64 / 2.0, (m[1] + m[3]) as f64 / 2.0); cx >= p[0] && cx <= p[2] && cy >= p[1] && cy <= p[3] }).collect();
+                            let at = union(&marks.iter().map(|m| m.map(|v| v as f64)).collect::<Vec<_>>()).map(|v| v as i64);
+                            (!marks.is_empty()).then_some((marks, at, f.2))
+                        };
+                        let found = lettering(&[line], glyph, &[], None);
+                        let found = if shaped { found.and_then(own) } else { found };
+                        let (white, tone, light, a) = found.map_or_else(|| (rect_outline(r), vec![], None, r), |f| (vec![], f.0, f.2, if shaped { f.1 } else { [r[0].min(f.1[0]), r[1].min(f.1[1]), r[2].max(f.1[2]), r[3].max(f.1[3])] }));
                         (white, tone, [a[0] + pad, a[1] + pad, (a[2] - a[0] - 2 * pad).max(1), (a[3] - a[1] - 2 * pad).max(1)], light)
                     })
                     .collect()
@@ -694,6 +709,11 @@ let found = on[i].and_then(|j| {
                     let parts = parts(runs, [x0, y0, tw as i64, th as i64], &more, 1.0);
                     let tone: Vec<[i64; 4]> = more.iter().flat_map(|m| m.1.iter().copied()).collect();
                     let light = all_light(&mut more.iter().map(|m| (!m.1.is_empty(), m.3)));
+                    // Pieces lettered in white edging on the art ([`balloon::edged`])
+                    // are covered white in their own shape, if they are all
+                    // that is toned: no ground they did not show is carried in.
+                    let white = !tone.is_empty() && sep.iter().zip(&more).filter(|(_, m)| !m.1.is_empty()).all(|(p, _)| all[blocks.len()..].iter().any(|b| b.bounds == *p));
+                    let patch = if white && light.is_none() { export::whiten(page, &tone, edging(glyph)) } else { toned(&tone, glyph, light) };
                     let (outline, b) = joined(std::iter::once(f.outline).chain(more.into_iter().map(|m| m.0)).collect());
                     let b = tone.iter().fold(b, |b, r| [b[0].min(r[0]), b[1].min(r[1]), b[2].max(r[2]), b[3].max(r[3])]);
                     // A line in one balloon the reader sets along its
@@ -720,7 +740,7 @@ let found = on[i].and_then(|j| {
                         outline,
                         text: [x0, y0, tw as i64, th as i64],
                         parts,
-                        patch: toned(&tone, glyph, light),
+                        patch,
                     }
                 }
                 // No closed balloon: a rounded rectangle over the lettering
