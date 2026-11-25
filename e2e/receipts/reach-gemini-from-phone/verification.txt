@@ -71,7 +71,9 @@ Fresh install on the Galaxy S21+ (2026-11-25)
   adb -d shell am start -W -n ai.littlebit.realtime_screen_translator/.MainActivity
   Status: ok
 
-  The owner's unplugged, full-chapter read is pending.
+  The owner reported that translation worked and that later pages appeared
+  to translate as they opened them. The chapter address, full-chapter
+  result, page count, request counts and any page failures are pending.
 
 Focused automated checks
   cargo test -p realtime-screen-translator --test reader_edges --test screen_edges --test backend_edges
