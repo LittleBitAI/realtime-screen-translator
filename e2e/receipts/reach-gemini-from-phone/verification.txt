@@ -302,3 +302,63 @@ Revision 6 unplugged run and restart failure (2026-11-26)
   Chapter 21 with 51 pictures. `get_status` immediately before and after
   the query returned 0 Gemini requests. This checks library access and
   leaves the chapter reopen and drawing path unverified.
+
+Revision 7 cold-start diagnosis (2026-11-26, Galaxy S21+ over USB)
+  `adb shell pm path --user 0` and `adb shell sha256sum` identified the
+  same installed APK, SHA-256
+  be8581ef35ded4e66a0fa47324616fbdd48e77eb417167bba00abf5bf6dd0b08.
+  `adb reverse --list` was empty. No ledger process or port 8787 listener
+  was present. A temporary ADB forward carried WebView DevTools only and
+  was removed after each run.
+
+  Each of the three runs used `adb shell am force-stop` for the reader's
+  package, followed by `adb shell am start -W`. Android reported COLD
+  starts with PIDs 15354, 15864 and 16244. `get_status` on the Open screen
+  returned key_set=true and gemini_requests=0 before and after each run.
+  From the Open screen, the app opened the saved Chapter 21 address above.
+  The site resumed on page 6 in all three runs. Its own page controls took
+  the reader one page at a time to page 4, then to page 8 and back to page 4.
+  The read-to-end button was never pressed.
+
+  The opening-page waits were 60.1, 60.2 and 60.1 seconds. The page 4 waits
+  were 60.1, 60.2 and 60.2 seconds. At all six endpoints the status bar
+  was hidden with no visible message. The `번역 켜짐` and `끝까지 번역`
+  buttons respectively had aria-pressed=true and aria-pressed=false.
+  The two tables list every mounted page image at the two endpoints.
+  Positions are one-based, and seconds are elapsed from the first sample
+  within two pages of the view to a layer with Korean. Time for an already
+  mounted neighbor carries over to the next wait.
+
+  On page 6 after 60 seconds, all three starts:
+  Position | complete | naturalWidth | offsetWidth | connected rst-layer | rst-text | rst-chip | seconds in starts 1 / 2 / 3
+  4        | true     | 1115         | 384         | true                | 9        | none     | 2.6 / 2.6 / 2.4
+  5        | true     | 1115         | 384         | true                | 6        | none     | 3.8 / 3.7 / 3.6
+  6        | true     | 1115         | 384         | true                | 8        | none     | 8.5 / 8.5 / 8.3
+  7        | true     | 1115         | 384         | true                | 8        | none     | 10.9 / 11.0 / 10.9
+  8        | true     | 1115         | 384         | true                | 11       | none     | 13.5 / 13.4 / 13.3
+
+  On page 4 after 60 seconds, all three starts:
+  Position | complete | naturalWidth | offsetWidth | connected rst-layer | rst-text | rst-chip | seconds in starts 1 / 2 / 3
+  2        | true     | 2230         | 384         | true                | 5        | none     | 4.8 / 4.8 / 4.9
+  3        | true     | 1115         | 384         | true                | 4        | none     | 1.0 / 1.0 / 1.0
+  4        | true     | 1115         | 384         | true                | 9        | none     | 2.6 / 2.6 / 2.4
+  5        | true     | 1115         | 384         | true                | 6        | none     | 3.8 / 3.7 / 3.6
+  6        | true     | 1115         | 384         | true                | 8        | none     | 8.5 / 8.5 / 8.3
+
+  On return from page 8, page 4 already showed all nine Korean text
+  elements at the first sample on the active page on all three starts.
+  They were sampled 0.4 seconds after page 4 came within two pages again.
+  WebView DevTools Network showed no ipc.localhost `post_reader_page`
+  calls in any of the three runs, so their indices, image fields, timings
+  and outcomes are unavailable. No IPC tracing was added to the page.
+
+  A stable read-only SQLite snapshot after the three runs passed
+  `PRAGMA quick_check`. Compared with rev6-post-report.sqlite3, ReaderPage
+  held the same 52 keys with 0 added and 0 gone. SitePage remained 51,
+  Book 2 and Picture 52.
+
+  Cause (A) slow: every mounted page picture within 1.5 screens had
+  its Korean by the end of each 60 seconds. In the opening view the saved
+  overlays were initially absent and filled in after 2.4 to 13.5 seconds.
+  The restart check through all 51 pages remains open. No repair was
+  made under the revision 7 stop condition.
