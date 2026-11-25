@@ -265,3 +265,33 @@ Revision 6 pre-unplug baseline on the Galaxy S21+ (2026-11-26 07:35 +09:00)
   `get_status` returned key_set=true and gemini_requests=1. The Open
   screen showed `1번`. ADB reverse was empty, and the host had no Gemini
   ledger process or port 8787 listener. The owner's unplugged run is pending.
+
+Revision 6 unplugged run and restart failure (2026-11-26)
+  The owner reported that read-to-end completed, and the translation no
+  longer appeared after closing and restarting the app. After USB was
+  reconnected, Android's event log showed the baseline process (PID 709)
+  died at 07:43:17 and a new process (PID 10523) started at 07:43:19 +09:00.
+
+  Chapter: FX Fighter Kurumi-chan, Chapter 21, 51 pages.
+  Address: https://mangafire.to/title/9ow2m-fx-fighter-kurumi-chan/chapter/1700331
+  Read-only comparison of a stable translator.sqlite3 and WAL snapshot to
+  the pinned baseline by ReaderPage key: ReaderPage 1 -> 52, SitePage
+  0 -> 51, Book 1 -> 2, Picture 1 -> 52. The imported baseline row was
+  still present. All 51 new ReaderPage keys mapped to SitePage indices
+  0 through 50, with saved answers and Korean placements on all 51.
+  The post-report snapshot was kept outside Git as rev6-post-report.sqlite3
+  in the same local directory as the baseline.
+
+  In the restarted app, page 4 was active and fully loaded (1115 x 1600,
+  displayed 384 px wide), with translation on. It had no overlay layer or
+  Korean text on screen. No failure chip or message was visible. The
+  mounted page 2 had five Korean text elements. For page 4, saved picture 5
+  had nine Korean placements and a 499,701-byte image file whose SHA-256
+  matched the picture hash in its ReaderPage key.
+
+  Baseline Open count: 1. The first run's final count was not supplied.
+  After observing page 4, returned via the reader button to the app.
+  `get_status` in process 10523 returned key_set=true and gemini_requests=0.
+  The restart resets that counter. The missing overlay was reproduced on
+  the phone; the inspection observed no Gemini request in that process.
+  The missing Korean on page 4 triggers the revision 6 stop condition.
