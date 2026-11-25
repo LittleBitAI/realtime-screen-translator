@@ -702,9 +702,10 @@ pub fn run() {
             });
             #[cfg(target_os = "android")]
             let model = crate::models::path(&data_dir);
-            // A phone has no environment to set: a development build may
-            // carry the address (the request ledger, over `adb reverse`).
-            let gemini_base = std::env::var("RST_GEMINI_BASE_URL").ok().or(option_env!("RST_GEMINI_BASE_URL").map(String::from));
+            let gemini_base = std::env::var("RST_GEMINI_BASE_URL").ok();
+            // Phone ledger builds opt in to carrying the address for `adb reverse`.
+            #[cfg(feature = "dev-gemini-base")]
+            let gemini_base = gemini_base.or_else(|| option_env!("RST_GEMINI_BASE_URL").map(String::from));
             let backend = Backend::open(data_dir, gemini_base, platform)?;
             app.manage(backend);
             // Built here rather than in tauri.conf.json, so it carries the

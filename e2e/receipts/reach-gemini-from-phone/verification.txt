@@ -1,0 +1,90 @@
+Installed APK diagnosis before the fix (2026-11-25 09:56 +09:00)
+  Galaxy S21+ (SM-G996N), selected over USB with `adb -d`.
+
+  adb -d shell pm list packages | Select-String realtime_screen_translator
+  package:ai.littlebit.realtime_screen_translator.balloonfit
+
+  Android also reported that the shell cannot access user 150. An explicit
+  owner-user query returned the same package, the only matching one:
+
+  adb -d shell pm list packages --user 0 realtime_screen_translator
+  package:ai.littlebit.realtime_screen_translator.balloonfit
+
+  adb -d shell pm path --user 0 ai.littlebit.realtime_screen_translator.balloonfit
+  package:/data/app/~~J6zimQDzn0wruMHPYEdSPg==/ai.littlebit.realtime_screen_translator.balloonfit-bboDJoSB5GpbAH0DuJEwAg==/base.apk
+
+  adb -d shell sha256sum /data/app/~~J6zimQDzn0wruMHPYEdSPg==/ai.littlebit.realtime_screen_translator.balloonfit-bboDJoSB5GpbAH0DuJEwAg==/base.apk
+  9e0e9831bce7ae470b7de6b7a77f9f2be041f6471aa9c3aa09e65fe633625059  /data/app/~~J6zimQDzn0wruMHPYEdSPg==/ai.littlebit.realtime_screen_translator.balloonfit-bboDJoSB5GpbAH0DuJEwAg==/base.apk
+
+  The installed APK hash matches the S21 verification build recorded in
+  e2e/receipts/balloon-fit/verification.txt. The package uses the .balloonfit
+  suffix. The plain application ID did not appear in the owner-user query.
+
+  A copy pulled with `adb -d pull <base.apk path above> artifacts/reach-gemini-original.apk`
+  had the same SHA-256. The packaged ARM64 library contained the development
+  address:
+
+  unzip -p artifacts/reach-gemini-original.apk lib/arm64-v8a/librealtime_screen_translator.so | grep -a -c '127\.0\.0\.1:8787'
+  1
+
+Acceptance APK build (2026-11-25, Windows PowerShell 7)
+  With the README's JDK 17, Android SDK and NDK 27.2.12479018:
+
+  $env:RST_GEMINI_BASE_URL = 'http://127.0.0.1:8787'
+  cargo tauri android build --debug --apk --target aarch64 --features app --ci -c '{"build":{"beforeBuildCommand":"corepack pnpm build"}}'
+
+  The ARM64 Rust build finished. Tauri then reported `Creation symbolic
+  link is not allowed for this system.` The README's fallback ran in the
+  same build environment:
+
+  $jni = 'src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a'
+  New-Item -ItemType Directory -Force -Path $jni
+  Copy-Item 'target/aarch64-linux-android/debug/librealtime_screen_translator.so' -Destination $jni
+  Push-Location src-tauri/gen/android
+  .\gradlew.bat assembleUniversalDebug -x rustBuildUniversalDebug -x rustBuildArm64Debug -PabiList=arm64-v8a -ParchList=arm64 -PtargetList=aarch64
+  Pop-Location
+  BUILD SUCCESSFUL in 3m 23s
+
+  APK: src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+  SHA-256: f30e03fcc61b6577e3e07ddd1ff76a432f345cd13a7681b91f5698125e59a927
+  `aapt2 dump badging <apk>`: ai.littlebit.realtime_screen_translator, arm64-v8a.
+  `unzip -t <apk> lib/arm64-v8a/librealtime_screen_translator.so` passed.
+
+  unzip -p src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk lib/arm64-v8a/librealtime_screen_translator.so | grep -a -c '127\.0\.0\.1:8787'
+  0
+
+Fresh install on the Galaxy S21+ (2026-11-25)
+  The plain application ID was absent before installation.
+
+  adb -d install src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+  Success
+
+  adb -d shell pm path --user 0 ai.littlebit.realtime_screen_translator
+  package:/data/app/~~8rqk7mUhDhQjTcmp5I6UYw==/ai.littlebit.realtime_screen_translator-B78qTb2UYkvtC2PHV9RzaQ==/base.apk
+
+  adb -d shell sha256sum /data/app/~~8rqk7mUhDhQjTcmp5I6UYw==/ai.littlebit.realtime_screen_translator-B78qTb2UYkvtC2PHV9RzaQ==/base.apk
+  f30e03fcc61b6577e3e07ddd1ff76a432f345cd13a7681b91f5698125e59a927  /data/app/~~8rqk7mUhDhQjTcmp5I6UYw==/ai.littlebit.realtime_screen_translator-B78qTb2UYkvtC2PHV9RzaQ==/base.apk
+
+  `adb -d reverse --list` was empty. The host showed no listener on port
+  8787 and no `gemini-ledger.mjs` process. The new app cold-launched:
+
+  adb -d shell am start -W -n ai.littlebit.realtime_screen_translator/.MainActivity
+  Status: ok
+
+  The owner's unplugged, full-chapter read is pending.
+
+Focused automated checks
+  cargo test -p realtime-screen-translator --test reader_edges --test screen_edges --test backend_edges
+  25 passed: 12 reader, 6 screen, 7 backend.
+
+  cargo test -p realtime-screen-translator --lib transport_failure_at_the_default_base_is_gemini_unreachable
+  1 passed.
+
+  cargo test -p realtime-screen-translator --test contract test_gemini_requests
+  2 passed.
+
+  cargo test -p realtime-screen-translator --test contract test_wrong_key_raises_notice
+  1 passed.
+
+  corepack pnpm exec vitest run src/lib/reader.test.js src/lib/reader-toggle.test.js src/lib/reader-site-loading.test.js src/lib/reader-order.test.js src/lib/reader-chapter-turns.test.js src/lib/reader-chapter-order.test.js src/lib/reader-chapter-broken-image.test.js
+  7 files passed, 30 tests passed.

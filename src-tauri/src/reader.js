@@ -35,6 +35,12 @@
     key_invalid: 'Gemini API 키가 맞지 않습니다. 설정에서 확인해 주세요.',
     gemini_unreachable: 'Gemini에 닿지 못했습니다. 인터넷 연결을 확인해 주세요.',
     gemini_unreadable: 'Gemini 답을 읽지 못했습니다. 그림을 눌러 다시 번역합니다.',
+    gemini_quota: 'Gemini 요청 한도에 도달했습니다.',
+    gemini_busy: 'Gemini 서버가 혼잡하거나 일시적으로 응답할 수 없습니다.',
+    gemini_refused: 'Gemini가 번역 요청을 거절했습니다.',
+    gemini_refused_400: 'Gemini가 번역 요청을 거절했습니다 (HTTP 400).',
+    gemini_refused_404: 'Gemini가 요청한 모델 또는 주소를 찾지 못했습니다 (HTTP 404).',
+    gemini_dev_unreachable: '개발용 Gemini 주소에 연결하지 못했습니다.',
     image_unreachable: '이 사이트가 그림을 내주지 않습니다.',
     bad_image: '읽을 수 없는 그림입니다.',
     image_dimensions_too_large: '이 그림은 가로와 세로를 곱해 8,388,608픽셀이 넘어서 번역할 수 없습니다.',
@@ -312,16 +318,15 @@
         }
       }
     } catch (e) {
-      const code = typeof e === 'string' ? e : 'gemini_unreachable';
-      // A garbled answer or a dropped connection usually passes the second time.
-      if (!p.retried && (code === 'gemini_unreadable' || code === 'gemini_unreachable')) {
+      const code = typeof e === 'string' ? e : '';
+      if (!p.retried && ['gemini_unreadable', 'gemini_unreachable', 'gemini_busy'].includes(code)) {
         p.retried = true;
         p.state = 'new';
         queue.add(img);
         return;
       }
       p.state = 'failed';
-      problem = messages[code] ?? messages.gemini_unreachable;
+      problem = Object.hasOwn(messages, code) ? messages[code] : '앱에서 번역을 요청하지 못했습니다.';
       if (pics.get(img) === p) {
         chip(img, p, '번역 실패 · 눌러서 다시', () => {
           p.state = 'new';

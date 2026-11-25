@@ -301,19 +301,29 @@ impl Backend {
                 Ok(items)
             }
             Err(e) => {
-                let code = match e {
-                    GeminiError::KeyInvalid => "key_invalid",
-                    GeminiError::Unreadable => "gemini_unreadable",
-                    GeminiError::Unreachable | GeminiError::Cancelled => "gemini_unreachable",
-                };
-                if code != "gemini_unreadable" {
-                    self.lock().notice = Some(code);
+                let error = page_gemini_error(e, &self.gemini_base);
+                if matches!(error.0, "key_invalid" | "gemini_unreachable") {
+                    self.lock().notice = Some(error.0);
                 }
-                Err(ApiError(code))
+                Err(error)
             }
         }
     }
 
+}
+
+fn page_gemini_error(error: GeminiError, base: &str) -> ApiError {
+    ApiError(match error {
+        GeminiError::KeyInvalid => "key_invalid",
+        GeminiError::Unreachable if base.trim_end_matches('/') != gemini::DEFAULT_BASE => "gemini_dev_unreachable",
+        GeminiError::Unreachable | GeminiError::Cancelled => "gemini_unreachable",
+        GeminiError::Unreadable => "gemini_unreadable",
+        GeminiError::Quota => "gemini_quota",
+        GeminiError::Busy => "gemini_busy",
+        GeminiError::Refused(400) => "gemini_refused_400",
+        GeminiError::Refused(404) => "gemini_refused_404",
+        GeminiError::Refused(_) => "gemini_refused",
+    })
 }
 
 /// Earlier pages read for a request's context: more than a chapter holds.
@@ -1144,6 +1154,11 @@ pub(crate) fn shape(it: &PageItem, w: u32, h: u32) -> PageBox {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn transport_failure_at_the_default_base_is_gemini_unreachable() {
+        assert_eq!(page_gemini_error(GeminiError::Unreachable, gemini::DEFAULT_BASE).0, "gemini_unreachable");
+    }
 
     fn item(text: [f64; 4], balloon: Option<[f64; 4]>) -> PageItem {
         PageItem { text, balloon, speaker: String::new(), src: String::new(), ko: "안녕".into() }

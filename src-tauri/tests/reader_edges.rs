@@ -88,6 +88,61 @@ fn read(b: &Backend, image: Vec<u8>) -> Result<realtime_screen_translator::api::
 }
 
 #[test]
+fn reader_reports_gemini_http_failures_and_only_invalid_keys_set_a_notice() {
+    let gemini = support::Gemini::start();
+    let cases = [
+        (429, "{}", "gemini_quota", None),
+        (500, "{}", "gemini_busy", None),
+        (503, "{}", "gemini_busy", None),
+        (404, "{}", "gemini_refused_404", None),
+        (400, "{}", "gemini_refused_400", None),
+        (418, "{}", "gemini_refused", None),
+        (201, "{}", "gemini_refused", None),
+        (401, "{}", "key_invalid", Some("key_invalid")),
+        (403, "{}", "key_invalid", Some("key_invalid")),
+        (400, r#"{"error":{"reason":"API_KEY_INVALID"}}"#, "key_invalid", Some("key_invalid")),
+    ];
+    let image = page();
+    for (i, (status, body, code, notice)) in cases.into_iter().enumerate() {
+        let dirs = Dirs::new();
+        let b = Backend::open(dirs.data.clone(), Some(gemini.url.clone()), Arc::new(Device(dirs.export.clone()))).unwrap();
+        b.put_key(realtime_screen_translator::api::KeyIn { key: TEST_KEY.into() }).unwrap();
+        gemini.fail_with(status, body);
+        assert_eq!(read(&b, image.clone()).err().as_deref(), Some(code), "HTTP {status}: {body}");
+        assert_eq!(b.status().notice.as_deref(), notice, "HTTP {status}: {body}");
+        assert_eq!(gemini.count(), i + 1, "HTTP {status}: {body}");
+    }
+
+    let dirs = Dirs::new();
+    let b = Backend::open(dirs.data.clone(), Some(gemini.url.clone()), Arc::new(Device(dirs.export.clone()))).unwrap();
+    b.put_key(realtime_screen_translator::api::KeyIn { key: TEST_KEY.into() }).unwrap();
+    gemini.fail_with(400, r#"{"error":{"message":"Invalid threshold OFF"}}"#);
+    assert_eq!(read(&b, image).err().as_deref(), Some("gemini_refused_400"));
+    let requests = gemini.requests();
+    let fallback = &requests[cases.len()..];
+    assert_eq!(fallback.len(), 2);
+    for (request, threshold) in fallback.iter().zip(["OFF", "BLOCK_NONE"]) {
+        let safety = request.safety();
+        assert_eq!(safety.len(), 5);
+        assert!(safety.iter().all(|(_, actual)| actual == threshold));
+    }
+}
+
+#[test]
+fn reader_reports_an_unreachable_development_base_without_a_notice() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    drop(listener);
+    let dirs = Dirs::new();
+    let b = Backend::open(dirs.data.clone(), Some(base), Arc::new(Device(dirs.export.clone()))).unwrap();
+    b.put_key(realtime_screen_translator::api::KeyIn { key: TEST_KEY.into() }).unwrap();
+
+    assert_eq!(read(&b, page()).err().as_deref(), Some("gemini_dev_unreachable"));
+    assert_eq!(b.status().notice, None);
+    assert_eq!(b.status().gemini_requests, 1);
+}
+
+#[test]
 fn a_page_is_translated_once_per_language_and_kept_as_a_book() {
     let dirs = Dirs::new();
     let gemini = PageGemini::start();

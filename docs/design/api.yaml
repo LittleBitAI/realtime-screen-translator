@@ -135,7 +135,7 @@
     "/reader/page": {
       "post": {
         "operationId": "P12",
-        "summary": "앱 안 리더가 연 만화 사이트의 페이지 그림 한 장을 번역한다(Tauri 명령 post_reader_page, 리더 스크립트만 부른다). 그림 바이트가 없으면 앱이 src를 그 사이트를 Referer로 받아 온다. 그림의 sha256과 원문 언어가 같은 페이지는 Gemini에 다시 보내지 않고 번역본에서 돌려준다. 처음 보는 페이지는 Gemini 3.1 Flash Lite에 한 번 보내(안전 설정 OFF, 프리필) 말풍선마다 글자 자리, 말풍선 자리, 원문, 한국어를 받고, 효과음·간판·화면 글자는 빼며, 사이트 페이지 하나를 번역본 하나로 저장한다. 오류: key_missing, key_invalid, gemini_unreachable, gemini_unreadable, image_unreachable, bad_image.",
+        "summary": "앱 안 리더가 연 만화 사이트의 페이지 그림 한 장을 번역한다(Tauri 명령 post_reader_page, 리더 스크립트만 부른다). 그림 바이트가 없으면 앱이 src를 그 사이트를 Referer로 받아 온다. 그림의 sha256과 원문 언어가 같은 페이지는 Gemini에 다시 보내지 않고 번역본에서 돌려준다. 처음 보는 페이지는 Gemini 3.1 Flash Lite에 한 번 보내(안전 설정 OFF, 프리필) 말풍선마다 글자 자리, 말풍선 자리, 원문, 한국어를 받고, 효과음·간판·화면 글자는 빼며, 사이트 페이지 하나를 번역본 하나로 저장한다. 오류: key_missing, key_invalid, gemini_unreachable, gemini_unreadable, gemini_quota, gemini_busy, gemini_refused_400, gemini_refused_404, gemini_refused, gemini_dev_unreachable, image_unreachable, bad_image.",
         "requestBody": {
           "content": {
             "application/json": {

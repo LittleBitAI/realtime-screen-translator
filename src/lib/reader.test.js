@@ -19,15 +19,26 @@ const page = (save_error) => ({
   save_error,
 });
 
+let observe;
+let frames;
+
 beforeEach(() => {
+  observe = vi.spyOn(MutationObserver.prototype, 'observe');
+  frames = [];
   vi.stubGlobal('setInterval', vi.fn());
-  vi.stubGlobal('requestAnimationFrame', (f) => setTimeout(f, 0));
+  vi.stubGlobal('requestAnimationFrame', (f) => {
+    const timer = setTimeout(f, 0);
+    frames.push(timer);
+    return timer;
+  });
   // jsdom lays nothing out: the lines' extent is empty, as no spill.
   Range.prototype.getBoundingClientRect ??= () => new DOMRect();
   Range.prototype.getClientRects ??= () => [];
 });
 
 afterEach(() => {
+  for (const observer of observe.mock.instances) observer.disconnect();
+  for (const timer of frames) clearTimeout(timer);
   document.head.replaceChildren();
   document.body.replaceChildren();
   history.replaceState(null, '', '/');
@@ -38,6 +49,45 @@ afterEach(() => {
 });
 
 describe('reader page script', () => {
+  it.each([
+    ['gemini_quota', 'Gemini 요청 한도에 도달했습니다.', 1],
+    ['gemini_busy', 'Gemini 서버가 혼잡하거나 일시적으로 응답할 수 없습니다.', 2],
+    ['gemini_refused', 'Gemini가 번역 요청을 거절했습니다.', 1],
+    ['gemini_refused_400', 'Gemini가 번역 요청을 거절했습니다 (HTTP 400).', 1],
+    ['gemini_refused_404', 'Gemini가 요청한 모델 또는 주소를 찾지 못했습니다 (HTTP 404).', 1],
+    ['gemini_dev_unreachable', '개발용 Gemini 주소에 연결하지 못했습니다.', 1],
+    ['gemini_unreachable', 'Gemini에 닿지 못했습니다. 인터넷 연결을 확인해 주세요.', 2],
+    ['gemini_unreadable', 'Gemini 답을 읽지 못했습니다. 그림을 눌러 다시 번역합니다.', 2],
+    ['key_invalid', 'Gemini API 키가 맞지 않습니다. 설정에서 확인해 주세요.', 1],
+    ['toString', '앱에서 번역을 요청하지 못했습니다.', 1],
+    [new Error('IPC rejected the call'), '앱에서 번역을 요청하지 못했습니다.', 1],
+  ])('shows the cause for %s and applies its retry policy', async (rejection, message, calls) => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('cors')));
+    const invoke = vi.fn().mockRejectedValue(rejection);
+    window.__TAURI_INTERNALS__ = { invoke };
+    pagePicture('https://cdn.example/failure.jpg');
+
+    new Function(script)();
+
+    const chip = await vi.waitFor(() => {
+      const chip = document.querySelector('.rst-chip');
+      expect(chip?.textContent).toBe('번역 실패 · 눌러서 다시');
+      return chip;
+    });
+    const status = document.querySelector('.rst-bar [role=status]');
+    expect(status.hidden).toBe(false);
+    expect(status.textContent).toBe(message);
+    expect(invoke).toHaveBeenCalledTimes(calls);
+    expect(invoke.mock.calls[0][0]).toBe('post_reader_page');
+    if (calls === 2) expect(invoke.mock.calls[1]).toEqual(invoke.mock.calls[0]);
+
+    invoke.mockResolvedValueOnce(page(null));
+    chip.click();
+    await vi.waitFor(() => expect(document.querySelector('.rst-chip')).toBeNull());
+    expect(invoke).toHaveBeenCalledTimes(calls + 1);
+    expect(status.hidden).toBe(true);
+  });
+
   it('shows a page it could not keep in the library, says so, and saves it on a tap', async () => {
     // The site does not hand over the bytes: the app fetches them itself.
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('cors'); }));

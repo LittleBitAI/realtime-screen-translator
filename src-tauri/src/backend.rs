@@ -1595,7 +1595,7 @@ fn finish_jobs(state: &Mutex<State>, platform: &dyn Platform, gen: u64, model: &
     };
     let rows: Vec<(Translation, &Job)> = match outcome {
         Err(GeminiError::Cancelled) => return,
-        Err(e @ (GeminiError::KeyInvalid | GeminiError::Unreachable)) => {
+        Err(e @ (GeminiError::KeyInvalid | GeminiError::Unreachable | GeminiError::Quota | GeminiError::Busy | GeminiError::Refused(_))) => {
             targets.iter().for_each(|t| retry(s, t));
             st.notice = Some(if e == GeminiError::KeyInvalid { "key_invalid" } else { "gemini_unreachable" });
             return;
