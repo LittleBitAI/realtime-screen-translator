@@ -71,10 +71,32 @@ Fresh install on the Galaxy S21+ (2026-11-25)
   adb -d shell am start -W -n ai.littlebit.realtime_screen_translator/.MainActivity
   Status: ok
 
+Unplugged read and evidence collected after reconnecting (2026-11-25)
   The owner reported that translation worked and that later pages appeared
-  to translate as they opened them. They confirmed reaching the last page
-  during the unplugged check. The chapter address, page count, Gemini
-  request counts and per-page translation and failure details are pending.
+  to translate as they opened them. They reported reaching the last page.
+  At the owner's request, the phone was inspected over ADB after the read.
+
+  Chapter: FX Fighter Kurumi-chan, Chapter 21
+  Address: https://mangafire.to/title/9ow2m-fx-fighter-kurumi-chan/chapter/1700331
+  The live reader's page control had aria-valuemax=51. Its 52 slider
+  entries included a final end-of-chapter card. Page 16 was active, pages
+  14 to 18 had mounted Korean translation layers, and there were no
+  mounted failure chips or visible failure status at inspection.
+
+  A read-only SQLite snapshot from `adb -d exec-out run-as
+  ai.littlebit.realtime_screen_translator cat translator.sqlite3` and the
+  matching WAL showed 18 distinct chapter page keys, indices 0–17. All
+  18 had saved Gemini answers and Korean placements. These were all the
+  reader pages in this install's database.
+
+  The app's active process was still the cold-launched process, PID 22154
+  (Android am_proc_start at 10:09:29). The counter initializes to 0 at cold
+  launch. After returning via the reader's `앱으로 돌아가기` button, the
+  Open screen showed `앱을 연 뒤 Gemini 요청` as `18번`. `get_status`
+  agreed and returned `key_set: true` and `notice: null`. Inspection made
+  no new translation calls. The current 0 → 18 requests and 18 of 51
+  translated pages establish translation through page 18. Full-chapter
+  acceptance and any transient page failure history remain pending.
 
 Focused automated checks
   cargo test -p realtime-screen-translator --test reader_edges --test screen_edges --test backend_edges
