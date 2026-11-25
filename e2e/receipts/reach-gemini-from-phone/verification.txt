@@ -218,3 +218,5 @@ Revision 4 installation on the Galaxy S21+ (2026-11-26)
   certificate so the app keeps its Android Keystore, settings and library.
   A read-only `get_status` recheck confirmed key_set=true and 0 Gemini
   requests on the current install. The current key and library were kept.
+  The owner chose to keep the current app data for the phone test. The
+  acceptance decision about the restored picture is with the spec author.
