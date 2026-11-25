@@ -1,0 +1,118 @@
+// Development proxy between the app and Gemini that holds a request budget.
+//
+//   node scripts/gemini-ledger.mjs <ledger dir> [port]
+//   RST_GEMINI_BASE_URL=http://127.0.0.1:<port>  (default port 8787)
+//
+// Every request is keyed by the page picture it carries and the source
+// language its prompt's first line names. A key whose answer is saved is
+// answered from `<ledger>/answers/` with nothing sent out, whatever the
+// prompt around it, unless an approved further attempt is still unused.
+// A new key may go out once; any further attempt for it (the app's own
+// retry, the BLOCK_NONE fallback, a reworded prompt) is refused until
+// `<ledger>/approvals.json` grants it: {"<key>": [{"at": "<when the person
+// approved>", "decision": "<where they did>"}, ...]}, one further attempt
+// per grant, counted only from its time on and only with its decision
+// named. Each further attempt sent records the grant it used. Every
+// attempt, sent or not, is appended to `<ledger>/attempts.jsonl`, and
+// GET /ledger sums them up. With LEDGER_OFFLINE=1 nothing is ever sent:
+// saved answers are replayed and every other request is refused.
+import { createHash } from 'node:crypto';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import { join } from 'node:path';
+
+const [dir, port = '8787'] = process.argv.slice(2);
+if (!dir) {
+  console.error('usage: node scripts/gemini-ledger.mjs <ledger dir> [port]');
+  process.exit(2);
+}
+const UPSTREAM = process.env.LEDGER_UPSTREAM ?? 'https://generativelanguage.googleapis.com';
+mkdirSync(join(dir, 'answers'), { recursive: true });
+const log = join(dir, 'attempts.jsonl');
+
+const attempts = () =>
+  existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
+const record = (entry) => appendFileSync(log, `${JSON.stringify({ at: new Date().toISOString(), ...entry })}\n`);
+const approvals = () => (existsSync(join(dir, 'approvals.json')) ? JSON.parse(readFileSync(join(dir, 'approvals.json'), 'utf8')) : {});
+// A key's grants in force now, oldest first: dated no later than now, with
+// the decision they came from.
+const grants = (key) => {
+  const now = Date.now();
+  const all = approvals()[key];
+  return (Array.isArray(all) ? all : []).filter((g) => typeof g?.decision === 'string' && g.decision.trim() && Date.parse(g.at) <= now).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+};
+
+function keyOf(body) {
+  const parts = body?.contents?.[0]?.parts ?? [];
+  const image = parts.find((p) => p.inline_data)?.inline_data?.data;
+  if (!image) return null;
+  // The language the instruction names: its first line, ahead of the
+  // chapter's earlier lines, which may quote any language.
+  const text = parts.map((p) => p.text ?? '').join(' ').split('\n')[0];
+  const lang = /\bEnglish\b/.test(text) ? 'en' : /\bJapanese\b/.test(text) ? 'ja' : 'unknown';
+  return `${createHash('sha256').update(Buffer.from(image, 'base64')).digest('hex')}:${lang}`;
+}
+
+function reply(res, status, body) {
+  res.writeHead(status, { 'content-type': 'application/json' });
+  res.end(typeof body === 'string' ? body : JSON.stringify(body));
+}
+
+createServer(async (req, res) => {
+  if (req.method === 'GET' && req.url === '/ledger') {
+    const all = attempts();
+    const count = (kind) => all.filter((a) => a.kind === kind).length;
+    return reply(res, 200, { outbound: count('outbound'), replayed: count('replay'), refused: count('refused'), keys: new Set(all.map((a) => a.key)).size });
+  }
+  const chunks = [];
+  for await (const c of req) chunks.push(c);
+  const raw = Buffer.concat(chunks).toString('utf8');
+  let body;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    return reply(res, 400, { error: 'not json' });
+  }
+  const key = keyOf(body);
+  if (!key) {
+    record({ kind: 'refused', key: null, why: 'no page picture' });
+    return reply(res, 429, { error: { message: 'ledger: only page requests are budgeted here' } });
+  }
+  const saved = join(dir, 'answers', `${key.replace(':', '-')}.json`);
+  const sent = attempts().filter((a) => a.kind === 'outbound' && a.key === key).length;
+  const granted = grants(key);
+  const allowed = 1 + granted.length;
+  // A granted attempt not yet used goes out over the saved answer, which
+  // may be the unreadable reply it was granted for.
+  if (existsSync(saved) && (process.env.LEDGER_OFFLINE === '1' || sent === 0 || sent >= allowed)) {
+    record({ kind: 'replay', key });
+    return reply(res, 200, readFileSync(saved, 'utf8'));
+  }
+  if (process.env.LEDGER_OFFLINE === '1') {
+    record({ kind: 'refused', key, why: 'offline' });
+    console.log(`refused ${key}: offline, no saved answer`);
+    return reply(res, 429, { error: { message: 'ledger: offline, no saved answer for this page' } });
+  }
+  if (sent >= allowed) {
+    record({ kind: 'refused', key, why: 'needs approval' });
+    console.log(`refused ${key}: ${sent} attempt(s) already, waiting for approval`);
+    return reply(res, 429, { error: { message: 'ledger: another request for this page needs approval' } });
+  }
+  // Counted before it leaves, so a crash mid-request still counts it.
+  record({ kind: 'outbound', key, n: sent + 1, ...(sent ? { grant: granted[sent - 1] } : {}) });
+  try {
+    const up = await fetch(`${UPSTREAM}${req.url}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': req.headers['x-goog-api-key'] ?? '' },
+      body: raw,
+    });
+    const text = await up.text();
+    record({ kind: 'answer', key, status: up.status });
+    if (up.status === 200) writeFileSync(saved, text);
+    console.log(`${up.status} ${key}`);
+    return reply(res, up.status, text);
+  } catch (e) {
+    record({ kind: 'answer', key, status: 0, why: String(e) });
+    return reply(res, 502, { error: { message: `ledger: ${e}` } });
+  }
+}).listen(Number(port), '127.0.0.1', () => console.log(`gemini ledger on http://127.0.0.1:${port} -> ${dir}`));

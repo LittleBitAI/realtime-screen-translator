@@ -1,0 +1,4039 @@
+{
+ "gemini_requests_before": 0,
+ "chapters": [
+  {
+   "url": "https://mangafire.to/title/oomvy-kimi-no-koto-ga-dai-dai-dai-dai-daisuki-na-100-nin-no-kanojo/chapter/9439528",
+   "slides": 12,
+   "pages": 21,
+   "chips": 0,
+   "same_captures": 0,
+   "below_least": 0,
+   "cut": 0,
+   "past_white": 0,
+   "past_tone": 0,
+   "white_past_area": 0,
+   "patches": 21,
+   "patches_off": 0,
+   "detail": [
+    {
+     "page": 1,
+     "slide": 1,
+     "picture": true,
+     "boxes": 2,
+     "w": 1000,
+     "h": 1000,
+     "texts": [
+      {
+       "px": 12.1,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 15.95,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 2,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 2,
+     "slide": 1,
+     "picture": true,
+     "boxes": 11,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.65,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 3,
+     "slide": 2,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 17.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 16.5,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 4,
+     "slide": 2,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 17.71,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 24.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 17.42,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 7,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 2,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 5,
+     "slide": 3,
+     "picture": true,
+     "boxes": 3,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.38,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 6,
+     "slide": 3,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 14.34,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 16.04,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 19.71,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 19.71,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 2,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 7,
+     "slide": 4,
+     "picture": true,
+     "boxes": 6,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 15.1,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 15.13,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 8,
+     "slide": 4,
+     "picture": true,
+     "boxes": 10,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 10.12,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 28.88,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 7,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 18.33,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 9.63,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 10.96,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 2,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 9,
+     "slide": 5,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 16.04,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 10.09,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 41.71,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 17.42,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 2,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 10,
+     "slide": 5,
+     "picture": true,
+     "boxes": 9,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 13.91,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 17.49,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 23.61,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 13.19,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 9.31,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 37.13,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 19.71,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 3,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 11,
+     "slide": 6,
+     "picture": true,
+     "boxes": 4,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 26.13,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 21.54,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 18.23,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 20.17,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 12,
+     "slide": 6,
+     "picture": true,
+     "boxes": 11,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 14.67,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 15.18,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.03,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.64,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.21,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 14.21,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 20.17,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 12.41,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 4,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 13,
+     "slide": 7,
+     "picture": true,
+     "boxes": 4,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 17.88,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 14,
+     "slide": 7,
+     "picture": true,
+     "boxes": 3,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 15,
+     "slide": 8,
+     "picture": true,
+     "boxes": 5,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 15.13,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 10.86,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 10.86,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 15.13,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 16.04,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 16,
+     "slide": 8,
+     "picture": true,
+     "boxes": 6,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 10.86,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 9.85,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 17,
+     "slide": 9,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 17.88,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 19.71,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 16.04,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.8,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 16.5,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 16.5,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 18.33,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.38,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 18,
+     "slide": 9,
+     "picture": true,
+     "boxes": 3,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 18.56,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 19,
+     "slide": 10,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 18.33,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 15.13,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 16.04,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.49,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.67,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 15.13,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 1,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 20,
+     "slide": 10,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.21,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 10.09,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.67,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.21,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.81,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 21,
+     "slide": 11,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1761,
+     "texts": [
+      {
+       "px": 13.28,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.1,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.81,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 16.35,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 32.69,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 30.14,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 15.32,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 18.39,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 3,
+     "patches_off": 0,
+     "same_capture": false
+    }
+   ]
+  },
+  {
+   "url": "https://mangafire.to/title/oomvy-kimi-no-koto-ga-dai-dai-dai-dai-daisuki-na-100-nin-no-kanojo/chapter/9478775",
+   "slides": 12,
+   "pages": 21,
+   "chips": 0,
+   "same_captures": 0,
+   "below_least": 0,
+   "cut": 0,
+   "past_white": 0,
+   "past_tone": 0,
+   "white_past_area": 0,
+   "patches": 46,
+   "patches_off": 0,
+   "detail": [
+    {
+     "page": 1,
+     "slide": 1,
+     "picture": true,
+     "boxes": 3,
+     "w": 1000,
+     "h": 1000,
+     "texts": [
+      {
+       "px": 11.55,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 9.9,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 14.3,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 3,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 2,
+     "slide": 1,
+     "picture": true,
+     "boxes": 12,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 25.67,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 11.06,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 9.63,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 3,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 3,
+     "slide": 2,
+     "picture": true,
+     "boxes": 6,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 8.57,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 8.21,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 4,
+     "slide": 2,
+     "picture": true,
+     "boxes": 12,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 14.67,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.38,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.56,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 16.04,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 13.07,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 10.54,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.07,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.23,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 1,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 5,
+     "slide": 3,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.38,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 9.63,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 9.7,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 9.7,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 8.86,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 22,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 1,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 6,
+     "slide": 3,
+     "picture": true,
+     "boxes": 9,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 18.33,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 16.04,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 16.04,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.23,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 10.86,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 21.93,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 16.04,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 23.61,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 7,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 7,
+     "slide": 4,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.65,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 23.38,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 1,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 8,
+     "slide": 4,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 18.33,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 19.71,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 16.5,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 25.67,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.58,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 4,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 9,
+     "slide": 5,
+     "picture": true,
+     "boxes": 6,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 16.5,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 14.21,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 31.63,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 23.56,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 9.28,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 3,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 10,
+     "slide": 5,
+     "picture": true,
+     "boxes": 9,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 24.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 13.49,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 10.12,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 7,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.21,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 9.17,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 2,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 11,
+     "slide": 6,
+     "picture": true,
+     "boxes": 4,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 43.85,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 18.33,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 29.33,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 14.74,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 3,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 12,
+     "slide": 6,
+     "picture": true,
+     "boxes": 4,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 15.13,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 16.5,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 13,
+     "slide": 7,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 11.81,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 8.54,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 16.04,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 16.5,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 1,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 14,
+     "slide": 7,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 26.14,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 27.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 16.04,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 16.04,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 14.67,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.67,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 10.86,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 3,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 15,
+     "slide": 8,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 14.67,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 41.4,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 21.54,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 23.38,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 17.13,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 4,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 16,
+     "slide": 8,
+     "picture": true,
+     "boxes": 4,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 19.99,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 1,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 17,
+     "slide": 9,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 16.96,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 55,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 37.58,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 9.99,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 16.04,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 23.38,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 1,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 18,
+     "slide": 9,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 27.5,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.21,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.67,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 18.33,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 17.88,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 14.21,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 2,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 19,
+     "slide": 10,
+     "picture": true,
+     "boxes": 10,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 22.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 25.67,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.15,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 22,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.28,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 1,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 20,
+     "slide": 10,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 15.13,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.21,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.21,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 2,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 21,
+     "slide": 11,
+     "picture": true,
+     "boxes": 4,
+     "w": 1200,
+     "h": 1772,
+     "texts": [
+      {
+       "px": 17.39,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 15.73,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 26.39,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 23.32,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 3,
+     "patches_off": 0,
+     "same_capture": false
+    }
+   ]
+  },
+  {
+   "url": "https://mangafire.to/title/oomvy-kimi-no-koto-ga-dai-dai-dai-dai-daisuki-na-100-nin-no-kanojo/chapter/9494751",
+   "slides": 12,
+   "pages": 19,
+   "chips": 0,
+   "same_captures": 0,
+   "below_least": 0,
+   "cut": 0,
+   "past_white": 0,
+   "past_tone": 0,
+   "white_past_area": 0,
+   "patches": 29,
+   "patches_off": 0,
+   "detail": [
+    {
+     "page": 1,
+     "slide": 1,
+     "picture": true,
+     "boxes": 2,
+     "w": 1000,
+     "h": 1000,
+     "texts": [
+      {
+       "px": 10.45,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 9.9,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 2,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 2,
+     "slide": 1,
+     "picture": true,
+     "boxes": 9,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.38,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 8.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 10.54,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 10.54,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 15.13,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 14.67,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 2,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 3,
+     "slide": 2,
+     "picture": true,
+     "boxes": 1,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      {
+       "px": 16.5,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 4,
+     "slide": 2,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 15.13,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.67,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 10.09,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 9.28,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 18.33,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 17.42,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 4,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 5,
+     "slide": 3,
+     "picture": true,
+     "boxes": 6,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      {
+       "px": 16.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 16.04,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 15.13,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 3,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 6,
+     "slide": 3,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 15.13,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 7,
+     "slide": 4,
+     "picture": true,
+     "boxes": 6,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 20.21,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 22.13,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 8,
+     "slide": 4,
+     "picture": true,
+     "boxes": 5,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 9,
+     "slide": 5,
+     "picture": true,
+     "boxes": 1,
+     "w": 2126,
+     "h": 1600,
+     "texts": [
+      {
+       "px": 41.41,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 1,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 10,
+     "slide": 6,
+     "picture": true,
+     "boxes": 2,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 11.64,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 2,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 11,
+     "slide": 6,
+     "picture": true,
+     "boxes": 8,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      {
+       "px": 13.49,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 17.42,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 10.84,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 1,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 12,
+     "slide": 7,
+     "picture": true,
+     "boxes": 6,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      {
+       "px": 15.35,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.63,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 25.21,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.21,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.65,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 35,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 1,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 13,
+     "slide": 7,
+     "picture": true,
+     "boxes": 7,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      {
+       "px": 11.23,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.45,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 16.96,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 14.76,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 1,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 14,
+     "slide": 8,
+     "picture": true,
+     "boxes": 14,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      {
+       "px": 14.21,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.38,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 10.12,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 12.83,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 16.02,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 8.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 10.96,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 13.75,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 17.84,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 15.52,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 0,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 15,
+     "slide": 8,
+     "picture": true,
+     "boxes": 5,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      {
+       "px": 12.8,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.46,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 10.54,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 11.06,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 11.92,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      }
+     ],
+     "patches": 1,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 16,
+     "slide": 9,
+     "picture": true,
+     "boxes": 5,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      {
+       "px": 13.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 16.02,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 7.14,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 16.04,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 14.76,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 2,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 17,
+     "slide": 9,
+     "picture": true,
+     "boxes": 2,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      {
+       "px": 17.88,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 24.29,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 16.02,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 1,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 18,
+     "slide": 10,
+     "picture": true,
+     "boxes": 4,
+     "w": 2133,
+     "h": 1599,
+     "texts": [
+      {
+       "px": 16.5,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 19.6,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 17.9,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 18.03,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 11.35,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 4,
+     "patches_off": 0,
+     "same_capture": false
+    },
+    {
+     "page": 19,
+     "slide": 11,
+     "picture": true,
+     "boxes": 5,
+     "w": 1200,
+     "h": 1799,
+     "texts": [
+      {
+       "px": 11,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 15,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 17.5,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      },
+      {
+       "px": 12.5,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": true,
+       "past_area": false
+      },
+      {
+       "px": 21.5,
+       "least": 7,
+       "cut": false,
+       "past": null,
+       "white": false,
+       "past_area": false
+      }
+     ],
+     "patches": 4,
+     "patches_off": 0,
+     "same_capture": false
+    }
+   ]
+  }
+ ],
+ "gemini_requests_after": 61
+}

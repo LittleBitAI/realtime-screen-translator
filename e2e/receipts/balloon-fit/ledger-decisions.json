@@ -1,0 +1,146 @@
+[
+ {
+  "id": "A",
+  "session": "efb79bf0-3b07-482f-afe5-c001b8ae47a5",
+  "tool_use_id": "toolu_01KLnamwy6dU9uPgmvSrjJBe",
+  "question": 1,
+  "asked_at": "2026-11-19T00:13:36.574Z",
+  "answered_at": "2026-11-19T00:17:01.388Z",
+  "question_text": "Three pages need one more Gemini request each, beyond the one-per-page budget: ch256 p12 (Gemini's boxes snapped to a grid, so 'ABOUT?!' shows and two captions overlap), ch257 p5 (Gemini's answer was unreadable, so the page has no Korean at all), and ch257 p20 (Gemini merged two balloons 900 px apart, so the second balloon stays in English). Approve which re-requests? Each is exactly one outbound call, counted by the ledger; no automatic retry.",
+  "answer": "All three (Recommended)",
+  "pages": [
+   [
+    "ch256",
+    12
+   ],
+   [
+    "ch257",
+    5
+   ],
+   [
+    "ch257",
+    20
+   ]
+  ]
+ },
+ {
+  "id": "B",
+  "session": "efb79bf0-3b07-482f-afe5-c001b8ae47a5",
+  "tool_use_id": "toolu_01KLnamwy6dU9uPgmvSrjJBe",
+  "question": 2,
+  "asked_at": "2026-11-19T00:13:36.574Z",
+  "answered_at": "2026-11-19T00:17:01.388Z",
+  "question_text": "Gemini flattens some speakers' voices. [...] Fixing wording means changing the translation prompt (keep each speaker's register, baby talk and puns; consistent names) and re-requesting the affected pages. How should I handle it? Option chosen: change the prompt, then one request each for the affected pages: ch256 p4, p6, p7, p8, p12, p15, p16, p21 and ch257 p10, p13, p15, p17, p18, p19.",
+  "answer": "Prompt + re-request (Recommended)",
+  "pages": [
+   [
+    "ch256",
+    4
+   ],
+   [
+    "ch256",
+    6
+   ],
+   [
+    "ch256",
+    7
+   ],
+   [
+    "ch256",
+    8
+   ],
+   [
+    "ch256",
+    12
+   ],
+   [
+    "ch256",
+    15
+   ],
+   [
+    "ch256",
+    16
+   ],
+   [
+    "ch256",
+    21
+   ],
+   [
+    "ch257",
+    10
+   ],
+   [
+    "ch257",
+    13
+   ],
+   [
+    "ch257",
+    15
+   ],
+   [
+    "ch257",
+    17
+   ],
+   [
+    "ch257",
+    18
+   ],
+   [
+    "ch257",
+    19
+   ]
+  ]
+ },
+ {
+  "id": "C",
+  "session": "efb79bf0-3b07-482f-afe5-c001b8ae47a5",
+  "tool_use_id": "toolu_017nBzFBNoEoep4tPMRc8tq1",
+  "question": 1,
+  "asked_at": "2026-11-19T01:09:35.723Z",
+  "answered_at": "2026-11-19T01:11:04.740Z",
+  "question_text": "Korean voice check found 5 lines that are wrong in context: ch256 p6 ('HONEY' read as a partner's 자기야), ch256 p12 (Rin to her father, 아빠 for 아버지), ch256 p21 (수 선배 for 쑤 선배), ch256 p7 (the father's line cut short), ch257 p17 ('I'LL ALSO GET IT WITH MY—!'). How should I fix these? Option chosen: each page request also carries the earlier pages' lines, then re-request these 5 pages.",
+  "answer": "Page context + 5 retries (Recommended)",
+  "pages": [
+   [
+    "ch256",
+    6
+   ],
+   [
+    "ch256",
+    12
+   ],
+   [
+    "ch256",
+    21
+   ],
+   [
+    "ch256",
+    7
+   ],
+   [
+    "ch257",
+    17
+   ]
+  ]
+ },
+ {
+  "id": "D",
+  "session": "efb79bf0-3b07-482f-afe5-c001b8ae47a5",
+  "tool_use_id": "toolu_01RLBzXxPE3L2A2qVMsephNh",
+  "question": 1,
+  "asked_at": "2026-11-20T10:15:19.090Z",
+  "answered_at": "2026-11-20T10:17:53.931Z",
+  "question_text": "Two pages still have a line Gemini merged across two balloons (ch256 p12, ch257 p20). Re-asking Gemini once is the only clean fix. Attempts already made: ch256 p12 has 3, ch257 p20 has 2.",
+  "answer": "Both pages (Recommended)",
+  "pages": [
+   [
+    "ch256",
+    12
+   ],
+   [
+    "ch257",
+    20
+   ]
+  ]
+ }
+]

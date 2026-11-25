@@ -1,0 +1,446 @@
+[
+ {
+  "file": "emulator-2d94efe-ch256-p12-before-after.png",
+  "sha256": "691ec2c87501e6247f8fba6a1fe742c183081b1d183595d0760b04072bdab6c4",
+  "device_px": [
+   1080,
+   2400
+  ],
+  "cropped_rows": [
+   44,
+   2370
+  ],
+  "left": "translation off",
+  "right": "translation on",
+  "pixels_changed": 112352,
+  "changed_bounds": [
+   19,
+   536,
+   1036,
+   2172
+  ],
+  "pages": [
+   {
+    "page": 12,
+    "korean": [
+     "아니... 이 아이의 이런 면을 바로잡지 못했단 말인가...!",
+     "아... 아버지...!",
+     "아... 저... 저는 그저...",
+     "그만해라, 당장 치우도록 해!",
+     "어쨌든!",
+     "분명 친구라면 눈치챘을 텐데",
+     "대체 무슨 소리를 하는 거야?!",
+     "사람들은 13을 더 원해!",
+     "네... 네, 아버지 말씀이 맞아요...",
+     "내 생각은 변함없다. 이 집 안에서 폭력은 절대 금지다!",
+     "이건 정말... 아이에게는 전혀 어울리지 않는 물건이야...!"
+    ]
+   }
+  ]
+ },
+ {
+  "file": "emulator-2d94efe-ch256-p21-before-after.png",
+  "sha256": "31f0f6eee5d81be2196eb0aa28b95ce095f5bd6382e50277b3ac65aa83840edc",
+  "device_px": [
+   1080,
+   2400
+  ],
+  "cropped_rows": [
+   44,
+   2370
+  ],
+  "left": "translation off",
+  "right": "translation on",
+  "pixels_changed": 55148,
+  "changed_bounds": [
+   41,
+   479,
+   990,
+   1867
+  ],
+  "pages": [
+   {
+    "page": 21,
+    "korean": [
+     "쑤 선배... 정말 고마운 게 너무 많아...",
+     "네가 행복하다면 나도 행복해!",
+     "흥!",
+     "도대체 그 아이는 왜 '13일의 금요일'을 보고 싶어 했던 걸까...?",
+     "7!",
+     "34!",
+     "나중에 봐, 린!",
+     "3... 4...? 7...???"
+    ]
+   }
+  ]
+ },
+ {
+  "file": "emulator-2d94efe-ch257-p02-before-after.png",
+  "sha256": "413f3cd19a42918d659bfc202fe429ae866aab41f4d03b2311d8db7e73630cc1",
+  "device_px": [
+   1080,
+   2400
+  ],
+  "cropped_rows": [
+   44,
+   2370
+  ],
+  "left": "translation off",
+  "right": "translation on",
+  "pixels_changed": 114980,
+  "changed_bounds": [
+   45,
+   672,
+   1050,
+   1912
+  ],
+  "pages": [
+   {
+    "page": 2,
+    "korean": [
+     "아하하!",
+     "아니, 네 아버님 진짜 웃기시다, 그치!",
+     "그러고는 아빠가 체육대회에 사슬 갑옷을 입고 나타나셨어. '나를 지키겠다'면서 말이야.",
+     "그래도 딸을 그렇게까지 생각해주시는 건 정말 멋진 일이라고 생각해.",
+     "...!",
+     "하하...",
+     "뭐... 그렇긴 하지. 맞아, 좋은 아빠라고 생각하니까 감사하게 생각하고 있어—",
+     "시놉시스: 하카리가 아빠 이야기 대화에 끼어들려는데...",
+     "미, 미안... 이런 얘기 꺼내지 말았어야 했는데...",
+     "어...?",
+     "...아. 아! 괜찮아, 신경 쓰지 마! 난 아버지가 안 계시지만,",
+     "태어나기도 전에 돌아가셨거든. 작별 인사도 못 해봤고, 그냥 평생 이렇게 살아와서 말이야."
+    ]
+   }
+  ]
+ },
+ {
+  "file": "emulator-2d94efe-ch257-p04-before-after.png",
+  "sha256": "19689e7d7dcdf5cd5ad67331972dae5def594b7499ca511b9b2c5d68a9d8425f",
+  "device_px": [
+   1080,
+   2400
+  ],
+  "cropped_rows": [
+   44,
+   2370
+  ],
+  "left": "translation off",
+  "right": "translation on",
+  "pixels_changed": 149234,
+  "changed_bounds": [
+   73,
+   476,
+   1036,
+   1821
+  ],
+  "pages": [
+   {
+    "page": 4,
+    "korean": [
+     "아...빠...?",
+     "야, 적당히 해. 가끔은 다른 사람한테도 기회를 좀 주라고.",
+     "아무도 너 안 불렀거든.",
+     "하카리, 다음 데이트는 내가 그 아빠와 딸 같은 분위기를 제대로 연출해볼 수 있는 곳으로 갈까?",
+     "아, 렌타로 군...",
+     "좋긴 한데, 아빠 같은 느낌을 받으려면 아무래도 나보다 나이가 많은 파트너가 필요하지 않을까?",
+     "어이? 지난 컷 못 봤어?",
+     "얘는 누가 봐도 예외잖아.",
+     "그럼 딱 좋은 게 있지, 암암! 내 '마음속 깊은 곳까지 유치원생으로 만들어주는 약'!",
+     "데이트 당일에 하카리한테 이걸 먹이기만 하면, 그럼—",
+     "좋아, 완벽해! 다들 근처에서 열리는 귀멸의 칼날 이벤트에 가서, 주변에 아무도 없다고!",
+     "렌-타로-쿠운! 기다려줘서 고마워어어!"
+    ]
+   }
+  ]
+ },
+ {
+  "file": "emulator-2d94efe-ch257-p16-before-after.png",
+  "sha256": "ed7b5f61b76c5cb5eba12ea7ee2805a511c75025b114ecbe0627d0e5b2b85d4f",
+  "device_px": [
+   1080,
+   2400
+  ],
+  "cropped_rows": [
+   44,
+   2370
+  ],
+  "left": "translation off",
+  "right": "translation on",
+  "pixels_changed": 30251,
+  "changed_bounds": [
+   435,
+   1101,
+   1024,
+   2172
+  ],
+  "pages": [
+   {
+    "page": 16,
+    "korean": [
+     "잡아줘, 잡아줘! 빨리!",
+     "내... 내가 잡았어! 잡았다고...!",
+     "고마워어어어, 렌타로 군...!",
+     "하아... 하아..."
+    ]
+   }
+  ]
+ },
+ {
+  "file": "emulator-2d94efe-ch257-p19-before-after.png",
+  "sha256": "fc2db99cd15dcd37971b162f81332716daea55cc2341bcf7d8a893be0919fbfc",
+  "device_px": [
+   1080,
+   2400
+  ],
+  "cropped_rows": [
+   44,
+   2370
+  ],
+  "left": "translation off",
+  "right": "translation on",
+  "pixels_changed": 123855,
+  "changed_bounds": [
+   41,
+   521,
+   1067,
+   1931
+  ],
+  "pages": [
+   {
+    "page": 19,
+    "korean": [
+     "어, 흐으으으응? 뭐어어어? 무우우우응?",
+     "너 사실 약 안 먹었지, 그렇지?",
+     "젠장...!",
+     "으악! 미취학 아동이 그런 표정을 짓냐.",
+     "아헤헤 헤헤헤 헤헤",
+     "-렌-타로, '아버지 같은'이라는 게 무슨 뜻이야?",
+     "어...?",
+     "음... 따뜻하고, 믿음직하고, 받아주는... 무조건적으로 사랑해 주는 사람 말이야—",
+     "약이든 뭐든, 난 오늘 제대로 된 아버지 같은 존재가 되기로 마음먹었단 말이야...!",
+     "...젠장...!"
+    ]
+   }
+  ]
+ },
+ {
+  "file": "emulator-2d94efe-ch258-p11-before-after.png",
+  "sha256": "9dbd881a0de6709883cdff1780f71699cab28cca0e0e6c2e109c3256ca0b5f28",
+  "device_px": [
+   1080,
+   2400
+  ],
+  "cropped_rows": [
+   44,
+   2370
+  ],
+  "left": "translation off",
+  "right": "translation on",
+  "pixels_changed": 87637,
+  "changed_bounds": [
+   106,
+   456,
+   1053,
+   1891
+  ],
+  "pages": [
+   {
+    "page": 11,
+    "korean": [
+     "수영이 정말 인생 그 자체구나...?",
+     "이건 잘못된 반응이야.",
+     "음, 정말 좋은 수영이었어— 수영하게 해줘서 고마워.",
+     "그렇게 즐거워하니 나도 기쁘네.",
+     "그래? 좋아!",
+     "그래도, 이걸로는 금방 또 부족해질 것 같아. 한 번 더 수영하러 갈 건데. 같이 갈래?",
+     "지금 뭘 입고 있다고?",
+     "젠장, 수영복을 안 가져왔네... 뭐, 입고 있는 아톰 팬티로 어떻게든 되겠지—"
+    ]
+   }
+  ]
+ },
+ {
+  "file": "emulator-2d94efe-ch258-p18-before-after.png",
+  "sha256": "57e116290de2758c98676843d177b558b1d95340d6c55cceceeac4b3f26036fb",
+  "device_px": [
+   1080,
+   2400
+  ],
+  "cropped_rows": [
+   44,
+   2370
+  ],
+  "left": "translation off",
+  "right": "translation on",
+  "pixels_changed": 28608,
+  "changed_bounds": [
+   572,
+   1213,
+   1077,
+   2176
+  ],
+  "pages": [
+   {
+    "page": 18,
+    "korean": [
+     "이렇게 그녀와 함께 있다 보니, 나 자신이 바다 그 자체가 된 것만 같아.",
+     "정말 엄청난 속도와 우아함이야.",
+     "이 감정은...!",
+     "아. 이거였구나. 이거였어!"
+    ]
+   }
+  ]
+ },
+ {
+  "file": "windows-2d94efe-ch257-p19-20-before-after.png",
+  "sha256": "4b460b28a24177d3ee2409e15f8b6e68df9d27cb5cdca73a93c014c5e23cc28d",
+  "device_px": [
+   1100,
+   900
+  ],
+  "cropped_rows": [
+   0,
+   900
+  ],
+  "left": "translation off",
+  "right": "translation on",
+  "pixels_changed": 70760,
+  "changed_bounds": [
+   21,
+   99,
+   1075,
+   828
+  ],
+  "pages": [
+   {
+    "page": 19,
+    "korean": [
+     "어, 흐으으으응? 뭐어어어? 무우우우응?",
+     "너 사실 약 안 먹었지, 그렇지?",
+     "젠장...!",
+     "으악! 미취학 아동이 그런 표정을 짓냐.",
+     "아헤헤 헤헤헤 헤헤",
+     "-렌-타로, '아버지 같은'이라는 게 무슨 뜻이야?",
+     "어...?",
+     "음... 따뜻하고, 믿음직하고, 받아주는... 무조건적으로 사랑해 주는 사람 말이야—",
+     "약이든 뭐든, 난 오늘 제대로 된 아버지 같은 존재가 되기로 마음먹었단 말이야...!",
+     "...젠장...!"
+    ]
+   },
+   {
+    "page": 20,
+    "korean": [
+     "그 모든 것, 아니 그 이상이,",
+     "바로 당신이 내게 항상 있어준 의미예요.",
+     "하카리...",
+     "이것만은 알아줘. 난 절대 외롭지 않아. 매일매일 네가 쏟아주는 그 따스함 덕분에.",
+     "나를 사랑받는다고 느끼게 하려고 굳이 애쓰지 않아도 돼.",
+     "그렇긴 하지만...",
+     "게다가 집에 가면 부모님 두 분 몫까지 충분한 모성애를 쏟아주시는 어머니도 계시니까.",
+     "그러니 솔직히, 내가 외로움을 느낄 일은 전혀 없어."
+    ]
+   }
+  ]
+ },
+ {
+  "file": "windows-2d94efe-ch258-p18-before-after.png",
+  "sha256": "f360f5cacd2b0f449cbbaf7630138539b094719b824aa1ba92c4bc7560fe84ed",
+  "device_px": [
+   1100,
+   900
+  ],
+  "cropped_rows": [
+   0,
+   900
+  ],
+  "left": "translation off",
+  "right": "translation on",
+  "pixels_changed": 24992,
+  "changed_bounds": [
+   583,
+   479,
+   1097,
+   841
+  ],
+  "pages": [
+   {
+    "page": 18,
+    "korean": [
+     "이렇게 그녀와 함께 있다 보니, 나 자신이 바다 그 자체가 된 것만 같아.",
+     "정말 엄청난 속도와 우아함이야.",
+     "이 감정은...!",
+     "아. 이거였구나. 이거였어!"
+    ]
+   }
+  ]
+ },
+ {
+  "file": "fix-2d94efe-ch257-p04-off-before-after.png",
+  "sha256": "8406ceacf83a4a494b75679dd6d75dbc4b7f844a48a7427f9f0e2a2d03231ea8",
+  "device_px": [
+   1080,
+   2400
+  ],
+  "cropped_rows": [
+   300,
+   2080
+  ],
+  "panels": [
+   "translation off (emulator, 2d94efe)",
+   "translation on before the fix (emulator, 66b5982: a balloon line held at the least size past its text area in a web view drawing 8 px at least)",
+   "translation on after the fix (emulator, 2d94efe: the line scaled to fit inside its area)"
+  ],
+  "pages": [
+   {
+    "page": 4,
+    "korean": [
+     "아...빠...?",
+     "야, 적당히 해. 가끔은 다른 사람한테도 기회를 좀 주라고.",
+     "아무도 너 안 불렀거든.",
+     "하카리, 다음 데이트는 내가 그 아빠와 딸 같은 분위기를 제대로 연출해볼 수 있는 곳으로 갈까?",
+     "아, 렌타로 군...",
+     "좋긴 한데, 아빠 같은 느낌을 받으려면 아무래도 나보다 나이가 많은 파트너가 필요하지 않을까?",
+     "어이? 지난 컷 못 봤어?",
+     "얘는 누가 봐도 예외잖아.",
+     "그럼 딱 좋은 게 있지, 암암! 내 '마음속 깊은 곳까지 유치원생으로 만들어주는 약'!",
+     "데이트 당일에 하카리한테 이걸 먹이기만 하면, 그럼—",
+     "좋아, 완벽해! 다들 근처에서 열리는 귀멸의 칼날 이벤트에 가서, 주변에 아무도 없다고!",
+     "렌-타로-쿠운! 기다려줘서 고마워어어!"
+    ]
+   }
+  ]
+ },
+ {
+  "file": "fix-2d94efe-ch258-p11-off-before-after.png",
+  "sha256": "b268922c77c990af5863dca88779100ce251f71c1ed11ad6e7782fa73b7a5599",
+  "device_px": [
+   1080,
+   2400
+  ],
+  "cropped_rows": [
+   300,
+   2080
+  ],
+  "panels": [
+   "translation off (emulator, 2d94efe)",
+   "translation on before the fix (emulator, 66b5982: a balloon line held at the least size past its text area in a web view drawing 8 px at least)",
+   "translation on after the fix (emulator, 2d94efe: the line scaled to fit inside its area)"
+  ],
+  "pages": [
+   {
+    "page": 11,
+    "korean": [
+     "수영이 정말 인생 그 자체구나...?",
+     "이건 잘못된 반응이야.",
+     "음, 정말 좋은 수영이었어— 수영하게 해줘서 고마워.",
+     "그렇게 즐거워하니 나도 기쁘네.",
+     "그래? 좋아!",
+     "그래도, 이걸로는 금방 또 부족해질 것 같아. 한 번 더 수영하러 갈 건데. 같이 갈래?",
+     "지금 뭘 입고 있다고?",
+     "젠장, 수영복을 안 가져왔네... 뭐, 입고 있는 아톰 팬티로 어떻게든 되겠지—"
+    ]
+   }
+  ]
+ }
+]

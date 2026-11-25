@@ -310,7 +310,24 @@ pub struct PageBox {
     pub h: u32,
     pub radius: u16,
     pub font_px: u16,
+    /// The size a line alone in its balloon starts from where the reader
+    /// sets it along the outline (wider than `text` through its middle).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub flow_px: Option<u16>,
     pub ko: String,
+    /// The shape's outline (picture pixels, clockwise) when it follows the
+    /// balloon; empty for the rounded rectangle `x, y, w, h, radius`.
+    pub outline: Vec<[i64; 2]>,
+    /// Where the Korean is set: `x, y, w, h`, inside the shape.
+    pub text: [i64; 4],
+    /// A line Gemini gave for several balloons: each balloon's share, set
+    /// in place of `text` and `ko`.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<crate::layout::Part>,
+    /// Lettering on the art with no balloon: its tone over the letters, in
+    /// place of white. With an empty `outline`, no white is drawn at all.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub patch: Option<crate::layout::Patch>,
 }
 
 #[derive(Serialize, Debug)]
@@ -320,6 +337,10 @@ pub struct PageOut {
     /// Answered from the saved translation, with no Gemini request.
     pub saved: bool,
     pub boxes: Vec<PageBox>,
+    /// Korean as large as the page's usual original lettering (page
+    /// pixels), none where no lettering is found: the least size the
+    /// reader sets it at where the page is shown smaller than readable.
+    pub lettering_px: Option<f64>,
     /// Why the translation is not in the library (`storage_full`,
     /// `storage_denied`, `internal`), or none once it is. The answer is kept
     /// in memory, so the same call again saves it with no Gemini request.

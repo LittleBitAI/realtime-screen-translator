@@ -1,0 +1,8 @@
+# What wiki-agent runs to verify a change (tool/verify.py in wiki-agent).
+# round: at each review round's head, the whitespace check plus the evidence
+#   check of every receipt folder the branch changed (scripts/round-check.mjs).
+# local: the final check, the repository's gate, run on this machine.
+[verification]
+mode = "local"
+round = "node scripts/round-check.mjs"
+local = "cargo run -q -p xtask -- artifacts/junit.xml && corepack pnpm install --frozen-lockfile && corepack pnpm test && corepack pnpm build"
