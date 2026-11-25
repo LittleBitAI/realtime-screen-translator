@@ -98,7 +98,7 @@ Unplugged read and evidence collected after reconnecting (2026-11-25)
   translated pages establish translation through page 18. Full-chapter
   acceptance and any transient page failure history remain pending.
 
-  Revision 2 specifies the owner's request to translate from the current
+  Revision 3 specifies the owner's request to translate from the current
   page through the end of the chapter without moving the reader.
 
 Revision 2 page discovery before read-to-end implementation (2026-11-25)
@@ -112,6 +112,33 @@ Revision 2 page discovery before read-to-end implementation (2026-11-25)
   The later read-only recheck under revision 2 found the same chapter open
   at page 51 with three images in the entire document. Page discovery hit
   revision 2's missing-image stop condition before any read-to-end code.
+
+Revision 3 page-list discovery before read-to-end implementation (2026-11-26)
+  The owner had removed the plain-ID app and asked to reinstall it. On the
+  Galaxy S21+ over USB, `adb -d install <APK above>` succeeded and the app
+  cold-launched. The installed APK SHA-256 was
+  f30e03fcc61b6577e3e07ddd1ff76a432f345cd13a7681b91f5698125e59a927.
+  `get_status` reported key_set=false and gemini_requests=0 before opening
+  MangaFire Chapter 21. This was the discovery build.
+
+  With WebView DevTools Network logging enabled, reloaded Chapter 21 and
+  inspected the top document at page 1. The page itself made a same-origin
+  XMLHttpRequest to https://mangafire.to/api/chapters/1700331 (query name
+  `vrf`, value omitted). Its responseType was the empty string, its
+  Content-Type was application/json and its decoded body was 8,750 UTF-8
+  bytes (8,750 characters).
+
+  The JSON array at `$.data.pages` had 51 entries, matching the reader's 51
+  pages. Entry 0 was {"url":"<k99.mfcdn1.xyz>","width":1115,"height":1600},
+  with the image address redacted to its host. The reader's 52nd slide was
+  the end card. The three mounted page images' `currentSrc || src` strings
+  each matched an entry exactly. With zero-based positions, slide order
+  0 matched list index 0, 1 matched 1, and 2 matched 2, giving a common
+  difference of 0.
+
+  The `width` value varied between 1115 and 2230. `height` was constant at
+  1600. Revision 3 stops when entries differ in anything besides the
+  address, so discovery stopped before implementation.
 
 Focused automated checks
   cargo test -p realtime-screen-translator --test reader_edges --test screen_edges --test backend_edges
