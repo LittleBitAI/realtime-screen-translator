@@ -98,6 +98,8 @@ Unplugged read and evidence collected after reconnecting (2026-11-25)
   translated pages establish translation through page 18. Full-chapter
   acceptance and any transient page failure history remain pending.
 
+  On 2026-11-25 the owner asked to translate from the current page to the end of the chapter without moving the reader and made it a condition of acceptance. Whole-chapter read-ahead is out of scope for revision 1 and still to be specified.
+
 Focused automated checks
   cargo test -p realtime-screen-translator --test reader_edges --test screen_edges --test backend_edges
   25 passed: 12 reader, 6 screen, 7 backend.
