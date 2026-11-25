@@ -295,3 +295,10 @@ Revision 6 unplugged run and restart failure (2026-11-26)
   The restart resets that counter. The missing overlay was reproduced on
   the phone; the inspection observed no Gemini request in that process.
   The missing Korean on page 4 triggers the revision 6 stop condition.
+
+  The owner clarified that the failure affects reuse of the entire chapter
+  after restart and asked for a P0 repair. A follow-up read-only query in
+  the same restarted app process verified `get_books` still returned
+  Chapter 21 with 51 pictures. `get_status` immediately before and after
+  the query returned 0 Gemini requests. This checks library access and
+  leaves the chapter reopen and drawing path unverified.
