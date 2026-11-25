@@ -212,3 +212,9 @@ Revision 4 installation on the Galaxy S21+ (2026-11-26)
   screen returned 0 Gemini requests, and a key was set after installation.
   No chapter was opened for this check. Reset of the restored library
   before unplugged acceptance is pending.
+
+  The owner requested in-place updates for future rebuilds. Use
+  `adb install -r <apk>` with the same application ID and signing
+  certificate so the app keeps its Android Keystore, settings and library.
+  A read-only `get_status` recheck confirmed key_set=true and 0 Gemini
+  requests on the current install. The current key and library were kept.
