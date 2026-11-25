@@ -140,6 +140,10 @@ Revision 3 page-list discovery before read-to-end implementation (2026-11-26)
   1600. Revision 3 stops when entries differ in anything besides the
   address, so discovery stopped before implementation.
 
+  Revision 4 allows differing numbers that give the picture's pixel width
+  or height. The reader keeps only each entry's address. Read-to-end code
+  was written after this note.
+
 Focused automated checks
   cargo test -p realtime-screen-translator --test reader_edges --test screen_edges --test backend_edges
   25 passed: 12 reader, 6 screen, 7 backend.
