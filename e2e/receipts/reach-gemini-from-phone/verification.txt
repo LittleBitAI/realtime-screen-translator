@@ -72,8 +72,9 @@ Fresh install on the Galaxy S21+ (2026-11-25)
   Status: ok
 
   The owner reported that translation worked and that later pages appeared
-  to translate as they opened them. The chapter address, full-chapter
-  result, page count, request counts and any page failures are pending.
+  to translate as they opened them. They confirmed reaching the last page
+  during the unplugged check. The chapter address, page count, Gemini
+  request counts and per-page translation and failure details are pending.
 
 Focused automated checks
   cargo test -p realtime-screen-translator --test reader_edges --test screen_edges --test backend_edges
