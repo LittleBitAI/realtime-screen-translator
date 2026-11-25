@@ -362,3 +362,8 @@ Revision 7 cold-start diagnosis (2026-11-26, Galaxy S21+ over USB)
   overlays were initially absent and filled in after 2.4 to 13.5 seconds.
   The restart check through all 51 pages remains open. No repair was
   made under the revision 7 stop condition.
+
+  The owner selected a separate task to make saved Korean reappear sooner
+  and automatically when reopening a translated chapter. The phone check
+  for that task should reuse the saved Chapter 21 pages after an in-place
+  update and cold start, with no button press or Gemini requests.
