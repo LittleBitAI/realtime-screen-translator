@@ -220,3 +220,23 @@ Revision 4 installation on the Galaxy S21+ (2026-11-26)
   requests on the current install. The current key and library were kept.
   The owner chose to keep the current app data for the phone test. The
   acceptance decision about the restored picture is with the spec author.
+
+Revision 5 pre-unplug snapshot on the Galaxy S21+ (2026-11-26 07:31 +09:00)
+  `git diff --stat 9e68c0e HEAD` listed only this verification receipt
+  under e2e/receipts/ (1 file changed, 61 insertions).
+  `adb shell pm path --user 0 ai.littlebit.realtime_screen_translator`
+  returned one base APK. `adb shell sha256sum` on that path reported
+  be8581ef35ded4e66a0fa47324616fbdd48e77eb417167bba00abf5bf6dd0b08,
+  matching the revision 4 acceptance build.
+
+  Using `adb exec-out run-as ai.littlebit.realtime_screen_translator cat`
+  on translator.sqlite3 and its WAL, took a stable read-only snapshot.
+  SQLite `PRAGMA quick_check` returned ok. Row counts were ReaderPage=1,
+  SitePage=0, Book=1 and Picture=1. The book was dated 2026-11-18.
+  `get_status` reported key_set=true and gemini_requests=1. The app's
+  Open screen showed `1번`. The phone's ADB reverse list was empty and
+  the host had no Gemini ledger process or port 8787 listener.
+
+  The earlier snapshot had ReaderPage=0 and gemini_requests=0. The
+  current ReaderPage count triggers the revision 5 stop before unplugged
+  acceptance. The inspection did not open a chapter or change app data.
