@@ -98,7 +98,20 @@ Unplugged read and evidence collected after reconnecting (2026-11-25)
   translated pages establish translation through page 18. Full-chapter
   acceptance and any transient page failure history remain pending.
 
-  On 2026-11-25 the owner asked to translate from the current page to the end of the chapter without moving the reader and made it a condition of acceptance. Whole-chapter read-ahead is out of scope for revision 1 and still to be specified.
+  Revision 2 specifies the owner's request to translate from the current
+  page through the end of the chapter without moving the reader.
+
+Revision 2 page discovery before read-to-end implementation (2026-11-25)
+  Acceptance site: the MangaFire Chapter 21 address above. Inspected the
+  installed reader's live document over USB using WebView DevTools.
+  At page 16 of 51, the document contained five images, on pages 14–18.
+  Page 20 (four slide positions ahead) and page 51 had 384 px-wide slide
+  containers with zero children. Both pages were beyond the 1.5-screen
+  range. Neither container held an <img>, so there was no image load state,
+  src, currentSrc, lazy-load attribute, or image offsetWidth to record.
+  The later read-only recheck under revision 2 found the same chapter open
+  at page 51 with three images in the entire document. Page discovery hit
+  revision 2's missing-image stop condition before any read-to-end code.
 
 Focused automated checks
   cargo test -p realtime-screen-translator --test reader_edges --test screen_edges --test backend_edges
