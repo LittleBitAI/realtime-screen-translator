@@ -194,3 +194,21 @@ Revision 4 APK build and focused checks (2026-11-26)
 
   The Galaxy S21+ was disconnected. The clean installation and the
   owner's unplugged read-to-end and reopen checks are pending.
+
+Revision 4 installation on the Galaxy S21+ (2026-11-26)
+  With the owner's approval, `adb uninstall` returned Success for both
+  ai.littlebit.realtime_screen_translator.balloonfit and
+  ai.littlebit.realtime_screen_translator. The owner-user package query
+  returned no matches before `adb install <revision 4 APK>`, which succeeded.
+  The same query then returned only ai.littlebit.realtime_screen_translator.
+  `adb shell pm path` and `adb shell sha256sum` confirmed the installed APK
+  SHA-256 be8581ef35ded4e66a0fa47324616fbdd48e77eb417167bba00abf5bf6dd0b08.
+  The app cold-launched. ADB reverse and forward lists were empty after
+  inspection. The host had no Gemini ledger process or port 8787 listener.
+
+  Android ran FullBackupAgent during installation. A read-only snapshot
+  of the installed app's SQLite database showed zero ReaderPage and
+  SitePage rows, but one Book dated 2026-11-18 and one Picture. The Open
+  screen returned 0 Gemini requests, and a key was set after installation.
+  No chapter was opened for this check. Reset of the restored library
+  before unplugged acceptance is pending.
