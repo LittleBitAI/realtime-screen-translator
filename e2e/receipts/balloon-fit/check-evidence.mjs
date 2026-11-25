@@ -63,9 +63,13 @@ test('every file of the receipt is pinned, named in it and read from HEAD at its
   }
 });
 
+// Left out: this evidence, research notes, the server's wiki metadata, and
+// the review round's own check (verification.toml and scripts/round-check.mjs
+// with its test), none of which the app or the walks load.
 test('the runtime code equals the candidate the runs used', () => {
   git('diff', '--exit-code', '--quiet', source, 'HEAD', '--', '.',
-    `:(exclude,glob)${folder}/**`, ':(exclude,glob)docs/research/**', ':(exclude,glob).wiki/**');
+    `:(exclude,glob)${folder}/**`, ':(exclude,glob)docs/research/**', ':(exclude,glob).wiki/**',
+    ':(exclude,literal)verification.toml', ':(exclude,literal)scripts/round-check.mjs', ':(exclude,literal)src/lib/round-check.test.js');
 });
 
 const walks = [`emulator-${run}-fill-report.json`, `emulator-${run}-report.json`, `windows-${run}-fill-report.json`, `windows-${run}-report.json`];

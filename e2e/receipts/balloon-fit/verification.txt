@@ -13,10 +13,14 @@ Source
 Check
   node --test e2e/receipts/balloon-fit/check-evidence.mjs
 
+  The review server runs it at each head under review: verification.toml's
+  round command, node scripts/round-check.mjs, runs the whitespace check and
+  then the evidence check of every receipt folder the branch changed.
   Run from the repository root. It hashes every file below as committed
   (git show HEAD:...), checks that this receipt names each of them, runs
   git diff --exit-code 2d94efe HEAD over everything but this folder,
-  docs/research and the server's .wiki metadata, and checks the reports'
+  docs/research, the server's .wiki metadata and the round check itself
+  (verification.toml, scripts/round-check.mjs and its test), and checks the reports'
   and the ledger's properties: pages drawn, reading order, clipping,
   painted layers, Korean in a white cover never past its text area, Korean
   on the art never below its least size, never cut, tone covers drawn at
