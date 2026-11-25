@@ -240,3 +240,28 @@ Revision 5 pre-unplug snapshot on the Galaxy S21+ (2026-11-26 07:31 +09:00)
   The earlier snapshot had ReaderPage=0 and gemini_requests=0. The
   current ReaderPage count triggers the revision 5 stop before unplugged
   acceptance. The inspection did not open a chapter or change app data.
+
+Revision 6 pre-unplug baseline on the Galaxy S21+ (2026-11-26 07:35 +09:00)
+  `git diff --stat 9e68c0e HEAD` reported 1 file changed, 81 insertions.
+  The only file was this verification receipt under e2e/receipts/.
+  `adb shell pm path --user 0 ai.littlebit.realtime_screen_translator`
+  returned one base APK. `adb shell sha256sum` on that path reported
+  be8581ef35ded4e66a0fa47324616fbdd48e77eb417167bba00abf5bf6dd0b08,
+  matching the acceptance APK built from 9e68c0e.
+
+  Read translator.sqlite3 and its WAL using `adb exec-out run-as` and
+  verified that both files were unchanged across two reads. A read-only
+  SQLite connection returned `ok` from `PRAGMA quick_check`. The snapshot
+  was kept outside Git at `%LOCALAPPDATA%/Temp/rst-reach-gemini-from-phone/rev6-baseline.sqlite3`
+  for comparison by ReaderPage key. Its SHA-256 was
+  143d7f4e28c24a684596cf779ea786f145d282393ac1559b2faa5706c779ff84.
+
+  Baseline counts: ReaderPage=1, SitePage=0, Book=1, Picture=1. The Book
+  was dated 2026-11-18. The only ReaderPage had page_url="", picture_id=1,
+  a ChapterPage row for that picture, and no SitePage row. It was an
+  imported-chapter page. ReaderPage and SitePage contained no non-empty
+  chapter addresses. No app data was changed by the check.
+
+  `get_status` returned key_set=true and gemini_requests=1. The Open
+  screen showed `1번`. ADB reverse was empty, and the host had no Gemini
+  ledger process or port 8787 listener. The owner's unplugged run is pending.
