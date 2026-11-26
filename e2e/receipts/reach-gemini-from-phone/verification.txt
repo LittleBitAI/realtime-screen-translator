@@ -568,3 +568,24 @@ Person's restart check baseline (2026-11-26)
   present with zero additional keys. ADB reverse and forward were empty.
   No ledger process or port 8787 listener was present. The DevTools
   connection was closed before this check.
+
+Person's restart check report (2026-11-26)
+  The person selected Passed, reporting a completed Chapter 21
+  read-through, an acceptable wait and both on-screen counts at 0. The
+  approximate slowest wait was not supplied with the selection.
+  Without restarting the app, `get_status` in PID 30118 reported
+  key_set=true and gemini_requests=0. The status check's DevTools
+  connection was closed afterward.
+
+  The read-only rev9-after-acceptance.sqlite3 snapshot had 81 ReaderPage
+  keys and 80 SitePage rows, the same as the check's baseline. No key was
+  added or lost, and all 51 Chapter 21 positions still named the same
+  keys. Book 3 and Picture 81 were also unchanged. All 51 Chapter 21
+  ReaderPage rows still held layout 1 and their dimensions.
+
+  Outside Chapter 21, two existing ReaderPage rows acquired layout 1.
+  They were site pages on mangafire.to at seq 0 and 1. The app's database
+  did not establish whether these pages were opened before, during or
+  after the person's Chapter 21 check. The session itself opened only
+  Chapter 21 and made no manual edits to phone data. The owner's timing
+  estimate and the order of the other reading are pending.
