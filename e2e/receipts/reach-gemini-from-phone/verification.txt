@@ -439,3 +439,100 @@ Revision 8 pre-update baseline check (2026-11-26)
   The 81-key snapshot triggers the revision 8 stop before the update.
   The installed APK and phone data were left as found. No phone timing
   or user acceptance was collected for the revision 8 APK.
+
+Revision 9 retained library baseline (2026-11-26)
+  Read only the saved snapshots on the host. The main database file of
+  rev8-before-install.sqlite3 had SHA-256
+  830d7e9f93224efffe7e82224ac2a47cac01d090829fdc5dfb156f9ad69974af.
+  All 52 ReaderPage keys in rev6-post-report.sqlite3 were present among
+  its 81 keys. The 29 added keys were named by 29 SitePage rows at one
+  address on mangafire.to, with seq 0 through 28. None of the added keys
+  was unlinked or named by a SitePage row for Chapter 21. All 29 held
+  non-empty items. The record used no phone access.
+
+Revision 9 in-place update on the Galaxy S21+ (2026-11-26)
+  A fresh read-only database and WAL snapshot, rev9-before-install.sqlite3,
+  passed `PRAGMA quick_check`. It held ReaderPage 81, SitePage 80, Book 3,
+  and Picture 81. All 81 retained keys were present, with zero extra keys.
+  Chapter 21's 51 SitePage places (0 through 50) named the same keys as
+  rev6-post-report.sqlite3. This snapshot is the phone proof baseline.
+  Before installation `get_status` reported key_set=true and gemini_requests=0.
+  ADB reverse was empty. There was no ledger process or port 8787 listener.
+
+  `git diff --stat 9e68c0e HEAD` listed docs/design/backend.md, this
+  receipt, src-tauri/src/reader.rs and src-tauri/src/store.rs. The diff
+  against APK source commit dda9640 listed only this receipt. The verified
+  APK from lines 371-418 was therefore reused. Its arm64 library again
+  gave 0 matches for 127.0.0.1:8787.
+  `adb install -r` returned `Success` under the same application ID and
+  signing certificate. There was no uninstall or data clear. The installed
+  base APK read by `adb shell pm path` and `adb shell sha256sum` matched
+  462e1bd632414d010da830f99048f761638aaeee9022b507e45e4bfdd1e6ef1a.
+  After the update, a cold launch returned key_set=true and gemini_requests=0.
+
+  In the first pass after updating, the site's page controls showed
+  Chapter 21 from page 1 through 51 in order. Every page had a connected
+  layer with Korean before proceeding, with no failure chip. The
+  read-to-end button stayed off. `get_status` on return was key_set=true,
+  gemini_requests=0. The read-only rev9-after-update-pass.sqlite3 snapshot
+  had exactly the baseline's 81 keys, with none added or gone. ReaderPage
+  81, SitePage 80, Book 3 and Picture 81 were unchanged. All 51 Chapter 21
+  rows had layout 1 and a stored width and height. There were zero layout
+  stamps outside Chapter 21. The 51 position-to-key links were unchanged.
+
+Revision 9 cold-start measurements (2026-11-26)
+  `adb shell am force-stop` and `adb shell am start -W` gave cold starts
+  in PIDs 26950, 27405 and 28083, on the APK verified above. Each run
+  opened only Chapter 21 from the app's Open screen. The site resumed on
+  page 51. The script observed the WebView through DevTools without
+  adding a listener or modifying the page. The site's existing controls
+  moved one page at a time to page 4, then to page 8 and back. The two
+  60-second holds stayed on pages 51 and 4 in each run. The read-to-end
+  button was never pressed. `get_status` showed key_set=true and
+  gemini_requests=0 before and after all three runs.
+
+  All times below are seconds. Each triplet is starts 1 / 2 / 3.
+  Within two measures from the first observation within two pages.
+  Ready measures from the first observation complete, with positive
+  natural width and within 1.5 screens. Both end at the first observed
+  connected layer with Korean. The earlier diagnosis opened at page 6,
+  so it has no matched comparison for pages 49 through 51.
+
+  Opening view, after 60.0 / 60.1 / 60.1 seconds, active page 51:
+  Position | complete | naturalWidth | offsetWidth | connected rst-layer | rst-text | rst-chip | within two | ready | earlier within two
+  49 | true | 1115 | 384 | true | 4  | none | 1.219 / 1.200 / 1.198 | 0.685 / 0.836 / 0.821 | unavailable
+  50 | true | 1115 | 384 | true | 12 | none | 1.316 / 1.304 / 1.290 | 0.971 / 0.797 / 0.691 | unavailable
+  51 | true | 1115 | 384 | true | 4  | none | 1.420 / 1.368 / 1.346 | 0.982 / 0.921 / 0.747 | unavailable
+
+  Page 4 view, after 60.1 / 60.2 / 60.1 seconds:
+  Position | complete | naturalWidth | offsetWidth | connected rst-layer | rst-text | rst-chip | within two | ready | earlier within two
+  2 | true | 2230 | 384 | true | 5 | none | 0.538 / 1.228 / 0.245 | 0.377 / 0.858 / 0.064 | 4.8 / 4.8 / 4.9
+  3 | true | 1115 | 384 | true | 4 | none | 0.199 / 0.193 / 0.222 | 0.057 / 0.057 / 0.101 | 1.0 / 1.0 / 1.0
+  4 | true | 1115 | 384 | true | 9 | none | 0.530 / 0.608 / 0.599 | 0.408 / 0.464 / 0.462 | 2.6 / 2.6 / 2.4
+  5 | true | 1115 | 384 | true | 6 | none | 0.207 / 0.245 / 0.475 | 0.083 / 0.088 / 0.330 | 3.8 / 3.7 / 3.6
+  6 | true | 1115 | 384 | true | 8 | none | 0.520 / 0.506 / 0.216 | 0.389 / 0.372 / 0.096 | 8.5 / 8.5 / 8.3
+
+  At each endpoint the status bar was hidden, `번역 켜짐` had
+  aria-pressed=true and `끝까지 번역` had aria-pressed=false. In every
+  run page 4 had Korean on the first observation after arrival and on
+  the first observation after returning from page 8. Network did not
+  display `post_reader_page` IPC calls.
+
+  All three runs met the overlay latency targets. The largest observed
+  sample gaps used to establish the reported page timings were
+  80.5 / 82.1 / 102.1 ms for the opening pages and
+  111.2 / 92.3 / 121.2 ms for the pages at the page 4 hold. The maximum
+  gap across every consecutive sample in each full run was still
+  360.0 / 516.1 / 648.3 ms. The third run also had observed gaps of
+  297.1 ms and 648.3 ms during the two holds. Trials with sequential
+  polling had comparable gaps, and a trial in which the view left
+  page 4 during its hold was discarded. The absolute 250 ms cadence
+  requirement was not met. No latency target was missed.
+
+  `get_status` at the end read gemini_requests=0. The read-only snapshot
+  rev9-after-cold-starts.sqlite3 had the same 81 ReaderPage keys as the
+  proof baseline, with none added or lost. It still had SitePage 80,
+  Book 3, Picture 81 and 51 unchanged Chapter 21 links with current layout,
+  width and height. Zero other rows had a layout. No other chapter was
+  opened. The ADB forward used for DevTools was removed and the reverse
+  list was empty. The person's restart check has not started.
