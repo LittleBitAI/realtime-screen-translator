@@ -589,3 +589,14 @@ Person's restart check report (2026-11-26)
   after the person's Chapter 21 check. The session itself opened only
   Chapter 21 and made no manual edits to phone data. The owner's timing
   estimate and the order of the other reading are pending.
+
+Person's restart check confirmation (2026-11-26)
+  The owner confirmed the other chapter was opened after finishing the
+  Chapter 21 check and reading the final Gemini count. The two other
+  layout stamps therefore came from later reading, outside the check.
+  The owner estimated the longest wait for Korean at about one second
+  or less and found it acceptable. The owner passed the 51-page check,
+  including double-page spreads, with no missing translation or failure
+  message and the Open screen at 0 Gemini requests before and after.
+  The follow-up `get_status` and the read-only comparison above verified
+  0 requests and the same 81 ReaderPage keys and 80 SitePage mappings.
