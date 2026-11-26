@@ -600,3 +600,52 @@ Person's restart check confirmation (2026-11-26)
   message and the Open screen at 0 Gemini requests before and after.
   The follow-up `get_status` and the read-only comparison above verified
   0 requests and the same 81 ReaderPage keys and 80 SitePage mappings.
+
+Review round 1 evidence for 27209bf (2026-11-26)
+  focused-checks.txt records fresh runs at source commit
+  27209bf40ecace8be53f4ae83ebb28c0f34204ba. Cargo nextest passed all 34
+  selected tests, including reader error mapping, capture regressions, the
+  layout version pin and saved-page reopening. Vitest passed all 55 tests
+  in the eight reader files.
+
+  On Windows 11 Home x64 (10.0.26200), Tauri CLI 2.12.4 built the desktop
+  executable from that same source with this PowerShell command:
+    cargo tauri build --debug --no-bundle --features app --ci -c '{"identifier":"ai.littlebit.rst-reach-proof","productName":"RST Reach Proof","build":{"beforeBuildCommand":"corepack pnpm build"}}'
+  target/debug/realtime-screen-translator.exe SHA-256
+    e7ceb8d2b7e3ebec65f7b79b917a5cb16501d7566c8ece125406f5840cc62b9a
+  The build CLI temporarily added empty feature lists to the existing
+  tauri and tauri-build dependency declarations. Both edits were restored.
+
+  desktop-reader.test.mjs launched that executable using a fresh
+  ai.littlebit.rst-reach-proof profile and the existing local detector.
+  Reproduce with a fresh profile and RST_DETECTOR_MODEL pointing at a
+  local copy with the SHA-256 recorded in windows-desktop.json:
+    node --test e2e/receipts/reach-gemini-from-phone/desktop-reader.test.mjs
+  One test passed in Node v24.18.0. The native WebView2 runtime reported
+  Edg/158.0.4370.33. The three synthetic pictures, their chapter list
+  and the Gemini stand-in were served on loopback.
+
+  The test opened the fixture through the Open screen and pressed
+  끝까지 번역 in the native reader. The stand-in received pages 1, 2, 3
+  in order. Scroll stayed at 0 with one picture mounted, and
+  windows-read-to-end.png shows the reader's completion message beside
+  the translated first picture. The fixture's next button mounted
+  page 2 and its Korean appeared with the counter still at 3.
+
+  The test stopped the process (PID 12852), restarted the same binary and
+  profile (PID 1860), and opened the chapter again. It used the fixture's
+  next button to reach pages 2 and 3. All three displayed 안녕 without
+  pressing 끝까지 번역. No page showed a failure chip and the app's Gemini
+  counter was 0 before and after. The stand-in saw no new request during
+  reopening. windows-reopened.png shows the Korean on the third page.
+  windows-desktop.json records the two processes, per-page observations
+  and fixture hashes. This run used the Windows app and its own backend.
+
+  check-evidence.mjs reads the committed evidence at its pinned SHA-256
+  hashes and compares the review candidate with the tested source.
+  For the reused Galaxy proof above it compares against dda9640 and
+  excludes just this receipt directory and the two generated wiki files
+  (.wiki/.sync and .wiki/corpus.json). The Android runtime inputs are
+  identical. The Galaxy S21 test, APK 462e1bd632414d010da830f99048f761638aaeee9022b507e45e4bfdd1e6ef1a,
+  and the owner's 51-page read-through are reused observations from the
+  entries above. No additional phone test was run for this review.

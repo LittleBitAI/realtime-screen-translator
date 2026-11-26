@@ -1,0 +1,158 @@
+{
+  "sourceCommit": "27209bf40ecace8be53f4ae83ebb28c0f34204ba",
+  "environment": {
+    "platform": "win32",
+    "architecture": "x64",
+    "release": "10.0.26200",
+    "version": "Windows 11 Home",
+    "webview": "Edg/158.0.4370.33",
+    "node": "v24.18.0"
+  },
+  "build": {
+    "executable": "target/debug/realtime-screen-translator.exe",
+    "sha256": "e7ceb8d2b7e3ebec65f7b79b917a5cb16501d7566c8ece125406f5840cc62b9a",
+    "profile": "ai.littlebit.rst-reach-proof",
+    "detectorSha256": "5fe9e4f576e49d4e7e8b0e029d6d3cdc252abd4694113e1cae120e62c931ea79"
+  },
+  "fixture": {
+    "pageSha256": [
+      "1630a889f8f6075ad2e74425e555415b0b7111808116e19902fce5182b81be65",
+      "45b056b7092998d347821e8a54527fef229759f651f5963ff9dabff0e4a44e16",
+      "392bb32b7ad9bddc03bbda3edf12a81cf2d6ae31016b4c6b441666c6b69fe6db"
+    ],
+    "gemini": "loopback stand-in"
+  },
+  "initial": {
+    "pid": 12852,
+    "beforeRun": {
+      "scroll": 0,
+      "pictureCount": 1,
+      "runPressed": "false",
+      "status": "",
+      "chips": [],
+      "visibleKorean": [
+        {
+          "page": 1,
+          "text": "안녕"
+        }
+      ],
+      "viewport": [
+        1100,
+        900,
+        1
+      ]
+    },
+    "afterRun": {
+      "scroll": 0,
+      "pictureCount": 1,
+      "runPressed": "false",
+      "status": "회차 끝까지 번역했습니다.",
+      "chips": [],
+      "visibleKorean": [
+        {
+          "page": 1,
+          "text": "안녕"
+        }
+      ],
+      "viewport": [
+        1100,
+        900,
+        1
+      ]
+    },
+    "laterMounted": {
+      "scroll": 2400,
+      "pictureCount": 2,
+      "runPressed": "false",
+      "status": "",
+      "chips": [],
+      "visibleKorean": [
+        {
+          "page": 2,
+          "text": "안녕"
+        }
+      ],
+      "viewport": [
+        1100,
+        900,
+        1
+      ]
+    },
+    "status": {
+      "keySet": true,
+      "requests": 3
+    }
+  },
+  "reopened": {
+    "pid": 1860,
+    "before": {
+      "keySet": true,
+      "requests": 0
+    },
+    "pages": [
+      {
+        "scroll": 0,
+        "pictureCount": 1,
+        "runPressed": "false",
+        "status": "",
+        "chips": [],
+        "visibleKorean": [
+          {
+            "page": 1,
+            "text": "안녕"
+          }
+        ],
+        "viewport": [
+          1100,
+          900,
+          1
+        ]
+      },
+      {
+        "scroll": 2400,
+        "pictureCount": 2,
+        "runPressed": "false",
+        "status": "",
+        "chips": [],
+        "visibleKorean": [
+          {
+            "page": 2,
+            "text": "안녕"
+          }
+        ],
+        "viewport": [
+          1100,
+          900,
+          1
+        ]
+      },
+      {
+        "scroll": 4800,
+        "pictureCount": 3,
+        "runPressed": "false",
+        "status": "",
+        "chips": [],
+        "visibleKorean": [
+          {
+            "page": 3,
+            "text": "안녕"
+          }
+        ],
+        "viewport": [
+          1100,
+          900,
+          1
+        ]
+      }
+    ],
+    "after": {
+      "keySet": true,
+      "requests": 0
+    },
+    "requestOrder": [
+      1,
+      2,
+      3
+    ]
+  }
+}

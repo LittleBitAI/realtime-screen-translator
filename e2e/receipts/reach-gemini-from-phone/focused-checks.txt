@@ -1,0 +1,29 @@
+Reviewed source: 27209bf40ecace8be53f4ae83ebb28c0f34204ba
+Host: Windows x86_64-pc-windows-msvc, rustc 1.98.1, cargo-nextest 0.9.152, Node v24.18.0
+
+$ cargo nextest run -p realtime-screen-translator -E 'test(reader) | binary(screen_edges)'
+Nextest run ID 3a9473d8-595e-4a90-b19d-447931572092
+PASS realtime-screen-translator backend::reader::tests::transport_failure_at_the_default_base_is_gemini_unreachable
+PASS realtime-screen-translator backend::reader::tests::a_page_saved_by_an_earlier_version_is_laid_out_again_and_keeps_what_that_version_reads
+PASS realtime-screen-translator backend::reader::tests::reopening_uses_current_placements_and_stamps_older_layouts_without_gemini
+PASS realtime-screen-translator backend::reader::tests::layout_version_pins_the_shape_and_lettering_output
+PASS realtime-screen-translator::reader_edges reader_reports_an_unreachable_development_base_without_a_notice
+PASS realtime-screen-translator::reader_edges reader_reports_gemini_http_failures_and_only_invalid_keys_set_a_notice
+PASS realtime-screen-translator::screen_edges a_balloon_gemini_failed_on_is_detected_again_when_the_reader_scrolls
+Summary [  14.251s] 34 tests run: 34 passed, 199 skipped
+Exit 0. The 199 tests were outside the filter.
+
+$ corepack pnpm exec vitest run src/lib/reader
+Vitest v5.1.0
+PASS src/lib/reader-chapter-order.test.js (1)
+PASS src/lib/reader-order.test.js (1)
+PASS src/lib/reader-toggle.test.js (1)
+PASS src/lib/reader-chapter-turns.test.js (1)
+PASS src/lib/reader-site-loading.test.js (1)
+PASS src/lib/reader-chapter-broken-image.test.js (1)
+PASS src/lib/reader.test.js (24)
+PASS src/lib/reader-read-to-end.test.js (25)
+PASS uses the matching XHR list of varying-size entries, stays in place and never overlaps calls
+Test Files  8 passed (8)
+Tests  55 passed (55)
+Exit 0.
