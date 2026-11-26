@@ -419,3 +419,23 @@ Revision 8 layout reuse and Android package (2026-11-26)
 
   `adb devices -l` listed no attached device. The in-place update and
   the three cold-start measurements require the Galaxy S21+ over USB.
+
+Revision 8 pre-update baseline check (2026-11-26)
+  ADB detected the Galaxy S21+ (SM-G996N) over USB. The reverse list was
+  empty, and no ledger process or port 8787 listener was present.
+  `adb shell pm path` and `adb shell sha256sum` gave the installed APK
+  SHA-256 be8581ef35ded4e66a0fa47324616fbdd48e77eb417167bba00abf5bf6dd0b08.
+  `apksigner verify --print-certs` on the installed APK pulled read-only
+  gave the same signing certificate as the revision 8 APK.
+
+  Two matching reads of the phone database and WAL produced a read-only
+  snapshot. `PRAGMA quick_check` returned `ok`. Compared with
+  rev6-post-report.sqlite3, ReaderPage increased from 52 to 81 (29 new
+  keys, none gone), SitePage from 51 to 80, Book from 2 to 3, and Picture
+  from 52 to 81. The 51 Chapter 21 SitePage positions still mapped to
+  exactly the same ReaderPage keys. The snapshot was retained outside Git
+  as rev8-before-install.sqlite3.
+
+  The 81-key snapshot triggers the revision 8 stop before the update.
+  The installed APK and phone data were left as found. No phone timing
+  or user acceptance was collected for the revision 8 APK.
