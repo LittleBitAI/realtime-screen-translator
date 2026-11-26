@@ -23,6 +23,15 @@
   const done = new Map(); // picture address -> answer, for pictures a site recreates
   const pics = new Map(); // img -> { src, layer, state }
   const queue = new Set();
+  const pageLists = [];
+  const fetchPicture = window.fetch;
+  const retryable = ['gemini_unreadable', 'gemini_unreachable', 'gemini_busy'];
+  const skippable = ['image_unreachable', 'bad_image', 'image_dimensions_too_large', 'gemini_unreadable'];
+  const skippedUnmounted = new Set();
+  let run = null;
+  let runButton;
+  let nearRequest;
+  let pausedNearAt = null;
   let running = 0;
   let on = true;
   let bar;
@@ -35,6 +44,12 @@
     key_invalid: 'Gemini API 키가 맞지 않습니다. 설정에서 확인해 주세요.',
     gemini_unreachable: 'Gemini에 닿지 못했습니다. 인터넷 연결을 확인해 주세요.',
     gemini_unreadable: 'Gemini 답을 읽지 못했습니다. 그림을 눌러 다시 번역합니다.',
+    gemini_quota: 'Gemini 요청 한도에 도달했습니다.',
+    gemini_busy: 'Gemini 서버가 혼잡하거나 일시적으로 응답할 수 없습니다.',
+    gemini_refused: 'Gemini가 번역 요청을 거절했습니다.',
+    gemini_refused_400: 'Gemini가 번역 요청을 거절했습니다 (HTTP 400).',
+    gemini_refused_404: 'Gemini가 요청한 모델 또는 주소를 찾지 못했습니다 (HTTP 404).',
+    gemini_dev_unreachable: '개발용 Gemini 주소에 연결하지 못했습니다.',
     image_unreachable: '이 사이트가 그림을 내주지 않습니다.',
     bad_image: '읽을 수 없는 그림입니다.',
     image_dimensions_too_large: '이 그림은 가로와 세로를 곱해 8,388,608픽셀이 넘어서 번역할 수 없습니다.',
@@ -43,6 +58,101 @@
     storage_denied: '앱이 저장 폴더에 쓰지 못해 번역본에 담지 못했습니다.',
     internal: '번역본에 담지 못했습니다. 그림 위 버튼을 눌러 다시 저장합니다.',
   };
+
+  function httpAddress(value) {
+    if (typeof value !== 'string' || !/^https?:\/\//i.test(value)) return null;
+    try { return new URL(value); } catch { return null; }
+  }
+
+  function addressIn(entry) {
+    if (typeof entry === 'string') return httpAddress(entry) ? entry : null;
+    if (!entry || typeof entry !== 'object') return null;
+    const addresses = Object.values(entry).filter(httpAddress);
+    return addresses.length === 1 ? addresses[0] : null;
+  }
+
+  function keepLists(value) {
+    const pending = [value];
+    while (pending.length) {
+      const item = pending.pop();
+      if (!item || typeof item !== 'object') continue;
+      if (Array.isArray(item)) {
+        const addresses = item.map(addressIn).filter(Boolean);
+        if (addresses.length >= 2) {
+          pageLists.push(addresses);
+          if (pageLists.length > 20) pageLists.shift();
+        }
+      }
+      for (const child of Object.values(item).reverse()) pending.push(child);
+    }
+  }
+
+  const MAX_LIST_CHARS = 2_000_000;
+
+  function mayReadList(url, contentType) {
+    const address = httpAddress(url);
+    const type = (contentType ?? '').toLowerCase();
+    return address && address.hostname !== 'localhost' && !address.hostname.endsWith('.localhost') &&
+      (type.includes('json') || type.startsWith('text/'));
+  }
+
+  function readListText(text) {
+    if (typeof text === 'string' && text.length <= MAX_LIST_CHARS) keepLists(JSON.parse(text));
+  }
+
+  async function observeResponse(response) {
+    if (!mayReadList(response?.url, response?.headers?.get('content-type')) || typeof response.clone !== 'function') return;
+    const copy = response.clone();
+    if (!copy.body?.getReader) {
+      readListText(await copy.text());
+      return;
+    }
+    const reader = copy.body.getReader();
+    const decoder = new TextDecoder();
+    let text = '';
+    try {
+      for (;;) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        text += decoder.decode(chunk.value, { stream: true });
+        if (text.length > MAX_LIST_CHARS) {
+          reader.cancel().catch(() => {});
+          return;
+        }
+      }
+      readListText(text + decoder.decode());
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
+  function observeLists() {
+    if (typeof fetchPicture === 'function') {
+      window.fetch = function (...args) {
+        const result = Reflect.apply(fetchPicture, this, args);
+        Promise.resolve(result).then(observeResponse).catch(() => {});
+        return result;
+      };
+    }
+    const send = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function (...args) {
+      try {
+        this.addEventListener('load', (event) => {
+          try {
+            if (!mayReadList(this.responseURL, this.getResponseHeader('content-type'))) return;
+            const type = this.responseType;
+            if (type === '' || type === 'text') readListText(this.responseText);
+            // JSON XHR exposes only the parsed value. The load event counts
+            // received bytes, an upper bound on the decoded character count.
+            if (type === 'json' && event.loaded > 0 && event.loaded <= MAX_LIST_CHARS) keepLists(this.response);
+          } catch { /* The page's XHR is independent of the observer. */ }
+        }, { once: true });
+      } catch { /* Leave invalid calls to the native method. */ }
+      return Reflect.apply(send, this, args);
+    };
+  }
+
+  if (window === top) observeLists();
 
   function start() {
     if (document.querySelector('meta[name="rst-app"]')) {
@@ -88,7 +198,10 @@
       toggle.setAttribute('aria-pressed', String(on));
       toggle.textContent = on ? '번역 켜짐' : '번역 꺼짐';
       document.documentElement.classList.toggle('rst-off', !on);
-      if (on) scan();
+      if (on) {
+        pausedNearAt = null;
+        scan();
+      } else if (run) stopRun();
     };
     const back = document.createElement('button');
     back.type = 'button';
@@ -97,7 +210,16 @@
     barText = document.createElement('span');
     barText.setAttribute('role', 'status');
     barText.hidden = true;
-    bar.append(back, toggle, barText);
+    bar.append(back, toggle);
+    if (!chapter) {
+      runButton = document.createElement('button');
+      runButton.type = 'button';
+      runButton.textContent = '끝까지 번역';
+      runButton.setAttribute('aria-pressed', 'false');
+      runButton.onclick = () => run ? stopRun() : startRun();
+      bar.append(runButton);
+    }
+    bar.append(barText);
     document.body.appendChild(bar);
     new MutationObserver(() => schedule()).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['src', 'srcset', 'style', 'class'] });
     addEventListener('scroll', schedule, { passive: true, capture: true });
@@ -175,6 +297,103 @@
     return img.complete && img.naturalWidth >= MIN_SIDE && img.naturalHeight >= MIN_SIDE && img.offsetWidth >= 120 && !img.closest('.rst-layer');
   }
 
+  function loadingPage(img) {
+    return !img.complete && img.offsetWidth >= 120 && !img.closest('.rst-layer');
+  }
+
+  function imageAddress(img) {
+    const address = img.currentSrc || (img.getAttribute('src') ? img.src : '');
+    if (img.complete || httpAddress(address)) return address;
+    for (const attr of img.attributes) {
+      if (!attr.name.startsWith('data-') || !attr.value.trim()) continue;
+      if (httpAddress(attr.value)) return attr.value;
+      if (/^(?:\/|\.\.?\/)/.test(attr.value)) {
+        const url = new URL(attr.value, document.baseURI).href;
+        if (httpAddress(url)) return url;
+      }
+    }
+    return '';
+  }
+
+  function visiblePage(images) {
+    return images.find((img) => {
+      const r = img.getBoundingClientRect();
+      return r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
+    });
+  }
+
+  function startRun() {
+    if (!on) return;
+    const images = [...document.images].filter(isPage).sort((a, b) => order(a) - order(b));
+    const first = visiblePage(images);
+    if (!first) return;
+
+    const start = order(first);
+    const source = first.currentSrc || first.src;
+    let offset;
+    const list = pageLists.findLast((addresses) => {
+      const firstPosition = addresses.indexOf(source);
+      if (firstPosition < 0) return false;
+      offset = start - firstPosition;
+      return images.every((img) => {
+        const src = img.currentSrc || img.src;
+        return !addresses.includes(src) || addresses[order(img) - offset] === src;
+      });
+    });
+    const entries = list
+      ? list.map((src, position) => ({ src, index: position + offset })).slice(start - offset)
+      : [...document.images].filter((img) => (isPage(img) || loadingPage(img)) && order(img) >= start)
+          .map((img) => ({ img, src: imageAddress(img), index: order(img) })).sort((a, b) => a.index - b.index);
+    run = { entries: entries.filter(({ src }) => !done.has(src)), fromList: Boolean(list), next: 0, missing: 0,
+      pageUrl: location.href, title: document.title };
+    skippedUnmounted.clear();
+    pausedNearAt = { pageUrl: run.pageUrl, src: source };
+    queue.clear();
+    problem = null;
+    const next = run.entries[0];
+    if (nearRequest && next?.src === nearRequest.src && next.index === nearRequest.index && run.pageUrl === nearRequest.pageUrl) {
+      nearRequest.adopt(run, next);
+    }
+    runButton.setAttribute('aria-pressed', 'true');
+    pump();
+  }
+
+  function stopRun(message = null) {
+    const active = run.current;
+    if (active?.p.state === 'busy') {
+      active.p.state = 'new';
+      active.p.layer?.querySelector('.rst-chip')?.remove();
+    }
+    run = null;
+    queue.clear();
+    problem = message;
+    runButton.setAttribute('aria-pressed', 'false');
+    status();
+  }
+
+  function pumpRun() {
+    if (location.href !== run.pageUrl) {
+      stopRun();
+      return;
+    }
+    while (run.next < run.entries.length) {
+      const entry = run.entries[run.next];
+      if (!entry.src) run.missing++;
+      if (entry.src && !done.has(entry.src)) {
+        const img = entry.img?.isConnected && imageAddress(entry.img) === entry.src ? entry.img :
+          [...pics.keys()].find((img) => order(img) === entry.index && imageAddress(img) === entry.src);
+        const p = pics.get(img) ?? { src: entry.src, layer: null, state: 'new' };
+        if (img) pics.set(img, p);
+        run.current = { p };
+        translate(img, p, run, entry);
+        return;
+      }
+      run.next++;
+    }
+    stopRun(run.missing ? `번역하지 못한 페이지 ${run.missing}장` :
+      run.fromList ? '회차 끝까지 번역했습니다.' : '사이트가 불러온 페이지를 번역했습니다.');
+  }
+
   // How far the picture is from the view, in screens (0 = on screen).
   function distance(img) {
     const r = img.getBoundingClientRect();
@@ -186,8 +405,15 @@
   }
 
   function scan() {
+    if (pausedNearAt && !run) {
+      const visible = visiblePage([...document.images].filter(isPage));
+      if (location.href !== pausedNearAt.pageUrl || (visible && imageAddress(visible) !== pausedNearAt.src)) {
+        pausedNearAt = null;
+        problem = null;
+      }
+    }
     for (const [img, p] of pics) {
-      if (!img.isConnected || (!chapter && (img.currentSrc || img.src) !== p.src)) forget(img);
+      if (!img.isConnected || (!chapter && (img.complete ? img.currentSrc || img.src : imageAddress(img)) !== p.src)) forget(img);
     }
     status();
     if (!on && !chapter) return;
@@ -199,7 +425,7 @@
     let held = false;
     for (const img of document.images) {
       if (!chapter && !img.complete) {
-        held ||= on && img.offsetWidth >= 120 && !img.closest('.rst-layer') && distance(img) <= NEAR;
+        held ||= on && loadingPage(img) && distance(img) <= NEAR;
         continue;
       }
       if (chapter ? !img.dataset.pictureId : !isPage(img)) continue;
@@ -209,11 +435,11 @@
       if (!p) {
         p = { src, layer: null, state: 'new' };
         pics.set(img, p);
-        const answer = done.get(src);
-        if (answer) {
-          p.state = 'done';
-          draw(img, p, answer);
-        }
+      }
+      const answer = done.get(src);
+      if (answer && p.state !== 'done') {
+        p.state = 'done';
+        draw(img, p, answer);
       }
       if (p.layer) place(img, p.layer);
       if (chapter) {
@@ -225,7 +451,7 @@
           continue;
         }
       }
-      if (on && p.state === 'new' && near <= NEAR && !held) queue.add(img);
+      if (on && !run && p.state === 'new' && near <= NEAR && !held && (!pausedNearAt || skippedUnmounted.delete(src))) queue.add(img);
     }
     pump();
   }
@@ -247,6 +473,11 @@
   // the one before has been answered (and so kept): a page's request
   // carries the lines of the earlier pages the app has kept.
   function pump() {
+    if (run) {
+      if (!running) pumpRun();
+      status();
+      return;
+    }
     while (!running && queue.size && on) {
       const img = [...queue].sort((a, b) => order(a) - order(b))[0];
       queue.delete(img);
@@ -259,7 +490,7 @@
 
   async function bytes(src) {
     try {
-      const res = await fetch(src);
+      const res = await Reflect.apply(fetchPicture, window, [src]);
       if (!res.ok) return null;
       let blob = await res.blob();
       if (!/^image\/(jpeg|png|webp)$/.test(blob.type)) {
@@ -289,47 +520,73 @@
     return [...document.images].indexOf(img);
   }
 
-  async function translate(img, p) {
+  async function translate(img, p, owner, entry) {
     running++;
     p.state = 'busy';
-    chip(img, p, '번역 중…');
+    if (img) chip(img, p, '번역 중…');
+    const fromNear = !owner && !chapter;
+    if (fromNear) {
+      // A run starting on a page already being sent shares that attempt.
+      nearRequest = { src: p.src, index: order(img), pageUrl: location.href, adopt(active, pending) {
+        owner = active;
+        entry = pending;
+        entry.retried = p.retried;
+        owner.current = { p };
+        nearRequest = null;
+      } };
+    }
+    const current = () => !owner || (run === owner && location.href === owner.pageUrl);
+    const tapAgain = () => {
+      p.state = 'new';
+      queue.add(img);
+      pump();
+    };
     try {
+      const image = chapter ? null : await bytes(p.src);
+      if (!current()) return;
       const answer = chapter
         ? await invoke('post_chapter_page', { picture_id: p.src })
-        : await invoke('post_reader_page', { src: p.src, image: await bytes(p.src), page_url: location.href, title: document.title, index: order(img) });
-      p.state = 'done';
-      problem = answer.save_error ? messages[answer.save_error] ?? messages.storage_full : null;
+        : await invoke('post_reader_page', { src: p.src, image, page_url: owner?.pageUrl ?? location.href,
+          title: owner?.title ?? document.title, index: entry?.index ?? order(img) });
+      if (!current()) return;
+      p.state = img && !chapter && !isPage(img) && !answer.save_error ? 'new' : 'done';
+      const saveProblem = answer.save_error ? messages[answer.save_error] ?? messages.storage_full : null;
+      if (!owner) problem = saveProblem;
       // Not kept in the library: drawn, but asked again so the app saves it.
       if (!answer.save_error) done.set(p.src, answer);
-      if (pics.get(img) === p) {
-        draw(img, p, answer);
-        if (answer.save_error) {
-          chip(img, p, '번역본에 저장 못 함 · 눌러서 다시 저장', () => {
-            p.state = 'new';
-            queue.add(img);
-            pump();
-          });
-        }
+      if (img && pics.get(img) === p) {
+        if (p.state === 'done') draw(img, p, answer);
+        else p.layer?.querySelector('.rst-chip')?.remove();
+        if (answer.save_error) chip(img, p, '번역본에 저장 못 함 · 눌러서 다시 저장', tapAgain);
+      }
+      if (owner) {
+        owner.next++;
+        if (saveProblem) stopRun(saveProblem);
+        else scan();
       }
     } catch (e) {
-      const code = typeof e === 'string' ? e : 'gemini_unreachable';
-      // A garbled answer or a dropped connection usually passes the second time.
-      if (!p.retried && (code === 'gemini_unreadable' || code === 'gemini_unreachable')) {
-        p.retried = true;
+      if (!current()) return;
+      const code = typeof e === 'string' ? e : '';
+      const attempt = entry ?? p;
+      if (!attempt.retried && retryable.includes(code)) {
+        attempt.retried = true;
         p.state = 'new';
-        queue.add(img);
+        if (!owner) queue.add(img);
         return;
       }
       p.state = 'failed';
-      problem = messages[code] ?? messages.gemini_unreachable;
-      if (pics.get(img) === p) {
-        chip(img, p, '번역 실패 · 눌러서 다시', () => {
-          p.state = 'new';
-          queue.add(img);
-          pump();
-        });
+      const failure = Object.hasOwn(messages, code) ? messages[code] : '앱에서 번역을 요청하지 못했습니다.';
+      if (img && pics.get(img) === p) chip(img, p, '번역 실패 · 눌러서 다시', tapAgain);
+      if (!owner) problem = failure;
+      else if (skippable.includes(code)) {
+        if (!img || pics.get(img) !== p) skippedUnmounted.add(p.src);
+        owner.next++;
+        owner.missing++;
+      } else {
+        stopRun(failure);
       }
     } finally {
+      if (fromNear) nearRequest = null;
       running--;
       pump();
     }
@@ -767,7 +1024,8 @@
   function status() {
     if (!barText) return;
     const busy = [...pics.values()].filter((p) => p.state === 'busy').length + queue.size;
-    const message = !on ? '' : problem ?? (busy ? `번역 중 ${busy}` : '');
+    const message = !on ? '' : run ? `끝까지 번역 중 · 남은 페이지 ${run.entries.length - run.next}장` :
+      problem ?? (busy ? `번역 중 ${busy}` : '');
     if (barText.textContent !== message) {
       barText.textContent = message;
       barText.hidden = !message;

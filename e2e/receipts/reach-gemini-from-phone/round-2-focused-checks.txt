@@ -1,0 +1,21 @@
+Source: 7e5876fba15c845e3de332a7d650433f2e937de8
+Host: Windows x64, Node v24.18.0, Vitest v5.1.0
+
+Before the reader.js repair, with the regression cases added:
+$ corepack pnpm exec vitest run src/lib/reader-read-to-end.test.js -t 'enforces the received page-list size limit'
+FAIL enforces the received page-list size limit for XHR json at 2000001 characters
+The reader reported chapter completion, showing that it had used the oversized list.
+Tests  1 failed | 9 passed | 25 skipped (35)
+
+After the reader.js repair, at the source commit above:
+$ corepack pnpm exec vitest run src/lib/reader
+PASS enforces the received page-list size limit for both Fetch body paths and all three supported XHR response types
+Each of the five forms accepted 2,000,000 ASCII characters and ignored 2,000,001.
+The JSON-mode request still gave the page the parsed value and its load event.
+Test Files  8 passed (8)
+Tests  65 passed (65)
+Exit 0.
+
+The 34 focused Rust passes in focused-checks.txt were reused. The Rust test
+inputs are identical at both source commits. reader.js is embedded in app.rs
+only when the app feature is enabled, outside the Rust test command's features.

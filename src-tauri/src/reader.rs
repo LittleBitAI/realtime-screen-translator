@@ -13,6 +13,8 @@ use crate::layout::{self, PAD};
 use sha2::{Digest, Sha256};
 
 const LANG_SETTING: &str = "source_lang";
+// Raise this whenever what `laid_out` returns for a page can change.
+const LAYOUT: i64 = 1;
 /// How far into a balloon, from its centre, the shape may grow: a balloon is
 /// about an ellipse, and a rectangle spanning 0.6 of it keeps its corners
 /// well inside the outline (0.6² + 0.6² < 1), spiky outlines included.
@@ -91,29 +93,46 @@ impl Backend {
         let bytes = &load()?[..];
         let lang = self.source_lang();
         let mime = export::mime(bytes).ok_or(ApiError("bad_image"))?;
-        // The shapes are laid out on the page's own pixels, every time, so a
-        // page read again shows the layout of this version of the app.
-        let page = export::decode_page(bytes)?;
-        let (w, h) = (page.w, page.h);
         let hash: String = Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect();
         let page_key = format!("{hash}:{lang}");
         // A page to be sent waits for the earlier pages of its book still
         // being read, so its request carries their lines; a page already
         // kept does not wait. Waited for before the turn: a copy of an
         // earlier page later in the book never holds the turn it waits on.
-        if store::reader_page(&self.lock().db, &page_key)?.is_none() && self.pages.unsaved(&page_key).is_none() {
-            self.pages.after_earlier(&place);
-        }
+        let is_kept = store::reader_page(&self.lock().db, &page_key)?.is_some();
+        let page = if is_kept {
+            None
+        } else {
+            let page = export::decode_page(bytes)?;
+            if store::reader_page(&self.lock().db, &page_key)?.is_none() && self.pages.unsaved(&page_key).is_none() {
+                self.pages.after_earlier(&place);
+            }
+            Some(page)
+        };
         // Two copies of one picture read at once: the second waits here for
         // the first's answer instead of sending the page again.
         let _turn = self.pages.turn(&page_key);
+        let link_page = |db: &store::Db| match source {
+            ReaderSource::Chapter(pic) => store::set_chapter_translation(db, pic, &page_key),
+            ReaderSource::Site(req) => store::set_site_page(db, &req.page_url, req.index, &page_key),
+        };
         let kept = {
             let st = self.lock();
+            if let Some(size) = store::reader_layout(&st.db, &page_key, LAYOUT)? {
+                let boxes = store::reader_placements(&st.db, &page_key)?.iter().map(page_box).collect();
+                let save_error = link_page(&st.db).err().map(|e| ApiError::from(e).0);
+                return Ok(PageOut { width: size.width, height: size.height, saved: true, boxes, lettering_px: size.lettering_px, save_error });
+            }
             match store::reader_page(&st.db, &page_key)? {
                 Some(_) => Some(store::reader_items(&st.db, &page_key)?),
                 None => None,
             }
         };
+        let page = match page {
+            Some(page) => page,
+            None => export::decode_page(bytes)?,
+        };
+        let (w, h) = (page.w, page.h);
         if let Some(items) = kept {
             // Saved before its answer was kept (an older library): the answer
             // is made again from what was kept with each line, its source,
@@ -131,27 +150,29 @@ impl Backend {
             drop(page);
             let st = self.lock();
             let rows = store::reader_placements(&st.db, &page_key)?;
-            let stale = rows.iter().zip(&boxes).any(|(r, b)| page_box(r) != *b);
-            if (stale || rebuilt) && rows.len() == boxes.len() {
+            if rows.len() == boxes.len() {
                 // Laid out by an earlier version: the library (and its
                 // export) gets this one. A failure here costs only the stale
                 // export, so the page is still shown.
-                let new: Vec<_> = rows.iter().zip(&boxes).map(|(r, b)| row(r.fingerprint.clone(), b)).collect();
-                let tx = st.db.unchecked_transaction()?;
-                let answer = serde_json::to_string(&items).map_err(|_| ApiError("internal"))?;
-                let kept = store::replace_reader_placements(&tx, &page_key, &new)
-                    .and_then(|()| if rebuilt { store::set_reader_items(&tx, &page_key, &answer) } else { Ok(()) })
-                    .and_then(|()| tx.commit());
-                if let Err(e) = kept {
-                    eprintln!("reader: shapes not updated: {e}");
+                let rewritten = (|| -> ApiResult<()> {
+                    let tx = st.db.unchecked_transaction()?;
+                    if rebuilt || rows.iter().zip(&boxes).any(|(r, b)| page_box(r) != *b) {
+                        let new: Vec<_> = rows.iter().zip(&boxes).map(|(r, b)| row(r.fingerprint.clone(), b)).collect();
+                        store::replace_reader_placements(&tx, &page_key, &new)?;
+                    }
+                    if rebuilt {
+                        let answer = serde_json::to_string(&items).map_err(|_| ApiError("internal"))?;
+                        store::set_reader_items(&tx, &page_key, &answer)?;
+                    }
+                    store::set_reader_layout(&tx, &page_key, LAYOUT, &store::ReaderLayout { width: w, height: h, lettering_px })?;
+                    tx.commit()?;
+                    Ok(())
+                })();
+                if let Err(e) = rewritten {
+                    eprintln!("reader: shapes not updated: {}", e.0);
                 }
             }
-            let save_error = match source {
-                ReaderSource::Chapter(pic) => store::set_chapter_translation(&st.db, pic, &page_key),
-                ReaderSource::Site(req) => store::set_site_page(&st.db, &req.page_url, req.index, &page_key),
-            }
-            .err()
-            .map(|e| ApiError::from(e).0);
+            let save_error = link_page(&st.db).err().map(|e| ApiError::from(e).0);
             return Ok(PageOut { width: w, height: h, saved: true, boxes, lettering_px, save_error });
         }
 
@@ -206,10 +227,10 @@ impl Backend {
             }
             let answer = serde_json::to_string(&items).map_err(|_| ApiError("internal"))?;
             store::insert_reader_page(&tx, &page_key, pic, url, &answer)?;
-            match source {
-                ReaderSource::Chapter(pic) => store::set_chapter_translation(&tx, pic, &page_key)?,
-                ReaderSource::Site(req) => store::set_site_page(&tx, &req.page_url, req.index, &page_key)?,
+            if let Err(e) = store::set_reader_layout(&tx, &page_key, LAYOUT, &store::ReaderLayout { width: w, height: h, lettering_px }) {
+                eprintln!("reader: shapes not updated: {e}");
             }
+            link_page(&tx)?;
             tx.commit()?;
             Ok(())
         })();
@@ -301,19 +322,29 @@ impl Backend {
                 Ok(items)
             }
             Err(e) => {
-                let code = match e {
-                    GeminiError::KeyInvalid => "key_invalid",
-                    GeminiError::Unreadable => "gemini_unreadable",
-                    GeminiError::Unreachable | GeminiError::Cancelled => "gemini_unreachable",
-                };
-                if code != "gemini_unreadable" {
-                    self.lock().notice = Some(code);
+                let error = page_gemini_error(e, &self.gemini_base);
+                if matches!(error.0, "key_invalid" | "gemini_unreachable") {
+                    self.lock().notice = Some(error.0);
                 }
-                Err(ApiError(code))
+                Err(error)
             }
         }
     }
 
+}
+
+fn page_gemini_error(error: GeminiError, base: &str) -> ApiError {
+    ApiError(match error {
+        GeminiError::KeyInvalid => "key_invalid",
+        GeminiError::Unreachable if base.trim_end_matches('/') != gemini::DEFAULT_BASE => "gemini_dev_unreachable",
+        GeminiError::Unreachable | GeminiError::Cancelled => "gemini_unreachable",
+        GeminiError::Unreadable => "gemini_unreadable",
+        GeminiError::Quota => "gemini_quota",
+        GeminiError::Busy => "gemini_busy",
+        GeminiError::Refused(400) => "gemini_refused_400",
+        GeminiError::Refused(404) => "gemini_refused_404",
+        GeminiError::Refused(_) => "gemini_refused",
+    })
 }
 
 /// Earlier pages read for a request's context: more than a chapter holds.
@@ -1145,8 +1176,93 @@ pub(crate) fn shape(it: &PageItem, w: u32, h: u32) -> PageBox {
 mod tests {
     use super::*;
 
+    #[test]
+    fn transport_failure_at_the_default_base_is_gemini_unreachable() {
+        assert_eq!(page_gemini_error(GeminiError::Unreachable, gemini::DEFAULT_BASE).0, "gemini_unreachable");
+    }
+
     fn item(text: [f64; 4], balloon: Option<[f64; 4]>) -> PageItem {
         PageItem { text, balloon, speaker: String::new(), src: String::new(), ko: "안녕".into() }
+    }
+
+    #[test]
+    fn reopening_uses_current_placements_and_stamps_older_layouts_without_gemini() {
+        let bytes = include_bytes!("../tests/fixtures/page.jpg").to_vec();
+        for imported in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let data = dir.path().join("data");
+            let b = Backend::open(data, Some("http://127.0.0.1:9".into()), Arc::new(Quiet(dir.path().join("export")))).unwrap();
+            b.lock().key = Some("k".into());
+            let hash: String = Sha256::digest(&bytes).iter().map(|p| format!("{p:02x}")).collect();
+            let key = format!("{hash}:{}", b.source_lang());
+            b.pages.keep(&key, vec![PageItem { src: "HELLO".into(), ..item([0.15, 0.2, 0.25, 0.3], Some([0.05, 0.1, 0.35, 0.5])) }]);
+            let picture = imported.then(|| {
+                let folder = dir.path().join("chapter");
+                std::fs::create_dir(&folder).unwrap();
+                std::fs::write(folder.join("1.jpg"), &bytes).unwrap();
+                let book = b.import_folder(&folder).unwrap();
+                b.chapter(book).unwrap().pages[0].id
+            });
+            let read = || match picture {
+                Some(id) => b.read_chapter_page(id).unwrap(),
+                None => b.read_page(PageIn { src: "https://cdn.example/1.jpg".into(), image: Some(bytes.clone()), page_url: "https://manga.example/c/1".into(), title: "Fixture".into(), index: 0 }).unwrap(),
+            };
+            let first = read();
+            assert!(first.save_error.is_none());
+            assert_eq!(first.boxes.len(), 1);
+            let assert_layout = || {
+                let st = b.lock();
+                let size = store::reader_layout(&st.db, &key, LAYOUT).unwrap().unwrap();
+                assert_eq!((size.width, size.height, size.lettering_px), (first.width, first.height, first.lettering_px));
+                assert_eq!(st.gemini_requests, 0);
+            };
+            let assert_rows = |boxes: &[PageBox]| {
+                let st = b.lock();
+                let rows = store::reader_placements(&st.db, &key).unwrap();
+                assert_eq!(rows.iter().map(page_box).collect::<Vec<_>>(), boxes);
+            };
+            assert_layout();
+            assert_rows(&first.boxes);
+
+            assert_eq!(b.lock().db.execute("UPDATE Placement SET x = x + 1", []).unwrap(), 1);
+            let mut changed = first.boxes.clone();
+            changed[0].x += 1;
+            let from_rows = read();
+            assert!(from_rows.saved && from_rows.save_error.is_none());
+            assert_eq!(from_rows.boxes, changed);
+            assert_rows(&changed);
+            assert_layout();
+
+            let clear_layout = || assert_eq!(b.lock().db.execute("UPDATE ReaderPage SET layout = NULL WHERE key = ?1", [&key]).unwrap(), 1);
+            clear_layout();
+            let refreshed = read();
+            assert!(refreshed.saved && refreshed.save_error.is_none());
+            assert_eq!(refreshed.boxes, first.boxes);
+            assert_rows(&first.boxes);
+            assert_layout();
+
+            clear_layout();
+            b.lock().db.execute_batch("CREATE TRIGGER no_placement_rewrite BEFORE UPDATE ON Placement BEGIN SELECT RAISE(ABORT, 'layout was already current'); END;").unwrap();
+            for _ in 0..2 {
+                let unchanged = read();
+                assert!(unchanged.saved && unchanged.save_error.is_none());
+                assert_eq!(unchanged.boxes, first.boxes);
+                assert_rows(&first.boxes);
+                assert_layout();
+            }
+        }
+    }
+
+    #[test]
+    fn layout_version_pins_the_shape_and_lettering_output() {
+        const PINNED_LAYOUT: i64 = 1;
+        const PIN: &str = "853eb322242788aeb03a3c1e3d6df1e5759a5a020534bbc4273effdf19798cd3";
+        let page = export::decode_page(include_bytes!("../tests/fixtures/page.jpg")).unwrap();
+        let items = [PageItem { src: "HELLO".into(), ..item([0.15, 0.2, 0.25, 0.3], Some([0.05, 0.1, 0.35, 0.5])) }];
+        let json = serde_json::to_vec(&laid_out(&items, &page, "ja")).unwrap();
+        let hash: String = Sha256::digest(&json).iter().map(|p| format!("{p:02x}")).collect();
+        assert_eq!(LAYOUT, PINNED_LAYOUT, "Renew the layout pin for the new LAYOUT version");
+        assert_eq!(hash, PIN, "If the layout output changed, raise LAYOUT and renew the pin");
     }
 
     /// A Gemini stand-in answering one line ("HELLO" => "안녕") on any page,

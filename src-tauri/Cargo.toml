@@ -73,6 +73,7 @@ optional = true
 # The Tauri app shell (`cargo tauri build --features app`). The contract tests
 # drive the same backend through `contract-host` and do not need it.
 app = ["dep:tauri", "dep:tauri-build", "dep:windows", "dep:ort", "dep:tauri-plugin-rst-screen"]
+dev-gemini-base = []
 
 [build-dependencies]
 tauri-build = { version = "2.7.4", optional = true }

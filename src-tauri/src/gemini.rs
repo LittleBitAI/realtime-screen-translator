@@ -27,8 +27,11 @@ const CATEGORIES: [&str; 5] = [
 pub enum GeminiError {
     /// The key was refused (`key_invalid`).
     KeyInvalid,
-    /// No usable answer from the service (`gemini_unreachable`).
+    /// The request failed in transit.
     Unreachable,
+    Quota,
+    Busy,
+    Refused(u16),
     /// An answer came back that does not continue the prefill as JSON.
     Unreadable,
     /// Translation was switched off before the request could go out.
@@ -141,7 +144,11 @@ impl Client<'_> {
                 400 if threshold == "OFF" && text.to_ascii_lowercase().contains("threshold") => threshold = "BLOCK_NONE",
                 _ => {
                     eprintln!("gemini answered {status}: {}", text.chars().take(300).collect::<String>());
-                    return Err(GeminiError::Unreachable);
+                    return Err(match status {
+                        429 => GeminiError::Quota,
+                        500..=599 => GeminiError::Busy,
+                        _ => GeminiError::Refused(status),
+                    });
                 }
             }
         }

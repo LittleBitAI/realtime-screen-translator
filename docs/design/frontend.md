@@ -6,7 +6,7 @@ The phone uses bottom navigation and expands the active list beneath its button.
 
 Enter a page address, open a recent address, or import an image folder. Folder imports appear in the library as chapters. Address and import errors appear beside the source controls. The translation status shows the API key status, source language and Gemini request count. The browser build includes library and settings support and shows how to open sites in the installed app.
 
-The reader toolbar holds the translation toggle and `앱으로 돌아가기`. In a Windows site reader, returning closes the reader window. On Android, it returns to the app screen that opened the site. The imported-chapter reader returns to the library.
+The reader toolbar holds the translation toggle and `앱으로 돌아가기`. In the site reader it also holds `끝까지 번역`. In a Windows site reader, returning closes the reader window. On Android, it returns to the app screen that opened the site. The imported-chapter reader returns to the library.
 
 ## Library at `/library`
 

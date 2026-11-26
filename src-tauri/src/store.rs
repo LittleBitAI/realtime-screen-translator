@@ -133,6 +133,11 @@ pub fn open(dir: &Path, now: i64) -> Res<Db> {
     if !column_exists(&db, "ReaderPage", "items")? {
         db.execute_batch("ALTER TABLE ReaderPage ADD COLUMN items TEXT")?;
     }
+    for (column, kind) in [("layout", "INTEGER"), ("width", "INTEGER"), ("height", "INTEGER"), ("lettering_px", "REAL")] {
+        if !column_exists(&db, "ReaderPage", column)? {
+            db.execute_batch(&format!("ALTER TABLE ReaderPage ADD COLUMN {column} {kind}"))?;
+        }
+    }
     if !column_exists(&db, "Placement", "cover")? {
         db.execute_batch("ALTER TABLE Placement ADD COLUMN cover TEXT")?;
     }
@@ -346,6 +351,28 @@ pub fn reader_placements(db: &Db, key: &str) -> Res<Vec<PlacementRow>> {
         Some(id) => picture_placements(db, id, Some(&format!("page:{key}:*"))),
         None => Ok(vec![]),
     }
+}
+
+pub struct ReaderLayout {
+    pub width: u32,
+    pub height: u32,
+    pub lettering_px: Option<f64>,
+}
+
+pub fn reader_layout(db: &Db, key: &str, layout: i64) -> Res<Option<ReaderLayout>> {
+    db.query_row(
+        "SELECT width, height, lettering_px FROM ReaderPage WHERE key = ?1 AND layout = ?2 AND width IS NOT NULL AND height IS NOT NULL",
+        params![key, layout],
+        |r| Ok(ReaderLayout { width: r.get(0)?, height: r.get(1)?, lettering_px: r.get(2)? }),
+    ).optional()
+}
+
+pub fn set_reader_layout(db: &Db, key: &str, layout: i64, size: &ReaderLayout) -> Res<()> {
+    db.execute(
+        "UPDATE ReaderPage SET layout = ?2, width = ?3, height = ?4, lettering_px = ?5 WHERE key = ?1",
+        params![key, layout, size.width, size.height, size.lettering_px],
+    )?;
+    Ok(())
 }
 
 /// The book of the site page `page_url`, if one of its pictures was saved.
