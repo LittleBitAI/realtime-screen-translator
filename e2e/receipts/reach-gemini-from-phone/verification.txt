@@ -536,3 +536,35 @@ Revision 9 cold-start measurements (2026-11-26)
   width and height. Zero other rows had a layout. No other chapter was
   opened. The ADB forward used for DevTools was removed and the reverse
   list was empty. The person's restart check has not started.
+
+Revision 10 cold-start bounds (2026-11-26)
+  Revision 10 judges each target with the largest gap anywhere in that
+  start added to the measured time in place of a fixed 0.25-second cadence.
+  All times below are seconds. The slowest other page is selected across
+  the two holds. Page 4 already had Korean in the first sample on arrival.
+
+  Start | Check | Page | Measured | Largest gap | Sum | Target | Met
+  1 | Opening  | 51 | 0.982 | 0.3600 | 1.3420 | 2.0 | yes
+  1 | Slowest other | 50 | 0.971 | 0.3600 | 1.3310 | 3.0 | yes
+  1 | Arrival | 4 | 0.000 | 0.3600 | 0.3600 | 1.0 | yes
+  2 | Opening | 51 | 0.921 | 0.5161 | 1.4371 | 2.0 | yes
+  2 | Slowest other | 2 | 0.858 | 0.5161 | 1.3741 | 3.0 | yes
+  2 | Arrival | 4 | 0.000 | 0.5161 | 0.5161 | 1.0 | yes
+  3 | Opening | 51 | 0.747 | 0.6483 | 1.3953 | 2.0 | yes
+  3 | Slowest other | 49 | 0.821 | 0.6483 | 1.4693 | 3.0 | yes
+  3 | Arrival | 4 | 0.000 | 0.6483 | 0.6483 | 1.0 | yes
+
+  Decimal sums were calculated from the recorded tables. All nine targets
+  were met. The status, request count and saved-key observations remain as
+  recorded above. No additional cold-start measurements were taken.
+
+Person's restart check baseline (2026-11-26)
+  Two matching read-only captures of the phone database and WAL matched
+  rev9-after-cold-starts.sqlite3 and its WAL byte for byte. The same app
+  process (PID 28083) was still running. The phone proof's last snapshot
+  is therefore the baseline for this check. It has ReaderPage 81,
+  SitePage 80, Book 3 and Picture 81, and all 51 Chapter 21 position-to-key
+  links still match rev6-post-report.sqlite3. All 81 required keys are
+  present with zero additional keys. ADB reverse and forward were empty.
+  No ledger process or port 8787 listener was present. The DevTools
+  connection was closed before this check.
