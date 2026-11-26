@@ -1,0 +1,166 @@
+{
+  "sourceCommit": "7e5876fba15c845e3de332a7d650433f2e937de8",
+  "environment": {
+    "platform": "win32",
+    "architecture": "x64",
+    "release": "10.0.26200",
+    "version": "Windows 11 Home",
+    "webview": "Edg/158.0.4370.33",
+    "node": "v24.18.0"
+  },
+  "build": {
+    "executable": "target/debug/realtime-screen-translator.exe",
+    "sha256": "28ebd80ea1f14f564fe9072748b235369505673e94a07da8195849e1e55f5b70",
+    "profile": "ai.littlebit.rst-reach-proof",
+    "detectorSha256": "5fe9e4f576e49d4e7e8b0e029d6d3cdc252abd4694113e1cae120e62c931ea79"
+  },
+  "fixture": {
+    "pageSha256": [
+      "1630a889f8f6075ad2e74425e555415b0b7111808116e19902fce5182b81be65",
+      "45b056b7092998d347821e8a54527fef229759f651f5963ff9dabff0e4a44e16",
+      "392bb32b7ad9bddc03bbda3edf12a81cf2d6ae31016b4c6b441666c6b69fe6db"
+    ],
+    "gemini": "loopback stand-in",
+    "oversizedJsonXhr": {
+      "status": 200,
+      "type": "json",
+      "decodedBytes": 2000001,
+      "addresses": 4,
+      "encodedBytes": 2039,
+      "extraPictureRequests": 0
+    }
+  },
+  "initial": {
+    "pid": 22716,
+    "beforeRun": {
+      "scroll": 0,
+      "pictureCount": 1,
+      "runPressed": "false",
+      "status": "",
+      "chips": [],
+      "visibleKorean": [
+        {
+          "page": 1,
+          "text": "안녕"
+        }
+      ],
+      "viewport": [
+        1100,
+        900,
+        1
+      ]
+    },
+    "afterRun": {
+      "scroll": 0,
+      "pictureCount": 1,
+      "runPressed": "false",
+      "status": "회차 끝까지 번역했습니다.",
+      "chips": [],
+      "visibleKorean": [
+        {
+          "page": 1,
+          "text": "안녕"
+        }
+      ],
+      "viewport": [
+        1100,
+        900,
+        1
+      ]
+    },
+    "laterMounted": {
+      "scroll": 2400,
+      "pictureCount": 2,
+      "runPressed": "false",
+      "status": "",
+      "chips": [],
+      "visibleKorean": [
+        {
+          "page": 2,
+          "text": "안녕"
+        }
+      ],
+      "viewport": [
+        1100,
+        900,
+        1
+      ]
+    },
+    "status": {
+      "keySet": true,
+      "requests": 3
+    }
+  },
+  "reopened": {
+    "pid": 31604,
+    "before": {
+      "keySet": true,
+      "requests": 0
+    },
+    "pages": [
+      {
+        "scroll": 0,
+        "pictureCount": 1,
+        "runPressed": "false",
+        "status": "",
+        "chips": [],
+        "visibleKorean": [
+          {
+            "page": 1,
+            "text": "안녕"
+          }
+        ],
+        "viewport": [
+          1100,
+          900,
+          1
+        ]
+      },
+      {
+        "scroll": 2400,
+        "pictureCount": 2,
+        "runPressed": "false",
+        "status": "",
+        "chips": [],
+        "visibleKorean": [
+          {
+            "page": 2,
+            "text": "안녕"
+          }
+        ],
+        "viewport": [
+          1100,
+          900,
+          1
+        ]
+      },
+      {
+        "scroll": 4800,
+        "pictureCount": 3,
+        "runPressed": "false",
+        "status": "",
+        "chips": [],
+        "visibleKorean": [
+          {
+            "page": 3,
+            "text": "안녕"
+          }
+        ],
+        "viewport": [
+          1100,
+          900,
+          1
+        ]
+      }
+    ],
+    "after": {
+      "keySet": true,
+      "requests": 0
+    },
+    "requestOrder": [
+      1,
+      2,
+      3
+    ]
+  }
+}

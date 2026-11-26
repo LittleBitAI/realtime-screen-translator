@@ -649,3 +649,66 @@ Review round 1 evidence for 27209bf (2026-11-26)
   identical. The Galaxy S21 test, APK 462e1bd632414d010da830f99048f761638aaeee9022b507e45e4bfdd1e6ef1a,
   and the owner's 51-page read-through are reused observations from the
   entries above. No additional phone test was run for this review.
+
+Review round 2 received-body size limit (2026-11-26)
+  Source: 7e5876fba15c845e3de332a7d650433f2e937de8.
+  The reader now checks the byte count on the JSON XHR load event before
+  reading its parsed response. XMLHttpRequest does not expose the source
+  text in JSON mode. The received byte count is an upper bound on the
+  decoded character count, so a multibyte body can be skipped below the
+  character limit if its bytes exceed the limit. The site still receives
+  the same parsed response. The reader makes no request for a list.
+
+  round-2-focused-checks.txt records the failing JSON XHR case before the
+  fix and 65 passing reader tests across all eight files after it. The
+  boundary table includes two Fetch paths (text and streamed) and three
+  XHR response types (empty, text, and JSON). The 34 Rust results from the
+  first review are reused after checking the Rust test inputs for changes.
+
+  Rebuilt the native Windows app with the Windows command above. The
+  executable SHA-256 is
+    28ebd80ea1f14f564fe9072748b235369505673e94a07da8195849e1e55f5b70
+  Re-ran desktop-reader.test.mjs in the same Windows 11 Home x64
+  (10.0.26200), WebView2 158.0.4370.33 and Node v24.18.0 environment.
+  The real native XHR received a compressed JSON body of 2,039 bytes on
+  the wire and reported 2,000,001 decoded bytes. The site read all four
+  addresses from its JSON response, with responseType still json. The
+  reader ignored that list. The earlier text XHR list supplied all three
+  translations in order without scrolling. The fixture server saw zero
+  requests for the extra image. After restarting the Windows app, all
+  three pages drew Korean and the Gemini request count stayed at zero.
+  round-2-windows-desktop.json records both launches and the observations.
+  The new screenshots matched windows-read-to-end.png and
+  windows-reopened.png byte for byte. The native test passed.
+
+  The three S21 cold-start measurements and the owner's 51-page
+  read-through remain historical results on APK 462e1bd6. In that
+  chapter the site uses an empty XHR responseType (lines 116-141), whose
+  observer branch is identical in the repair. The repair does not
+  change the saved-page read or layout paths.
+
+  Rebuilt the ARM64 Android APK from the same source using the README
+  command with RST_GEMINI_BASE_URL=http://127.0.0.1:8787, JDK 17 and
+  NDK 27.2.12479018. Rust finished in 2m 55s. The documented Windows
+  symbolic-link error required the README's copy and Gradle fallback:
+    .\gradlew.bat assembleUniversalDebug -x rustBuildUniversalDebug -x rustBuildArm64Debug -PabiList=arm64-v8a -ParchList=arm64 -PtargetList=aarch64
+  BUILD SUCCESSFUL in 59s. The build CLI's temporary empty dependency
+  feature lists were restored.
+
+  APK SHA-256:
+    8df51e037f87d2f15110cf1232e9ba826af3dcf81679aa5871d40aec0761b79f
+  Package ai.littlebit.realtime_screen_translator, versionCode 1000,
+  arm64-v8a. apksigner verified certificate SHA-256:
+    fa6da2233c2062b48baf20b3562eacacce774da80f2e4bb3d20ec3a6a527ec28
+  Python ZipFile.testzip verified the APK. Its arm64 shared library
+  contained the source commit's reader.js byte for byte, SHA-256
+    eb46f32f77f43ac6325cfc5b3507eb8a4f5b9d9ad2023fc9678823707f4d6b31
+  The library contained the default Google endpoint and 0 occurrences
+  of 127.0.0.1:8787.
+
+  On the S21+ before the build completed, get_status read key_set=true
+  and gemini_requests=0. A read-only database/WAL snapshot held all 81
+  retained keys, with zero extra keys, and the same 51 Chapter 21
+  positions. There were 80 SitePage, 3 Book and 81 Picture rows. The
+  phone was disconnected by the time the APK was available. This APK
+  was verified locally and no install or new phone measurement was made.
