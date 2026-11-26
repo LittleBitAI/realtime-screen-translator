@@ -137,12 +137,14 @@
     const send = XMLHttpRequest.prototype.send;
     XMLHttpRequest.prototype.send = function (...args) {
       try {
-        this.addEventListener('load', () => {
+        this.addEventListener('load', (event) => {
           try {
             if (!mayReadList(this.responseURL, this.getResponseHeader('content-type'))) return;
             const type = this.responseType;
             if (type === '' || type === 'text') readListText(this.responseText);
-            if (type === 'json' && JSON.stringify(this.response)?.length <= MAX_LIST_CHARS) keepLists(this.response);
+            // JSON XHR exposes only the parsed value. The load event counts
+            // received bytes, an upper bound on the decoded character count.
+            if (type === 'json' && event.loaded > 0 && event.loaded <= MAX_LIST_CHARS) keepLists(this.response);
           } catch { /* The page's XHR is independent of the observer. */ }
         }, { once: true });
       } catch { /* Leave invalid calls to the native method. */ }

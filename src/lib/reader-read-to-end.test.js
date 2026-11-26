@@ -67,9 +67,10 @@ function fixture(urls, { visible = 0, mounted = urls.map((_, i) => i), siteRespo
     responseURL = listURL;
     responseType = '';
     responseText = '';
+    receivedBytes = 0;
     contentType = 'application/json';
     getResponseHeader() { return this.contentType; }
-    send() { this.dispatchEvent(new Event('load')); return 'native send result'; }
+    send() { this.dispatchEvent(new ProgressEvent('load', { loaded: this.receivedBytes })); return 'native send result'; }
   }
   vi.stubGlobal('XMLHttpRequest', ReaderXHR);
   const fetch = vi.fn(async (url) => {
@@ -84,6 +85,10 @@ function fixture(urls, { visible = 0, mounted = urls.map((_, i) => i), siteRespo
 
   function xhr(value, options = {}) {
     const request = Object.assign(new XMLHttpRequest(), { responseText: JSON.stringify(value) }, options);
+    request.receivedBytes = new TextEncoder().encode(request.responseText).length;
+    if (request.responseType === 'json') {
+      Object.defineProperty(request, 'responseText', { get() { throw new DOMException('JSON response', 'InvalidStateError'); } });
+    }
     const load = vi.fn();
     request.addEventListener('load', load);
     expect(request.send()).toBe('native send result');
@@ -155,7 +160,7 @@ it.each(['fetch', 'XHR text', 'XHR json'])('passively accepts ordered addresses 
     await settle();
     expect(wrapped.clone).toHaveBeenCalledOnce();
   } else if (transport === 'XHR text') site.xhr({ nested: urls.map((url) => [url, 1, 0]) }, { contentType: 'text/plain' });
-  else site.xhr(null, { responseType: 'json', response: { nested: urls } });
+  else site.xhr({ nested: urls }, { responseType: 'json', response: { nested: urls } });
   expect(site.indices()).toEqual([]);
   ready.mockRestore();
   document.dispatchEvent(new Event('DOMContentLoaded'));
@@ -184,14 +189,44 @@ it('ignores an invalid body, localhost, the wrong media type, and picture fetche
   for (const other of [local, media, picture]) expect(other.clone).not.toHaveBeenCalled();
 });
 
-it('drops old lists after twenty newer lists and skips a body over the size limit', async () => {
+it.each(['fetch text', 'fetch stream', 'XHR empty', 'XHR text', 'XHR json'].flatMap(
+  (transport) => [2_000_000, 2_000_001].map((length) => [transport, length]),
+))('enforces the received page-list size limit for %s at %i characters', async (transport, length) => {
   const urls = addresses(3);
-  const large = response(' '.repeat(2_000_000) + JSON.stringify(urls));
-  const site = fixture(urls, { mounted: [0], siteResponses: new Map([[listURL, large]]) });
+  const value = JSON.stringify(urls);
+  const body = ' '.repeat(length - value.length) + value;
+  const fetched = response(body);
+  if (transport === 'fetch stream') {
+    const bytes = new TextEncoder().encode(body);
+    fetched.clone.mockReturnValue({
+      body: new ReadableStream({ start(controller) {
+        controller.enqueue(bytes.subarray(0, bytes.length - 1));
+        controller.enqueue(bytes.subarray(bytes.length - 1));
+        controller.close();
+      } }),
+    });
+  }
+  const site = fixture(urls, { mounted: [0], siteResponses: new Map([[listURL, fetched]]) });
+  if (transport.startsWith('fetch')) {
+    expect(await window.fetch(listURL)).toBe(fetched);
+    await settle();
+  } else {
+    const responseType = transport === 'XHR empty' ? '' : transport.slice(4);
+    const request = site.xhr(urls, { responseType, responseText: body, response: urls });
+    if (responseType === 'json') expect(request.response).toBe(urls);
+  }
+  await vi.waitFor(() => expect(site.indices()).toEqual([0]));
+  button().click();
+  const allowed = length === 2_000_000;
+  await vi.waitFor(() => expect(status()).toBe(allowed ? '회차 끝까지 번역했습니다.' : '사이트가 불러온 페이지를 번역했습니다.'));
+  expect(site.indices()).toEqual(allowed ? [0, 1, 2] : [0]);
+});
+
+it('drops old lists after twenty newer lists', async () => {
+  const urls = addresses(3);
+  const site = fixture(urls, { mounted: [0] });
   site.xhr(urls);
   for (let index = 0; index < 20; index++) site.xhr([`https://other.example/${index}`, 'https://other.example/end']);
-  await window.fetch(listURL);
-  await settle();
   await vi.waitFor(() => expect(site.indices()).toEqual([0]));
   button().click();
   await vi.waitFor(() => expect(status()).toBe('사이트가 불러온 페이지를 번역했습니다.'));

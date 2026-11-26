@@ -8,6 +8,7 @@ import { arch, platform, release, version } from 'node:os';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
+import { gzipSync } from 'node:zlib';
 import { tab, targets } from '../balloon-fit/cdp.mjs';
 
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -48,7 +49,18 @@ document.querySelector('#next').onclick = () => {
 };
 const list = new XMLHttpRequest();
 list.open('GET', '/chapter-list.json');
-list.addEventListener('load', () => { document.body.dataset.listReady = String(list.status); });
+list.addEventListener('load', () => {
+  document.body.dataset.listReady = String(list.status);
+  const large = new XMLHttpRequest();
+  large.open('GET', '/large-list.json');
+  large.responseType = 'json';
+  large.addEventListener('load', (event) => {
+    document.body.dataset.largeList = JSON.stringify({
+      status: large.status, type: large.responseType, decodedBytes: event.loaded, addresses: large.response.chapter.length,
+    });
+  });
+  large.send();
+});
 list.send();
 </script></html>`;
 
@@ -56,14 +68,19 @@ async function makeFixture() {
   const fixture = readFileSync('src-tauri/tests/fixtures/page.jpg');
   const pages = [1, 2, 3].map(n => Buffer.concat([fixture, Buffer.from([n])]));
   const requests = [];
+  let extraPictureRequests = 0;
   let reopened = false;
   const server = createServer(async (req, res) => {
     const send = (status, type, body) => res.writeHead(status, { 'content-type': type }).end(body);
     const picture = /^\/page\/([1-3])\.jpg$/.exec(req.url);
     if (picture) return send(200, 'image/jpeg', pages[Number(picture[1]) - 1]);
+    if (req.url === '/page/4.jpg') extraPictureRequests++;
     if (req.url === '/chapter') return send(200, 'text/html; charset=utf-8', html);
     if (req.url === '/chapter-list.json') {
       return send(200, 'application/json', JSON.stringify({ chapter: [1, 2, 3].map(n => `${origin}/page/${n}.jpg`) }));
+    }
+    if (req.url === '/large-list.json') {
+      return res.writeHead(200, { 'content-type': 'application/json', 'content-encoding': 'gzip', 'content-length': encodedList.length }).end(encodedList);
     }
     if (req.method === 'POST' && /^\/v1beta\/models\/[^/]+:generateContent(?:\?|$)/.test(req.url)) {
       const chunks = [];
@@ -80,7 +97,10 @@ async function makeFixture() {
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const origin = `http://127.0.0.1:${server.address().port}`;
-  return { server, origin, requests, rejectFurtherRequests: () => { reopened = true; }, pageSha256: pages.map(sha256) };
+  const json = JSON.stringify({ chapter: [1, 2, 3, 4].map(n => `${origin}/page/${n}.jpg`) });
+  const encodedList = gzipSync(' '.repeat(2_000_001 - json.length) + json);
+  return { server, origin, requests, rejectFurtherRequests: () => { reopened = true; }, pageSha256: pages.map(sha256),
+    encodedListBytes: encodedList.length, extraPictureRequests: () => extraPictureRequests };
 }
 
 const readStatus = `window.__TAURI_INTERNALS__.invoke('get_status', {}).then(s => ({ keySet: s.key_set, requests: s.gemini_requests }))`;
@@ -181,6 +201,11 @@ test('Windows Tauri reader translates to the end in place and reopens saved page
     reader = await openChapter(main);
     const beforeRun = await shown(reader, 1);
     await waitFor(() => reader.run(`document.body.dataset.listReady === '200'`), 'site chapter-list response');
+    const largeList = JSON.parse(await waitFor(
+      () => reader.run('document.body.dataset.largeList'), 'site oversized JSON XHR response',
+    ));
+    assert.deepEqual(largeList, { status: 200, type: 'json', decodedBytes: 2_000_001, addresses: 4 });
+    assert.ok(fixture.encodedListBytes < 2_000_000);
     assert.deepEqual(fixture.requests, [1]);
     assert.equal(beforeRun.pictureCount, 1);
     await click(reader, `[...document.querySelectorAll('.rst-bar button')].find(b=>b.textContent==='끝까지 번역')`);
@@ -192,6 +217,7 @@ test('Windows Tauri reader translates to the end in place and reopens saved page
     assert.equal(afterRun.pictureCount, 1);
     assert.deepEqual(afterRun.chips, []);
     assert.deepEqual(fixture.requests, [1, 2, 3]);
+    assert.equal(fixture.extraPictureRequests(), 0);
     await screenshot(reader, 'windows-read-to-end.png');
     const laterMounted = await next(reader, 2);
     assert.equal(laterMounted.pictureCount, 2);
@@ -220,7 +246,8 @@ test('Windows Tauri reader translates to the end in place and reopens saved page
     const results = { sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
       environment: { platform: platform(), architecture: arch(), release: release(), version: version(), webview: browser.Browser, node: process.version },
       build: { executable: 'target/debug/realtime-screen-translator.exe', sha256: sha256(readFileSync(exe)), profile, detectorSha256: detectorHash },
-      fixture: { pageSha256: fixture.pageSha256, gemini: 'loopback stand-in' },
+      fixture: { pageSha256: fixture.pageSha256, gemini: 'loopback stand-in',
+        oversizedJsonXhr: { ...largeList, encodedBytes: fixture.encodedListBytes, extraPictureRequests: fixture.extraPictureRequests() } },
       initial: { pid: firstPid, beforeRun, afterRun, laterMounted, status: firstStatus },
       reopened: { pid: secondPid, before: beforeRestart, pages: reopened, after: afterRestart, requestOrder: fixture.requests } };
     writeFileSync(resolve(output, 'windows-desktop.json'), JSON.stringify(results, null, 2) + '\n');
