@@ -367,3 +367,55 @@ Revision 7 cold-start diagnosis (2026-11-26, Galaxy S21+ over USB)
   and automatically when reopening a translated chapter. The phone check
   for that task should reuse the saved Chapter 21 pages after an in-place
   update and cold start, with no button press or Gemini requests.
+
+Revision 8 layout reuse and Android package (2026-11-26)
+  Source commit: dda9640. `git diff --stat 9e68c0e HEAD` at that commit
+  listed only docs/design/backend.md, this receipt, src-tauri/src/reader.rs
+  and src-tauri/src/store.rs (4 files, 363 insertions and 27 deletions).
+
+  `cargo test -p realtime-screen-translator --lib backend::reader::tests`
+  passed 23 tests, including the existing reopening test and the new test
+  for current and older layouts through both readers. The new test checked
+  the stored box against the first answer, preserved a controlled edit
+  under a current stamp, restored the original box under a null stamp, and
+  stamped an already matching row without rewriting it. The request
+  counter stayed at zero. Two consecutive runs of
+  `cargo test -p realtime-screen-translator --lib layout_version_pins_the_shape_and_lettering_output`
+  each passed (1 test). Both used layout version 1, with output SHA-256
+  853eb322242788aeb03a3c1e3d6df1e5759a5a020534bbc4273effdf19798cd3.
+  `cargo test -p realtime-screen-translator --test reader_edges --test screen_edges`
+  passed 12 reader and 6 capture contract tests. `corepack pnpm exec vitest
+  run src/lib/reader` passed all 55 tests in the eight existing files.
+  Both new Rust tests cover different behavior and were kept in the test
+  cleanup pass. The existing tests were carried forward as written.
+
+  Built with the README's JDK 17 and Android NDK 27.2.12479018:
+
+  $env:RST_GEMINI_BASE_URL = 'http://127.0.0.1:8787'
+  cargo tauri android build --debug --apk --target aarch64 --features app --ci -c '{"build":{"beforeBuildCommand":"corepack pnpm build"}}'
+
+  Rust finished in 1m 43s. Tauri reported `Creation symbolic link is not
+  allowed for this system.` Copied the compiled arm64 library to the
+  README's jniLibs location and ran its Gradle fallback:
+
+  $jni = 'src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a'
+  New-Item -ItemType Directory -Force -Path $jni
+  Copy-Item 'target/aarch64-linux-android/debug/librealtime_screen_translator.so' -Destination $jni
+  Push-Location src-tauri/gen/android
+  .\gradlew.bat assembleUniversalDebug -x rustBuildUniversalDebug -x rustBuildArm64Debug -PabiList=arm64-v8a -ParchList=arm64 -PtargetList=aarch64
+  Pop-Location
+
+  BUILD SUCCESSFUL in 33s.
+  APK: src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+  SHA-256: 462e1bd632414d010da830f99048f761638aaeee9022b507e45e4bfdd1e6ef1a
+  `aapt2 dump badging` reported ai.littlebit.realtime_screen_translator
+  (versionCode 1000), arm64-v8a. `apksigner verify --print-certs` reported
+  certificate SHA-256 fa6da2233c2062b48baf20b3562eacacce774da80f2e4bb3d20ec3a6a527ec28.
+  `unzip -t` verified the packaged arm64 library. The library contained the
+  reader script byte for byte, the layout lookup and the Google endpoint.
+
+  unzip -p src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk lib/arm64-v8a/librealtime_screen_translator.so | grep -a -c '127\.0\.0\.1:8787'
+  0
+
+  `adb devices -l` listed no attached device. The in-place update and
+  the three cold-start measurements require the Galaxy S21+ over USB.
